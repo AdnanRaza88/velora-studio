@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Velora</title>
+<style>
+:root{--bg:#efe8dc;--fg:#1e1b16;--muted:#6b645a;--accent:#355e57;--paper:#f6f1e8;--surface:#e7dfd1;--bt:#3f6a62;--bb:#2c514b}
+[data-theme=dark]{--bg:#14120f;--fg:#efe8dc;--muted:#b7b0a4;--accent:#8aa9a3;--paper:#1c1915;--surface:#241f1a;--bt:#4a7a70;--bb:#355e57}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+h1,h2{font-family:Georgia,serif;letter-spacing:-.03em;margin:0 0 8px}
+header{position:sticky;top:8px;z-index:10;margin:8px;padding:12px 16px;border-radius:22px;background:var(--paper);display:flex;gap:12px;align-items:center;box-shadow:0 2px 12px rgba(30,27,22,.08)}
+nav{margin-left:auto;display:flex;gap:4px}
+nav button,.btn{min-height:44px;border:0;border-radius:14px;padding:0 14px;background:linear-gradient(var(--bt),var(--bb));color:#f4efe6;font-size:15px;font-weight:600}
+nav button.ghost,.ghost{background:transparent;color:var(--fg);font-weight:500}
+main{padding:16px 16px 48px;max-width:720px;margin:0 auto}
+.card{background:var(--surface);border-radius:24px;padding:16px;margin:12px 0;box-shadow:4px 4px 12px rgba(30,27,22,.08)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+textarea{width:100%;min-height:120px;border:0;border-radius:14px;padding:12px;background:var(--paper);color:var(--fg);font:inherit;resize:vertical}
+svg{width:100%;height:auto;display:block;border-radius:16px;background:var(--paper)}
+.chip{min-height:44px;border:0;border-radius:999px;padding:0 16px;background:var(--paper);color:var(--fg);font-size:15px}
+.chip.on{outline:2px solid var(--accent);background:var(--surface)}
+p{margin:8px 0;color:var(--muted)}label{display:block;font-weight:600;margin-bottom:6px;color:var(--fg)}
+.muted{color:var(--muted);font-size:.95rem}
+</style>
+</head>
+<body>
+<header>
+<svg width="32" height="32" viewBox="0 0 16 16"><rect width="16" height="16" rx="3" fill="#1e1b16"/><polygon points="2,3 7,3 8,13 4,13" fill="#efe8dc"/><polygon points="9,3 14,3 12,13 8,13" fill="#355e57"/></svg>
+<strong>Velora</strong>
+<nav>
+<button type="button" class="ghost" data-go="home">Studio</button>
+<button type="button" class="ghost" data-go="new">New</button>
+<button type="button" class="ghost" data-go="set">Settings</button>
+</nav>
+</header>
+<main id="app"></main>
+<script>
+const $=document.getElementById("app");
+const theme=()=>localStorage.getItem("velora.theme")||"light";
+document.documentElement.dataset.theme=theme();
+function falcon(name,g,f,a){
+return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="'+g+'"/>'+
+'<path fill="'+f+'" d="M512 280 C 360 340 250 430 180 560 C 310 500 410 520 500 590 C 490 470 500 360 512 280 Z"/>'+
+'<path fill="'+f+'" d="M512 280 C 664 340 774 430 844 560 C 714 500 614 520 524 590 C 534 470 524 360 512 280 Z"/>'+
+'<path fill="'+f+'" d="M512 250 C 490 430 496 560 512 690 C 528 560 534 430 512 250 Z"/>'+
+'<polygon fill="'+a+'" points="512,230 560,310 512,340"/>'+
+'<text x="512" y="860" text-anchor="middle" font-size="54" font-family="Georgia,serif" fill="'+f+'">'+name+'</text></svg>';
+}
+function floral(g,f,a){
+var petals="",i,r,c,cells="",drop,tile;
+for(i=0;i<8;i++)petals+='<ellipse cx="0" cy="-70" rx="28" ry="70" fill="'+(i%2?a:f)+'" transform="rotate('+(i*45)+')"/>';
+tile="<g>"+petals+'<circle r="22" fill="'+g+'"/></g>';
+for(r=0;r<3;r++)for(c=0;c<3;c++){drop=c%2?120:0;cells+='<g transform="translate('+(120+c*240)+' '+(120+r*240+drop)+')">'+tile+'</g>';}
+return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 960"><rect width="840" height="960" fill="'+g+'"/>'+cells+'</svg>';
+}
+function home(){
+$.innerHTML="<h1>Design that names its job.</h1>"+
+'<p class="muted">A mark that is remembered. A cloth that meets at the seam. Compose a vector scene from a brief.</p>'+
+'<p><button type="button" class="btn" data-go="new">New composition</button></p>'+
+'<div class="card"><h2>Logo</h2><p>Simple geometry. One ink must still hold.</p></div>'+
+'<div class="card"><h2>Textile</h2><p>Motif plus a repeat. The seam is measured.</p></div>'+
+'<div class="card"><h2>How it works</h2><p class="muted">Brief → vector program → SVG on device. Projects stay local.</p></div>';
+}
+function settings(){
+$.innerHTML="<h1>Workshop</h1>"+
+'<div class="card"><h2>Light and dark</h2><button type="button" class="btn" id="themeBtn">'+(theme()==="dark"?"Dark ink":"Light paper")+"</button></div>"+
+'<div class="card"><h2>Privacy</h2><p>Projects stay on this device. The studio engine does not send the brief anywhere.</p></div>'+
+'<div class="card"><h2>About</h2><p class="muted">Velora Studio — purpose-first vector design. VXL is source of truth.</p></div>';
+document.getElementById("themeBtn").onclick=function(){
+var next=theme()==="light"?"dark":"light";
+localStorage.setItem("velora.theme",next);
+document.documentElement.dataset.theme=next;
+settings();
+};
+}
+function compose(){
+var type="logo";
+$.innerHTML="<h1>What must this do?</h1>"+
+'<div class="grid"><button type="button" class="chip on" data-type="logo">Logo</button><button type="button" class="chip" data-type="textile">Textile</button></div>'+
+'<div class="card"><label for="brief">Brief</label><textarea id="brief" placeholder="A geometric falcon mark for a precision workshop, two inks."></textarea>'+
+'<p style="margin-top:12px"><button type="button" class="btn" id="goBtn">Compose</button></p></div><div id="out"></div>';
+var chips=$.querySelectorAll("[data-type]");
+for(var i=0;i<chips.length;i++)chips[i].onclick=function(){
+type=this.getAttribute("data-type");
+for(var j=0;j<chips.length;j++){if(chips[j]===this)chips[j].classList.add("on");else chips[j].classList.remove("on");}
+};
+document.getElementById("goBtn").onclick=function(){
+var t=document.getElementById("brief").value||"Falcon";
+var m=t.match(/for ([A-Z][\w]+)/);
+var name=m?m[1]:"Velora";
+var svg=type==="textile"?floral("#efe8dc","#355e57","#8a3b24"):falcon(name,"#efe8dc","#1b3358","#355e57");
+var cap=type==="textile"?"A floral half-drop on summer cloth. Seam is aligned.":"A mark that can be named after one look.";
+document.getElementById("out").innerHTML='<div class="card">'+svg+"<p>"+cap+"</p></div>";
+};
+}
+document.body.addEventListener("click",function(e){
+var go=e.target.closest("[data-go]");if(!go)return;
+var v=go.getAttribute("data-go");
+if(v==="home")home();if(v==="new")compose();if(v==="set")settings();
+});
+home();
+</script>
+</body>
+</html>
