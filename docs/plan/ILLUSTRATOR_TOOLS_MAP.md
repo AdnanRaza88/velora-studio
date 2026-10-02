@@ -27,7 +27,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 ## Type
 | Tool | What it produces | Velora mapping |
 |------|------------------|----------------|
-| Type / Area type / Type on path | Editable text objects | VXL `text` → optional expand to paths |
+| Type / Area type / Type on path | Editable text objects | VXL `text` point or area width; outline expands to glyph paths |
 
 ## Structure
 | Tool | What it produces | Velora mapping |

@@ -216,6 +216,8 @@
       shape.text = String(raw.text || "").slice(0, 80);
       shape.anchor = raw.anchor === "start" || raw.anchor === "end" ? raw.anchor : "middle";
       if (raw.rot != null) shape.rot = num(raw.rot, 0);
+      var area = num(raw.w != null ? raw.w : raw.width, 0);
+      if (area > 0) shape.w = area;
     } else if (type === "group") {
       shape.children = [];
       var kids = Array.isArray(raw.children) ? raw.children : Array.isArray(raw.shapes) ? raw.shapes : [];
@@ -567,6 +569,26 @@
     return d + " Z";
   }
 
+  function wrapLines(value, size, width) {
+    var words = String(value || "").split(/\s+/).filter(Boolean);
+    if (!words.length) return [""];
+    if (!(width > 0)) return [String(value || "")];
+    var limit = Math.max(1, width);
+    var lines = [];
+    var line = "";
+    words.forEach(function (word) {
+      var next = line ? line + " " + word : word;
+      if (next.length * size * 0.55 > limit && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    });
+    if (line) lines.push(line);
+    return lines.slice(0, 8);
+  }
+
   function styleAttrs(shape, palette) {
     var fill = paint(shape.fill != null ? shape.fill : shape.role, palette);
     var stroke = paint(shape.stroke, palette);
@@ -614,7 +636,12 @@
       return '<polygon points="' + pts + '"' + attrs + "/>";
     }
     if (shape.type === "text") {
-      var text = '<text x="' + shape.x + '" y="' + shape.y + '" text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">" + esc(shape.text) + "</text>";
+      var lines = wrapLines(shape.text, shape.size, shape.w);
+      var body = lines.map(function (line, i) {
+        if (!i) return esc(line);
+        return '<tspan x="' + shape.x + '" dy="' + round2(shape.size * 1.2) + '">' + esc(line) + "</tspan>";
+      }).join("");
+      var text = '<text x="' + shape.x + '" y="' + shape.y + '" text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">" + body + "</text>";
       if (shape.rot) return '<g transform="rotate(' + shape.rot + " " + shape.x + " " + shape.y + ')">' + text + "</g>";
       return text;
     }

@@ -40,3 +40,5 @@ They are not required for the core loop.
 
 ## VXL is the contract
 AI never draws pixels. AI emits VXL. The app always owns geometry.
+- Phase 4 type places a VXL `text` node (point or area width). Area width wraps into tspans on compile. Outline expands the string to monoline glyph paths the pen tools can edit. The compiler still owns the SVG text until outline.
+

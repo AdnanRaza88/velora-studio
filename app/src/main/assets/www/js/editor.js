@@ -673,6 +673,171 @@
     return best;
   }
 
+
+  var GLYPH = {
+    A: "M1 14 L5 1 L9 14 M2.6 9 H7.4",
+    B: "M1 1 V14 H6 Q9 14 9 11 Q9 8 6 8 H1 M6 8 Q9 8 9 4.5 Q9 1 6 1 H1",
+    C: "M9 3 Q7 1 4 1 Q1 1 1 7.5 Q1 14 4 14 Q7 14 9 12",
+    D: "M1 1 V14 H5 Q9 14 9 7.5 Q9 1 5 1 H1",
+    E: "M9 1 H1 V14 H9 M1 7.5 H7",
+    F: "M9 1 H1 V14 M1 7.5 H7",
+    G: "M9 3 Q7 1 4 1 Q1 1 1 7.5 Q1 14 4 14 Q8 14 8 10 H5",
+    H: "M1 1 V14 M9 1 V14 M1 7.5 H9",
+    I: "M2 1 H8 M5 1 V14 M2 14 H8",
+    J: "M3 1 H9 M6 1 V11 Q6 14 3 14 Q1 14 1 12",
+    K: "M1 1 V14 M8 1 L1 8 L9 14",
+    L: "M1 1 V14 H9",
+    M: "M1 14 V1 L5 8 L9 1 V14",
+    N: "M1 14 V1 L9 14 V1",
+    O: "M5 1 Q1 1 1 7.5 Q1 14 5 14 Q9 14 9 7.5 Q9 1 5 1",
+    P: "M1 14 V1 H6 Q9 1 9 4.5 Q9 8 6 8 H1",
+    Q: "M5 1 Q1 1 1 7.5 Q1 14 5 14 Q9 14 9 7.5 Q9 1 5 1 M6 10 L9 14",
+    R: "M1 14 V1 H6 Q9 1 9 4.5 Q9 8 6 8 H1 M5 8 L9 14",
+    S: "M8 3 Q6 1 3.5 1 Q1 1 1 3.5 Q1 6 3.5 7 Q9 8 9 11 Q9 14 5 14 Q2 14 1 12",
+    T: "M1 1 H9 M5 1 V14",
+    U: "M1 1 V10 Q1 14 5 14 Q9 14 9 10 V1",
+    V: "M1 1 L5 14 L9 1",
+    W: "M1 1 L3 14 L5 7 L7 14 L9 1",
+    X: "M1 1 L9 14 M9 1 L1 14",
+    Y: "M1 1 L5 8 L9 1 M5 8 V14",
+    Z: "M1 1 H9 L1 14 H9",
+    "0": "M5 1 Q1 1 1 7.5 Q1 14 5 14 Q9 14 9 7.5 Q9 1 5 1 M3 12 L7 3",
+    "1": "M3 3 L5 1 V14 M2 14 H8",
+    "2": "M1 4 Q1 1 5 1 Q9 1 9 4 Q9 8 1 14 H9",
+    "3": "M1 2 Q3 1 5 1 Q9 1 9 4 Q9 7 6 7 Q9 7 9 11 Q9 14 5 14 Q2 14 1 12",
+    "4": "M7 1 V14 M7 1 L1 9 H9",
+    "5": "M8 1 H1 V7 H6 Q9 7 9 10.5 Q9 14 5 14 Q1 14 1 12",
+    "6": "M8 3 Q6 1 4 1 Q1 1 1 7.5 Q1 14 4.5 14 Q8 14 8 10.5 Q8 7 4.5 7 Q1 7 1 8",
+    "7": "M1 1 H9 L4 14",
+    "8": "M5 1 Q1 1 1 4 Q1 7 5 7 Q9 7 9 10.5 Q9 14 5 14 Q1 14 1 10.5 Q1 7 5 7 Q9 7 9 4 Q9 1 5 1",
+    "9": "M2 11 Q4 14 6 14 Q9 14 9 7.5 Q9 1 5.5 1 Q2 1 2 4.5 Q2 8 5.5 8 Q9 8 9 7",
+    "-": "M1 7.5 H8",
+    ".": "M4 12 V14",
+    " ": ""
+  };
+
+  function freshId(prefix) {
+    return prefix + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function eachShape(doc, visit) {
+    function walk(list, parent, key) {
+      (list || []).forEach(function (shape, index) {
+        visit(shape, parent, key, index);
+        if (shape.type === "group") walk(shape.children, shape, "children");
+      });
+    }
+    (doc.layers || []).forEach(function (layer) { walk(layer.shapes, layer, "shapes"); });
+  }
+
+  function placeText(doc, x, y, content, size) {
+    var layer = doc && doc.layers && doc.layers[0];
+    if (!layer) return null;
+    if (!Array.isArray(layer.shapes)) layer.shapes = [];
+    var shape = {
+      id: freshId("type"),
+      type: "text",
+      role: "figure",
+      fill: "figure",
+      x: round(x),
+      y: round(y),
+      size: Math.max(8, round(size || 64)),
+      text: String(content || "Type").slice(0, 80),
+      anchor: "middle"
+    };
+    layer.shapes.push(shape);
+    return shape;
+  }
+
+  function setText(doc, id, patch) {
+    var shape = find(doc, id);
+    if (!shape || shape.type !== "text" || !patch) return null;
+    if (patch.text != null) shape.text = String(patch.text).slice(0, 80);
+    if (patch.size != null) shape.size = Math.max(8, round(patch.size));
+    if (patch.anchor === "start" || patch.anchor === "middle" || patch.anchor === "end") shape.anchor = patch.anchor;
+    if (patch.w != null) {
+      var area = Number(patch.w);
+      if (area > 0) shape.w = round(area);
+      else delete shape.w;
+    }
+    return shape;
+  }
+
+  function scaleGlyph(spec, ox, oy, scale) {
+    if (!spec) return "";
+    var tokens = spec.match(/[MLQHV]|-?\d*\.?\d+/g);
+    if (!tokens) return "";
+    var out = "";
+    var cmd = "";
+    var pair = [];
+    function emitPair() {
+      if (pair.length < 2) return;
+      out += round(ox + pair[0] * scale) + " " + round(oy + pair[1] * scale) + " ";
+      pair = [];
+    }
+    tokens.forEach(function (tok) {
+      if (/[MLQHV]/.test(tok)) {
+        emitPair();
+        cmd = tok;
+        out += tok;
+        return;
+      }
+      var n = parseFloat(tok);
+      if (cmd === "H") out += round(ox + n * scale) + " ";
+      else if (cmd === "V") out += round(oy + n * scale) + " ";
+      else {
+        pair.push(n);
+        if (pair.length === 2) emitPair();
+      }
+    });
+    emitPair();
+    return out.trim();
+  }
+
+  function outlineText(doc, id) {
+    var shape = find(doc, id);
+    if (!shape || shape.type !== "text") return null;
+    var size = shape.size || 32;
+    var scale = size / 14;
+    var advance = size * 0.72;
+    var chars = String(shape.text || "").toUpperCase().slice(0, 80).split("");
+    var width = Math.max(advance, chars.length * advance);
+    var origin = shape.x;
+    if (shape.anchor === "middle") origin -= width / 2;
+    if (shape.anchor === "end") origin -= width;
+    var children = [];
+    chars.forEach(function (ch, index) {
+      var spec = GLYPH[ch];
+      if (!spec) return;
+      var d = scaleGlyph(spec, origin + index * advance, shape.y - size, scale);
+      if (!d) return;
+      children.push({
+        id: freshId("glyph"),
+        type: "path",
+        role: shape.role || "figure",
+        fill: "none",
+        stroke: shape.fill && shape.fill !== "none" ? shape.fill : (shape.role || "figure"),
+        strokeWidth: Math.max(1, round(size * 0.08)),
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        d: d
+      });
+    });
+    if (!children.length) return null;
+    var group = {
+      id: shape.id,
+      type: "group",
+      role: shape.role || "figure",
+      opacity: shape.opacity == null ? 1 : shape.opacity,
+      children: children
+    };
+    eachShape(doc, function (current, parent, key, index) {
+      if (current.id !== id) return;
+      parent[key][index] = group;
+    });
+    return group;
+  }
+
   root.VeloraEdit = {
     bounds: boundsOf,
     find: find,
@@ -691,6 +856,9 @@
     applyWidth: applyWidth,
     setWidthSample: setWidthSample,
     widthHandles: widthHandles,
-    hitWidth: hitWidth
+    hitWidth: hitWidth,
+    placeText: placeText,
+    setText: setText,
+    outlineText: outlineText
   };
 })(typeof window !== "undefined" ? window : globalThis);

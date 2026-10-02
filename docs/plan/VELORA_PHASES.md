@@ -46,7 +46,7 @@ Brief (+ optional attachment)
 - [x] Recolor by job (figure/ground/accent)
 - [x] Anchor edit (pen-level)
 - [x] Width profile on strokes
-- [ ] Text tool
+- [x] Text tool
 - [ ] Undo/redo, layers
 
 ## Phase 5 — Advanced geometry

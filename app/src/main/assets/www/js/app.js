@@ -90,7 +90,8 @@
       '<button type="button" class="ghost" id="rotR">Rotate right</button>' +
       '<button type="button" class="ghost' + (state.tool === "pen" ? " on" : "") + '" id="penMode">Anchors</button>' +
       '<button type="button" class="ghost' + (state.tool === "width" ? " on" : "") + '" id="widthMode">Width</button>' +
-      widthChips() + '</div>' +
+      '<button type="button" class="ghost' + (state.tool === "type" ? " on" : "") + '" id="typeMode">Type</button>' +
+      widthChips() + typeControls() + '</div>' +
       inkControls(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
@@ -119,7 +120,26 @@
   function toolHint() {
     if (state.tool === "pen") return ". Drag an anchor or its Bezier handle. The path is rewritten in VXL.";
     if (state.tool === "width") return ". Pick a profile or drag a width point. The stroke expands on compile.";
+    if (state.tool === "type") return ". Tap the canvas to place type. Area width wraps the line. Outline expands glyphs to paths.";
     return ". Drag the canvas to move. Geometry is written back into VXL.";
+  }
+
+  function typeControls() {
+    if (state.tool !== "type") return "";
+    var selected = state.sel ? VeloraEdit.find(state.doc, state.sel) : null;
+    var live = selected && selected.type === "text" ? selected : null;
+    var value = live ? live.text : (state.typeText || "Velora");
+    var size = live ? live.size : (state.typeSize || 64);
+    var anchor = live ? live.anchor : (state.typeAnchor || "middle");
+    var area = live && live.w ? live.w : (state.typeWidth || "");
+    return '</div><label for="typeText">Type</label><input id="typeText" value="' + VeloraVxl.esc(value) + '" aria-label="Type copy"/>' +
+      '<div class="grid"><label>Size<input id="typeSize" type="number" min="8" value="' + size + '" aria-label="Type size"/></label>' +
+      '<label>Anchor<select id="typeAnchor" aria-label="Type anchor">' +
+      ["start", "middle", "end"].map(function (name) {
+        return '<option value="' + name + '"' + (anchor === name ? " selected" : "") + ">" + name + "</option>";
+      }).join("") + "</select></label></div>" +
+      '<label for="typeWidth">Area width</label><input id="typeWidth" type="number" min="0" placeholder="Point type" value="' + area + '" aria-label="Area width"/>' +
+      '<div class="row"><button type="button" class="chip" id="outlineType">Outline to paths</button>';
   }
 
   function widthChips() {
@@ -268,6 +288,43 @@
       state.tool = state.tool === "width" ? "select" : "width";
       publishScene(state.doc, state.tool === "width" ? "Width profile" : "Selection");
     };
+    document.getElementById("typeMode").onclick = function () {
+      state.tool = state.tool === "type" ? "select" : "type";
+      publishScene(state.doc, state.tool === "type" ? "Type" : "Selection");
+    };
+    var typeText = document.getElementById("typeText");
+    if (typeText) {
+      function readType() {
+        state.typeText = typeText.value;
+        state.typeSize = Number(document.getElementById("typeSize").value) || 64;
+        state.typeAnchor = document.getElementById("typeAnchor").value;
+        state.typeWidth = Number(document.getElementById("typeWidth").value) || 0;
+        if (!state.sel) return;
+        var current = VeloraEdit.find(state.doc, state.sel);
+        if (!current || current.type !== "text") return;
+        VeloraEdit.setText(state.doc, state.sel, {
+          text: state.typeText,
+          size: state.typeSize,
+          anchor: state.typeAnchor,
+          w: state.typeWidth
+        });
+        paintArt();
+      }
+      typeText.oninput = readType;
+      document.getElementById("typeSize").oninput = readType;
+      document.getElementById("typeAnchor").onchange = readType;
+      document.getElementById("typeWidth").oninput = readType;
+    }
+    var outlineType = document.getElementById("outlineType");
+    if (outlineType) {
+      outlineType.onclick = function () {
+        if (!state.sel) return;
+        var outlined = VeloraEdit.outlineText(state.doc, state.sel);
+        if (!outlined) return;
+        state.tool = "select";
+        publishScene(state.doc, "Type outlined");
+      };
+    }
     var chips = document.querySelectorAll("[data-profile]");
     for (var c = 0; c < chips.length; c++) {
       chips[c].onclick = function () {
@@ -292,6 +349,27 @@
       if (ev.target.closest("button,select,input,textarea")) return;
       var pt = pointerPoint(ev);
       if (!pt) return;
+      if (state.tool === "type") {
+        var existing = VeloraEdit.hitTest(state.doc, pt.x, pt.y);
+        if (existing && existing.type === "text") {
+          state.sel = existing.id;
+          state.typeText = existing.text;
+          state.typeSize = existing.size;
+          state.typeAnchor = existing.anchor;
+          state.typeWidth = existing.w || 0;
+          drag = null;
+          publishScene(state.doc, "Type selected");
+          return;
+        }
+        var placed = VeloraEdit.placeText(state.doc, pt.x, pt.y, state.typeText || "Velora", state.typeSize || 64);
+        if (!placed) return;
+        placed.anchor = state.typeAnchor || "middle";
+        if (state.typeWidth > 0) placed.w = state.typeWidth;
+        state.sel = placed.id;
+        drag = null;
+        publishScene(state.doc, "Type placed");
+        return;
+      }
       if (state.tool === "width" && state.sel) {
         var stroked = VeloraEdit.find(state.doc, state.sel);
         var widthHit = stroked && VeloraEdit.hitWidth(stroked, pt.x, pt.y, handleRadius(state.doc));
