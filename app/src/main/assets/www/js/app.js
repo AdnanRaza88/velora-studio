@@ -1,7 +1,7 @@
 (function () {
   var $ = document.getElementById("app");
   var nav = document.getElementById("nav");
-  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null, sel: "" };
+  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null, sel: "", tool: "select" };
   var REMOTE = { openai: 1, anthropic: 1, gemini: 1, openrouter: 1 };
 
   function theme() { return localStorage.getItem("velora.theme") || "light"; }
@@ -76,8 +76,7 @@
       });
     });
     var vb = checked.document.canvas.viewBox.join(" ");
-    var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(checked.document, state.sel)) : null;
-    var overlay = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
+    var overlay = overlayMarks(checked.document);
     return '<div class="card" id="scene">' +
       '<div class="stage" id="stage"><div class="art" id="art">' + state.svg + '</div>' +
       '<svg class="overlay" id="overlay" viewBox="' + vb + '" aria-hidden="true">' + overlay + "</svg></div>" +
@@ -88,9 +87,10 @@
       '<button type="button" class="ghost" id="scaleUp">Scale up</button>' +
       '<button type="button" class="ghost" id="scaleDn">Scale down</button>' +
       '<button type="button" class="ghost" id="rotL">Rotate left</button>' +
-      '<button type="button" class="ghost" id="rotR">Rotate right</button></div>' +
+      '<button type="button" class="ghost" id="rotR">Rotate right</button>' +
+      '<button type="button" class="ghost' + (state.tool === "pen" ? " on" : "") + '" id="penMode">Anchors</button></div>' +
       inkControls(checked.document) +
-      '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ". Drag the canvas to move. Geometry is written back into VXL." : "Select a shape on the canvas or in the list.") + "</p>" +
+      '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + (state.tool === "pen" ? ". Drag an anchor or its Bezier handle. The path is rewritten in VXL." : ". Drag the canvas to move. Geometry is written back into VXL.") : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -106,6 +106,34 @@
       '<p id="editMsg" class="muted"></p></div>';
   }
 
+
+
+  function handleRadius(doc) {
+    var vb = (doc && doc.canvas && doc.canvas.viewBox) || [0, 0, 400, 400];
+    return Math.max(8, Number(vb[2] || 400) / 42);
+  }
+
+  function overlayMarks(doc) {
+    var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(doc, state.sel)) : null;
+    var marks = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
+    if (state.tool !== "pen" || !state.sel) return marks;
+    var shape = VeloraEdit.find(doc, state.sel);
+    var handles = VeloraEdit.handles(shape);
+    var radius = handleRadius(doc);
+    handles.forEach(function (h) {
+      if (h.role === "anchor") return;
+      var anchor = null;
+      handles.forEach(function (other) {
+        if (other.i === h.i && other.role === "anchor") anchor = other;
+      });
+      if (anchor) marks += '<line x1="' + h.x + '" y1="' + h.y + '" x2="' + anchor.x + '" y2="' + anchor.y + '"/>';
+    });
+    handles.forEach(function (h) {
+      var r = h.role === "anchor" ? radius * 0.42 : radius * 0.28;
+      marks += '<circle class="' + (h.role === "anchor" ? "anchor" : "handle") + '" cx="' + h.x + '" cy="' + h.y + '" r="' + r + '"/>';
+    });
+    return marks;
+  }
 
   function inkControls(doc) {
     var jobs = ["ground", "figure", "accent"];
@@ -207,6 +235,11 @@
       var c = centerOf();
       editAround("rotate", VeloraEdit.rotateMatrix(15, c.x, c.y));
     };
+    document.getElementById("penMode").onclick = function () {
+      state.tool = state.tool === "pen" ? "select" : "pen";
+      if (state.tool === "pen" && state.sel) VeloraEdit.penReady(VeloraEdit.find(state.doc, state.sel));
+      publishScene(state.doc, state.tool === "pen" ? "Anchor edit" : "Selection");
+    };
     var stage = document.getElementById("stage");
     var art = document.getElementById("art");
     var drag = null;
@@ -223,9 +256,25 @@
       if (ev.target.closest("button,select,input,textarea")) return;
       var pt = pointerPoint(ev);
       if (!pt) return;
+      if (state.tool === "pen" && state.sel) {
+        var current = VeloraEdit.find(state.doc, state.sel);
+        var handle = current && VeloraEdit.hitHandle(current, pt.x, pt.y, handleRadius(state.doc));
+        if (handle) {
+          drag = { kind: "handle", id: state.sel, i: handle.i, role: handle.role, moved: false };
+          stage.setPointerCapture(ev.pointerId);
+          paintArt();
+          return;
+        }
+      }
       var hit = VeloraEdit.hitTest(state.doc, pt.x, pt.y);
       state.sel = hit ? hit.id : "";
-      drag = state.sel ? { x: pt.x, y: pt.y, id: state.sel, moved: false } : null;
+      if (state.tool === "pen") {
+        if (state.sel) VeloraEdit.penReady(VeloraEdit.find(state.doc, state.sel));
+        drag = null;
+        paintArt();
+        return;
+      }
+      drag = state.sel ? { kind: "move", x: pt.x, y: pt.y, id: state.sel, moved: false } : null;
       if (drag) stage.setPointerCapture(ev.pointerId);
       paintArt();
     };
@@ -233,6 +282,12 @@
       if (!drag) return;
       var pt = pointerPoint(ev);
       if (!pt) return;
+      if (drag.kind === "handle") {
+        VeloraEdit.moveHandle(state.doc, drag.id, drag.i, drag.role, pt.x, pt.y);
+        drag.moved = true;
+        paintArt();
+        return;
+      }
       var dx = pt.x - drag.x;
       var dy = pt.y - drag.y;
       if (Math.abs(dx) < 0.4 && Math.abs(dy) < 0.4) return;
@@ -244,8 +299,9 @@
     };
     stage.onpointerup = function () {
       var moved = drag && drag.moved;
+      var kind = drag && drag.kind;
       drag = null;
-      if (moved) publishScene(state.doc, "Moved");
+      if (moved) publishScene(state.doc, kind === "handle" ? "Anchor edited" : "Moved");
       else publishScene(state.doc, state.sel ? "Selected" : "Selection cleared");
     };
   }
@@ -259,11 +315,11 @@
     if (art) art.innerHTML = state.svg;
     var overlay = document.getElementById("overlay");
     var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(state.doc, state.sel)) : null;
-    if (overlay) overlay.innerHTML = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
+    if (overlay) overlay.innerHTML = overlayMarks(state.doc);
     var src = document.getElementById("editVxl");
     if (src) src.value = JSON.stringify(state.doc, null, 2);
     var msg = document.getElementById("selMsg");
-    if (msg) msg.textContent = state.sel ? "Selected " + state.sel + ". Drag the canvas to move. Geometry is written back into VXL." : "Select a shape on the canvas or in the list.";
+    if (msg) msg.textContent = state.sel ? "Selected " + state.sel + (state.tool === "pen" ? ". Drag an anchor or its Bezier handle. The path is rewritten in VXL." : ". Drag the canvas to move. Geometry is written back into VXL.") : "Select a shape on the canvas or in the list.";
   }
 
   function publishScene(doc, note) {

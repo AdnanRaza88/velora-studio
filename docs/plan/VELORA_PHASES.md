@@ -44,7 +44,7 @@ Brief (+ optional attachment)
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
 - [x] Recolor by job (figure/ground/accent)
-- [ ] Anchor edit (pen-level)
+- [x] Anchor edit (pen-level)
 - [ ] Width profile on strokes
 - [ ] Text tool
 - [ ] Undo/redo, layers

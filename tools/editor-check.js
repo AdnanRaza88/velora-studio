@@ -44,4 +44,28 @@ assert.ok(hit && (hit.id === "dot" || hit.id === "box"));
 const checked = V.validate(doc);
 assert.strictEqual(checked.ok, true, checked.errors.join("; "));
 assert.ok(V.compile(checked.document).indexOf("<circle") >= 0);
+
+const curve = V.validate({
+  vxl: 1,
+  meta: { name: "Pen", category: "logo" },
+  canvas: { viewBox: [0, 0, 200, 200] },
+  palette: { ground: "#ffffff", figure: "#111111", accent: "#355e57" },
+  layers: [{ id: "l", shapes: [
+    { id: "curve", type: "path", d: "M10 10 C30 10 40 40 60 40" },
+    { id: "box2", type: "rect", x: 80, y: 80, w: 20, h: 20 }
+  ]}]
+}).document;
+const before = E.handles(curve.layers[0].shapes[0]);
+assert.strictEqual(before.filter(function (h) { return h.role === "anchor"; }).length, 2);
+assert.ok(E.hitHandle(curve.layers[0].shapes[0], 60, 40, 8).role === "anchor");
+E.moveHandle(curve, "curve", 1, "anchor", 70, 50);
+assert.ok(curve.layers[0].shapes[0].d.indexOf("70 50") >= 0);
+assert.ok(curve.layers[0].shapes[0].d.indexOf("C30 10") === -1 || curve.layers[0].shapes[0].d.indexOf("50 50") >= 0);
+E.moveHandle(curve, "curve", 1, "out", 42, 55);
+assert.ok(curve.layers[0].shapes[0].d.indexOf("42 55") >= 0);
+assert.ok(E.penReady(curve.layers[0].shapes[1]).type === "path");
+assert.ok(curve.layers[0].shapes[1].d.indexOf("M80 80") === 0);
+const penChecked = V.validate(curve);
+assert.strictEqual(penChecked.ok, true, penChecked.errors.join("; "));
+
 console.log("editor checks ok");

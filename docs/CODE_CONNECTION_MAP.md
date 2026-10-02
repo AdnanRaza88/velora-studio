@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-02 22:15
+Last updated: 2026-10-03 00:20
 
 ## 1. Entry Points
 
@@ -21,7 +21,7 @@ Last updated: 2026-10-02 22:15
 | app/src/main/assets/www/js/skills.js | Skill packs and emit_vxl expand | VeloraSkills.compose, route, expand | VeloraVxl | app.js, tools/skill-packs.js |
 | app/src/main/java/app/velora/studio/AttachmentBridge.kt | Image pick, store, lookup | VeloraAttach.pick, lookup, clear | files/attachments | MainActivity, attach.js |
 | app/src/main/assets/www/js/attach.js | Session reference | VeloraReference.bindDocument, restore | VeloraAttach | app.js |
-| app/src/main/assets/www/js/editor.js | Select bounds and baked transforms | VeloraEdit.apply, hitTest, bounds | none | app.js, tools/editor-check.js |
+| app/src/main/assets/www/js/editor.js | Select, bake, recolor, pen anchors | VeloraEdit.apply, hitTest, moveHandle, recolor | none | app.js, tools/editor-check.js |
 | app/src/main/assets/www/js/app.js | Routes and compose/import UI | sessionA default path | VeloraVxl, VeloraProjects, VeloraSkills, VeloraNeedleClient, VeloraReference, VeloraEdit | index.html |
 | app/src/main/assets/skills/*.json | APK skill packs + emit_vxl schema | pack id, system, tool | none | Needle asset load |
 | docs/spec/VXL.md | VXL 1 contract | schema | none | compiler |
@@ -54,6 +54,7 @@ Last updated: 2026-10-02 22:15
 
 ## 6. Recent Changes Log
 
+- 2026-10-03 Phase 4 pen anchors: handles and moveHandle rewrite path d
 - 2026-10-02 Phase 4 select/move/scale/rotate: VeloraEdit bakes geometry, canvas hit-test
 - 2026-10-02 Phase 3b attach image: meta.reference plus files/attachments lookup, no raster in VXL
 - 2026-10-02 Phase 3 default path: Needle plus skill expand, no remote key

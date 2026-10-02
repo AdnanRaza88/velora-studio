@@ -19,6 +19,8 @@ Repeat types: `block`, `half-drop`, `half-brick`, `mirror`. When `repeat` is set
 
 `rect` and `text` may set `rot` in degrees. The editor bakes move, scale, and rotate into geometry before the next compile. Path commands are rewritten absolute. A rotated circle or ellipse becomes a path.
 
+Pen edit converts the selected shape to a path and rewrites `d`. Dragging an anchor moves that point and its attached Bezier handles. Dragging a handle moves only that control.
+
 Path `d` is restricted to SVG path commands and numbers. Text is escaped on compile.
 
 ## Import

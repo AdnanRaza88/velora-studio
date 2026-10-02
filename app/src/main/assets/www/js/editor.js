@@ -517,6 +517,103 @@
     return { job: job, color: next, linked: linked };
   }
 
+  function serialize(cmds) {
+    var d = "";
+    for (var i = 0; i < cmds.length; i++) {
+      var c = cmds[i];
+      if (c.op === "Z") { d += "Z"; continue; }
+      if (c.op === "M" || c.op === "L") {
+        d += c.op + fmt(c.x) + " " + fmt(c.y);
+        continue;
+      }
+      if (c.op === "C") {
+        d += "C" + fmt(c.x1) + " " + fmt(c.y1) + " " + fmt(c.x2) + " " + fmt(c.y2) + " " + fmt(c.x) + " " + fmt(c.y);
+        continue;
+      }
+      if (c.op === "Q") {
+        d += "Q" + fmt(c.x1) + " " + fmt(c.y1) + " " + fmt(c.x) + " " + fmt(c.y);
+        continue;
+      }
+      if (c.op === "A") {
+        d += "A" + fmt(c.rx) + " " + fmt(c.ry) + " " + fmt(c.ang) + " " + c.large + " " + c.sweep + " " + fmt(c.x) + " " + fmt(c.y);
+      }
+    }
+    return d;
+  }
+
+  function penReady(shape) {
+    if (!shape || shape.type === "group" || shape.type === "text") return null;
+    if (shape.type !== "path") asPath(shape);
+    return shape.type === "path" ? shape : null;
+  }
+
+  function handlesOf(shape) {
+    if (!shape || shape.type !== "path") return [];
+    var cmds = toAbsolute(shape.d);
+    var out = [];
+    for (var i = 0; i < cmds.length; i++) {
+      var c = cmds[i];
+      if (c.op === "C") {
+        out.push({ i: i, role: "in", x: c.x1, y: c.y1 });
+        out.push({ i: i, role: "out", x: c.x2, y: c.y2 });
+      } else if (c.op === "Q") {
+        out.push({ i: i, role: "ctrl", x: c.x1, y: c.y1 });
+      }
+      if (c.x != null && c.y != null) out.push({ i: i, role: "anchor", x: c.x, y: c.y });
+    }
+    return out;
+  }
+
+  function shiftHandle(cmds, index, role, dx, dy) {
+    var c = cmds[index];
+    if (!c) return;
+    if (role === "anchor") {
+      if (c.x == null) return;
+      c.x = round(c.x + dx);
+      c.y = round(c.y + dy);
+      if (c.op === "C") { c.x2 = round(c.x2 + dx); c.y2 = round(c.y2 + dy); }
+      if (c.op === "Q") { c.x1 = round(c.x1 + dx); c.y1 = round(c.y1 + dy); }
+      var next = cmds[index + 1];
+      if (next && next.op === "C") { next.x1 = round(next.x1 + dx); next.y1 = round(next.y1 + dy); }
+      if (next && next.op === "Q") { next.x1 = round(next.x1 + dx); next.y1 = round(next.y1 + dy); }
+      return;
+    }
+    if (role === "in" && c.op === "C") { c.x1 = round(c.x1 + dx); c.y1 = round(c.y1 + dy); }
+    if (role === "out" && c.op === "C") { c.x2 = round(c.x2 + dx); c.y2 = round(c.y2 + dy); }
+    if (role === "ctrl" && c.op === "Q") { c.x1 = round(c.x1 + dx); c.y1 = round(c.y1 + dy); }
+  }
+
+  function moveHandle(doc, id, index, role, x, y) {
+    var shape = penReady(find(doc, id));
+    if (!shape) return null;
+    var cmds = toAbsolute(shape.d);
+    var c = cmds[index];
+    if (!c) return null;
+    var ox = role === "anchor" ? c.x : (role === "out" ? c.x2 : c.x1);
+    var oy = role === "anchor" ? c.y : (role === "out" ? c.y2 : c.y1);
+    if (ox == null || oy == null) return null;
+    shiftHandle(cmds, index, role, x - ox, y - oy);
+    shape.d = serialize(cmds);
+    if (doc.meta) doc.meta.updated = new Date().toISOString();
+    return shape;
+  }
+
+  function hitHandle(shape, x, y, radius) {
+    var list = handlesOf(shape);
+    var best = null;
+    var bestD = radius;
+    for (var i = 0; i < list.length; i++) {
+      var h = list[i];
+      var dist = Math.hypot(h.x - x, h.y - y);
+      var limit = h.role === "anchor" ? radius : radius * 0.8;
+      if (dist <= limit && (best == null || dist < bestD)) {
+        best = h;
+        bestD = dist;
+      }
+    }
+    return best;
+  }
+
   root.VeloraEdit = {
     bounds: boundsOf,
     find: find,
@@ -527,6 +624,10 @@
     rotateMatrix: rotateMatrix,
     identity: identity,
     jobs: JOBS.slice(),
-    recolor: recolor
+    recolor: recolor,
+    handles: handlesOf,
+    hitHandle: hitHandle,
+    moveHandle: moveHandle,
+    penReady: penReady
   };
 })(typeof window !== "undefined" ? window : globalThis);
