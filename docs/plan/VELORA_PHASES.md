@@ -32,7 +32,7 @@ Brief (+ optional attachment)
 ## Phase 3 — Skills + Needle-first agent (active)
 - [x] Skill packs: logo, textile, character, icon (system instructions + tool schema)
 - [x] Bundle Needle 2 android-arm64 binary in APK assets (~14 MB)
-- [ ] Session A: brief → Needle tool call → VXL → canvas
+- [x] Session A: brief → Needle tool call → VXL → canvas
 - [ ] No remote key required for default path
 - [ ] Attachment picker UI (wire to image-to-vector in Phase 3b)
 

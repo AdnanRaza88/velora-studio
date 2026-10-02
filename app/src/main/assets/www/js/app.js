@@ -148,12 +148,12 @@
     for (var j = 0; j < reps.length; j++) reps[j].onclick = function () { state.repeat = this.getAttribute("data-rep"); renderCompose(); };
     document.getElementById("composeBtn").onclick = function () {
       var brief = (document.getElementById("brief").value || "").trim() || (state.type === "logo" ? "Mark for Velora" : "Floral for summer cloth");
-      var made = VeloraSkills.compose(brief, state.type, state.repeat);
+      var made = sessionA(brief);
       if (!made.ok) {
         document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(made.errors.join("; ")) + "</div>";
         return;
       }
-      document.getElementById("out").innerHTML = showScene(made.document, made.skill + " skill / " + made.tool);
+      document.getElementById("out").innerHTML = showScene(made.document, made.note);
       bindScene();
     };
     document.getElementById("importBtn").onclick = function () { importText(document.getElementById("paste").value); };
@@ -172,6 +172,38 @@
       document.getElementById("out").innerHTML = showScene(state.doc, "Current scene");
       bindScene();
     }
+  }
+
+
+  function mergeArgs(base, got) {
+    if (!got) return base;
+    if (got.category && VeloraSkills.packs[got.category]) base.category = got.category;
+    if (got.name) base.name = String(got.name).slice(0, 80);
+    if (got.brief) base.brief = String(got.brief).slice(0, 500);
+    if (got.palette && got.palette.figure && got.palette.ground && got.palette.accent) base.palette = got.palette;
+    if (got.style) base.style = got.style;
+    if (got.motif) base.motif = got.motif;
+    if (got.repeat && got.repeat.type) base.repeat = got.repeat;
+    if (got.grid) base.grid = got.grid;
+    if (got.parts && got.parts.length) base.parts = got.parts;
+    if (got.viewBox && got.viewBox.length === 4) base.viewBox = got.viewBox;
+    if (got.inkCount) base.inkCount = got.inkCount;
+    return base;
+  }
+
+  function sessionA(brief) {
+    var skill = VeloraSkills.route(brief, state.type);
+    var call = VeloraNeedleClient.complete({ brief: brief, skill: skill, repeat: state.repeat });
+    var args = mergeArgs(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat), call.arguments);
+    var expanded = VeloraSkills.expand(args);
+    var note = call.ok ? "Needle emit_vxl / " + skill : "Skill expand / " + skill;
+    if (!expanded.ok) {
+      expanded = VeloraSkills.expand(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat));
+      note = "Skill repair / " + skill;
+    }
+    if (!expanded.ok) return expanded;
+    expanded.note = note + (call.error ? " (" + call.error + ")" : "");
+    return expanded;
   }
 
   function importText(text) {
@@ -256,7 +288,7 @@
     var needle = VeloraNeedleClient.status();
     if (needle.present) {
       local.className = "status ok";
-      local.textContent = "Needle 2 bundled (" + needle.bytes + " bytes, " + needle.abi + "). Tool call is not wired yet.";
+      local.textContent = "Needle 2 bundled (" + needle.bytes + " bytes, " + (needle.abi || needle.engine) + "). Compose calls emit_vxl on device. No API key.";
     } else {
       local.className = "status warn";
       local.textContent = needle.error || "Needle 2 asset missing at needle/needle-android-arm64.";
