@@ -68,4 +68,27 @@ assert.ok(curve.layers[0].shapes[1].d.indexOf("M80 80") === 0);
 const penChecked = V.validate(curve);
 assert.strictEqual(penChecked.ok, true, penChecked.errors.join("; "));
 
+const stroke = V.validate({
+  vxl: 1,
+  meta: { name: "Width", category: "illustration" },
+  canvas: { viewBox: [0, 0, 200, 80] },
+  palette: { ground: "#ffffff", figure: "#111111", accent: "#355e57" },
+  layers: [{ id: "l", shapes: [
+    { id: "vein", type: "path", fill: "none", stroke: "figure", strokeWidth: 12, d: "M10 40 C50 10 90 70 150 40", widthProfile: "taper" }
+  ]}]
+}).document;
+assert.ok(stroke.layers[0].shapes[0].widthProfile.length >= 3);
+assert.strictEqual(stroke.layers[0].shapes[0].profile, "taper");
+E.applyWidth(stroke, "vein", "swell");
+assert.strictEqual(stroke.layers[0].shapes[0].profile, "swell");
+const handles = E.widthHandles(stroke.layers[0].shapes[0]);
+assert.ok(handles.length >= 3);
+E.setWidthSample(stroke, "vein", 2, 20);
+assert.strictEqual(stroke.layers[0].shapes[0].widthProfile[2], 20);
+const svg = V.compile(stroke);
+assert.ok(svg.indexOf("<path") >= 0);
+assert.ok(svg.indexOf("stroke-width") < 0);
+assert.ok(svg.indexOf(" Z") >= 0 || svg.indexOf("Z") >= 0);
+
 console.log("editor checks ok");
+

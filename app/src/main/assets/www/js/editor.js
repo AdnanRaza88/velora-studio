@@ -614,6 +614,65 @@
     return best;
   }
 
+
+  function applyWidth(doc, id, name) {
+    var shape = find(doc, id);
+    if (!shape || (shape.type !== "path" && shape.type !== "line")) return null;
+    var units = (typeof VeloraVxl !== "undefined" && VeloraVxl.profileUnits) || {
+      taper: [0.12, 0.55, 1, 0.4, 0.08],
+      swell: [0.22, 0.85, 1, 0.45, 0.22],
+      point: [0.06, 0.28, 1, 0.28, 0.06]
+    };
+    if (!units[name]) return shape;
+    var base = shape.strokeWidth > 0 ? shape.strokeWidth : 14;
+    shape.strokeWidth = base;
+    shape.profile = name;
+    shape.widthProfile = units[name].map(function (n) { return Math.round(n * base * 100) / 100; });
+    if (!shape.stroke || shape.stroke === "none") shape.stroke = shape.role || "figure";
+    if (shape.fill == null || shape.fill === shape.role) shape.fill = "none";
+    shape.strokeLinecap = "round";
+    return shape;
+  }
+
+  function setWidthSample(doc, id, index, width) {
+    var shape = find(doc, id);
+    if (!shape || !shape.widthProfile || index < 0 || index >= shape.widthProfile.length) return null;
+    shape.widthProfile[index] = Math.max(0, Math.round(width * 100) / 100);
+    shape.profile = "";
+    return shape;
+  }
+
+  function widthHandles(shape) {
+    if (!shape || !shape.widthProfile || shape.widthProfile.length < 2) return [];
+    if (typeof VeloraVxl === "undefined" || !VeloraVxl.centerline) return [];
+    var line = VeloraVxl.centerline(shape);
+    if (!line.length) return [];
+    return shape.widthProfile.map(function (w, i) {
+      var t = i / (shape.widthProfile.length - 1);
+      var best = line[0];
+      var bestD = 2;
+      line.forEach(function (p) {
+        var d = Math.abs(p.t - t);
+        if (d < bestD) { best = p; bestD = d; }
+      });
+      var half = w / 2;
+      return { i: i, t: t, x: best.x, y: best.y, nx: best.nx, ny: best.ny, w: w, hx: best.x + best.nx * half, hy: best.y + best.ny * half };
+    });
+  }
+
+  function hitWidth(shape, x, y, limit) {
+    var handles = widthHandles(shape);
+    var best = null;
+    var bestD = limit;
+    handles.forEach(function (h) {
+      var dx = h.hx - x;
+      var dy = h.hy - y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= bestD) { best = h; bestD = dist; }
+    });
+    return best;
+  }
+
   root.VeloraEdit = {
     bounds: boundsOf,
     find: find,
@@ -628,6 +687,10 @@
     handles: handlesOf,
     hitHandle: hitHandle,
     moveHandle: moveHandle,
-    penReady: penReady
+    penReady: penReady,
+    applyWidth: applyWidth,
+    setWidthSample: setWidthSample,
+    widthHandles: widthHandles,
+    hitWidth: hitWidth
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -176,8 +176,10 @@
     var rule = raw.fillRule || raw["fill-rule"];
     if (rule === "evenodd" || rule === "nonzero") shape.fillRule = rule;
 
-    if (Array.isArray(raw.widthProfile)) {
-      shape.widthProfile = raw.widthProfile.slice(0, 16).map(function (n) { return Math.max(0, num(n, 0)); });
+    var profile = readProfile(raw.widthProfile, num(raw.strokeWidth, 8));
+    if (profile) {
+      shape.widthProfile = profile.samples;
+      if (profile.name) shape.profile = profile.name;
     }
 
     if (type === "path") {
@@ -369,6 +371,202 @@
     return { ok: errors.length === 0, errors: errors, warnings: warnings, document: doc };
   }
 
+
+  var PROFILE_NAMES = ["taper", "swell", "point"];
+  var PROFILE_UNITS = {
+    taper: [0.12, 0.55, 1, 0.4, 0.08],
+    swell: [0.22, 0.85, 1, 0.45, 0.22],
+    point: [0.06, 0.28, 1, 0.28, 0.06]
+  };
+
+  function readProfile(raw, baseWidth) {
+    var base = baseWidth > 0 ? baseWidth : 8;
+    if (typeof raw === "string") {
+      var name = raw.toLowerCase();
+      if (!PROFILE_UNITS[name]) return null;
+      return {
+        name: name,
+        samples: PROFILE_UNITS[name].map(function (n) { return Math.round(n * base * 100) / 100; })
+      };
+    }
+    if (!Array.isArray(raw) || !raw.length) return null;
+    var samples = raw.slice(0, 16).map(function (n) {
+      if (n && typeof n === "object") return Math.max(0, num(n.w != null ? n.w : n.width, 0));
+      return Math.max(0, num(n, 0));
+    });
+    return { name: "", samples: samples };
+  }
+
+  function profileWidth(shape, t) {
+    var samples = shape.widthProfile;
+    var base = num(shape.strokeWidth, 8);
+    if (!samples || !samples.length) return base;
+    if (samples.length === 1) return samples[0];
+    var u = Math.max(0, Math.min(1, t)) * (samples.length - 1);
+    var i = Math.floor(u);
+    if (i >= samples.length - 1) i = samples.length - 2;
+    var f = u - i;
+    return samples[i] + (samples[i + 1] - samples[i]) * f;
+  }
+
+  function round2(n) {
+    return Math.round(n * 100) / 100;
+  }
+
+  function withNormals(points, closed) {
+    var out = [];
+    for (var i = 0; i < points.length; i++) {
+      var prev = points[i === 0 ? (closed ? points.length - 1 : 0) : i - 1];
+      var next = points[i === points.length - 1 ? (closed ? 0 : i) : i + 1];
+      var dx = next.x - prev.x;
+      var dy = next.y - prev.y;
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      out.push({
+        x: points[i].x,
+        y: points[i].y,
+        t: points[i].t,
+        nx: -dy / len,
+        ny: dx / len
+      });
+    }
+    return out;
+  }
+
+  function sampleSegment(ax, ay, bx, by, cx, cy, dx, dy, steps, t0, t1, cubic) {
+    var pts = [];
+    for (var i = 0; i <= steps; i++) {
+      var u = i / steps;
+      var x;
+      var y;
+      if (!cubic) {
+        x = ax + (bx - ax) * u;
+        y = ay + (by - ay) * u;
+      } else {
+        var k = 1 - u;
+        x = k * k * k * ax + 3 * k * k * u * bx + 3 * k * u * u * cx + u * u * u * dx;
+        y = k * k * k * ay + 3 * k * k * u * by + 3 * k * u * u * cy + u * u * u * dy;
+      }
+      pts.push({ x: x, y: y, t: t0 + (t1 - t0) * u });
+    }
+    return pts;
+  }
+
+  function centerline(shape) {
+    if (!shape) return [];
+    if (shape.type === "line") {
+      return withNormals(sampleSegment(shape.x1, shape.y1, shape.x2, shape.y2, 0, 0, 0, 0, 8, 0, 1, false), false);
+    }
+    if (shape.type !== "path" || !shape.d) return [];
+    var tokens = String(shape.d).match(/[MmLlHhVvCcSsQqTtZz]|[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?/g) || [];
+    var i = 0;
+    var cx = 0;
+    var cy = 0;
+    var sx = 0;
+    var sy = 0;
+    var pts = [];
+    var closed = false;
+    function numAt() { return parseFloat(tokens[i++]); }
+    function push(x, y, t) {
+      if (!pts.length || Math.abs(pts[pts.length - 1].x - x) > 0.01 || Math.abs(pts[pts.length - 1].y - y) > 0.01) {
+        pts.push({ x: x, y: y, t: t });
+      }
+    }
+    var seg = 0;
+    var segs = [];
+    while (i < tokens.length) {
+      var cmd = tokens[i++];
+      if (!/[A-Za-z]/.test(cmd)) { i--; cmd = "L"; }
+      var rel = cmd === cmd.toLowerCase();
+      var op = cmd.toUpperCase();
+      if (op === "M") {
+        cx = (rel ? cx : 0) + numAt();
+        cy = (rel ? cy : 0) + numAt();
+        sx = cx; sy = cy;
+        push(cx, cy, 0);
+      } else if (op === "L") {
+        var x = (rel ? cx : 0) + numAt();
+        var y = (rel ? cy : 0) + numAt();
+        segs.push(["L", cx, cy, x, y]);
+        cx = x; cy = y;
+      } else if (op === "H") {
+        var hx = (rel ? cx : 0) + numAt();
+        segs.push(["L", cx, cy, hx, cy]);
+        cx = hx;
+      } else if (op === "V") {
+        var hy = (rel ? cy : 0) + numAt();
+        segs.push(["L", cx, cy, cx, hy]);
+        cy = hy;
+      } else if (op === "C") {
+        var c1x = (rel ? cx : 0) + numAt();
+        var c1y = (rel ? cy : 0) + numAt();
+        var c2x = (rel ? cx : 0) + numAt();
+        var c2y = (rel ? cy : 0) + numAt();
+        var ex = (rel ? cx : 0) + numAt();
+        var ey = (rel ? cy : 0) + numAt();
+        segs.push(["C", cx, cy, c1x, c1y, c2x, c2y, ex, ey]);
+        cx = ex; cy = ey;
+      } else if (op === "Z") {
+        segs.push(["L", cx, cy, sx, sy]);
+        cx = sx; cy = sy;
+        closed = true;
+      } else {
+        break;
+      }
+    }
+    if (!segs.length) return withNormals(pts, closed);
+    var span = 1 / segs.length;
+    pts = [{ x: segs[0][1], y: segs[0][2], t: 0 }];
+    segs.forEach(function (s, idx) {
+      var t0 = idx * span;
+      var t1 = (idx + 1) * span;
+      var chunk;
+      if (s[0] === "C") chunk = sampleSegment(s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], 6, t0, t1, true);
+      else chunk = sampleSegment(s[1], s[2], s[3], s[4], 0, 0, 0, 0, 4, t0, t1, false);
+      chunk.forEach(function (pt, n) { if (n) pts.push(pt); });
+    });
+    return withNormals(pts, closed);
+  }
+
+  function outlinePath(shape) {
+    var line = centerline(shape);
+    if (line.length < 2 || !shape.widthProfile || shape.widthProfile.length < 2) return "";
+    var closed = /[Zz]/.test(shape.d || "");
+    var left = [];
+    var right = [];
+    line.forEach(function (p) {
+      var half = profileWidth(shape, p.t) / 2;
+      left.push([p.x + p.nx * half, p.y + p.ny * half]);
+      right.push([p.x - p.nx * half, p.y - p.ny * half]);
+    });
+    function fmt(pair) { return round2(pair[0]) + " " + round2(pair[1]); }
+    var d = "M" + fmt(left[0]);
+    for (var i = 1; i < left.length; i++) d += " L" + fmt(left[i]);
+    if (!closed) {
+      var end = line[line.length - 1];
+      var start = line[0];
+      var er = profileWidth(shape, end.t) / 2;
+      var sr = profileWidth(shape, start.t) / 2;
+      for (var a = 1; a <= 4; a++) {
+        var ang = Math.PI * a / 4;
+        var cs = Math.cos(ang);
+        var sn = Math.sin(ang);
+        d += " L" + round2(end.x + (end.nx * cs - end.ny * sn) * er) + " " + round2(end.y + (end.ny * cs + end.nx * sn) * er);
+      }
+    }
+    for (var r = right.length - 1; r >= 0; r--) d += " L" + fmt(right[r]);
+    if (!closed) {
+      var st = line[0];
+      var rad = profileWidth(shape, st.t) / 2;
+      for (var b = 1; b <= 4; b++) {
+        var ang2 = Math.PI * b / 4;
+        var cs2 = Math.cos(ang2);
+        var sn2 = Math.sin(ang2);
+        d += " L" + round2(st.x + (-st.nx * cs2 - st.ny * sn2) * rad) + " " + round2(st.y + (-st.ny * cs2 + st.nx * sn2) * rad);
+      }
+    }
+    return d + " Z";
+  }
+
   function styleAttrs(shape, palette) {
     var fill = paint(shape.fill != null ? shape.fill : shape.role, palette);
     var stroke = paint(shape.stroke, palette);
@@ -388,6 +586,15 @@
 
   function compileShape(shape, palette) {
     var attrs = styleAttrs(shape, palette);
+    if (shape.type === "path" && shape.widthProfile && shape.widthProfile.length >= 2) {
+      var ribbon = outlinePath(shape);
+      if (ribbon) {
+        var ink = paint(shape.stroke, palette) || paint(shape.fill != null ? shape.fill : shape.role, palette) || palette.figure;
+        var ribbonAttrs = ' fill="' + ink + '"';
+        if (shape.opacity != null && shape.opacity < 1) ribbonAttrs += ' opacity="' + shape.opacity + '"';
+        return '<path d="' + ribbon + '"' + ribbonAttrs + "/>";
+      }
+    }
     if (shape.type === "path") return '<path d="' + shape.d + '"' + attrs + "/>";
     if (shape.type === "circle") return '<circle cx="' + shape.cx + '" cy="' + shape.cy + '" r="' + shape.r + '"' + attrs + "/>";
     if (shape.type === "ellipse") return '<ellipse cx="' + shape.cx + '" cy="' + shape.cy + '" rx="' + shape.rx + '" ry="' + shape.ry + '"' + attrs + "/>";
@@ -545,6 +752,10 @@
     buildTextile: buildTextile,
     blank: blank,
     slug: slug,
-    esc: esc
+    esc: esc,
+    centerline: centerline,
+    profileWidth: profileWidth,
+    profiles: PROFILE_NAMES.slice(),
+    profileUnits: PROFILE_UNITS
   };
 })(typeof window !== "undefined" ? window : globalThis);

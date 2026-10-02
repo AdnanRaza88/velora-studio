@@ -41,6 +41,6 @@ Skill packs may send `category` `icon` or `character`. The validator maps those 
 
 Optional palette keys `ink2`, `ink3`, `ink4` must be hex when present. Missing `ground`, `figure`, or `accent` is repaired from defaults and reported in `warnings`. The document still compiles.
 
-Raster nodes, `data:image`, base64 payloads, and script strings are rejected. Path `d` stays on the SVG command alphabet. Group nesting stops at depth 4. `widthProfile` is accepted and stored; stroke width expansion is a later editor phase.
+Raster nodes, `data:image`, base64 payloads, and script strings are rejected. Path `d` stays on the SVG command alphabet. Group nesting stops at depth 4. `widthProfile` is an array of absolute widths sampled along the stroke, or a named preset `taper`, `swell`, or `point`. The compiler expands it to a filled outline. The centerline `d` stays editable. The Width tool writes the samples back into VXL.
 
 Golden fixtures live in `docs/spec/golden`. Run `node tools/vxl-golden.js`.

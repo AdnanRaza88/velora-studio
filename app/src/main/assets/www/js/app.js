@@ -88,9 +88,11 @@
       '<button type="button" class="ghost" id="scaleDn">Scale down</button>' +
       '<button type="button" class="ghost" id="rotL">Rotate left</button>' +
       '<button type="button" class="ghost" id="rotR">Rotate right</button>' +
-      '<button type="button" class="ghost' + (state.tool === "pen" ? " on" : "") + '" id="penMode">Anchors</button></div>' +
+      '<button type="button" class="ghost' + (state.tool === "pen" ? " on" : "") + '" id="penMode">Anchors</button>' +
+      '<button type="button" class="ghost' + (state.tool === "width" ? " on" : "") + '" id="widthMode">Width</button>' +
+      widthChips() + '</div>' +
       inkControls(checked.document) +
-      '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + (state.tool === "pen" ? ". Drag an anchor or its Bezier handle. The path is rewritten in VXL." : ". Drag the canvas to move. Geometry is written back into VXL.") : "Select a shape on the canvas or in the list.") + "</p>" +
+      '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -113,11 +115,33 @@
     return Math.max(8, Number(vb[2] || 400) / 42);
   }
 
+
+  function toolHint() {
+    if (state.tool === "pen") return ". Drag an anchor or its Bezier handle. The path is rewritten in VXL.";
+    if (state.tool === "width") return ". Pick a profile or drag a width point. The stroke expands on compile.";
+    return ". Drag the canvas to move. Geometry is written back into VXL.";
+  }
+
+  function widthChips() {
+    if (state.tool !== "width") return "";
+    var names = ["taper", "swell", "point"];
+    return names.map(function (name) {
+      return '<button type="button" class="chip" data-profile="' + name + '">' + name + '</button>';
+    }).join("");
+  }
+
   function overlayMarks(doc) {
     var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(doc, state.sel)) : null;
     var marks = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
-    if (state.tool !== "pen" || !state.sel) return marks;
+    if (!state.sel || (state.tool !== "pen" && state.tool !== "width")) return marks;
     var shape = VeloraEdit.find(doc, state.sel);
+    if (state.tool === "width") {
+      VeloraEdit.widthHandles(shape).forEach(function (h) {
+        marks += '<line x1="' + h.x + '" y1="' + h.y + '" x2="' + h.hx + '" y2="' + h.hy + '"/>';
+        marks += '<circle class="handle" cx="' + h.hx + '" cy="' + h.hy + '" r="' + (handleRadius(doc) * 0.34) + '"/>';
+      });
+      return marks;
+    }
     var handles = VeloraEdit.handles(shape);
     var radius = handleRadius(doc);
     handles.forEach(function (h) {
@@ -240,6 +264,18 @@
       if (state.tool === "pen" && state.sel) VeloraEdit.penReady(VeloraEdit.find(state.doc, state.sel));
       publishScene(state.doc, state.tool === "pen" ? "Anchor edit" : "Selection");
     };
+    document.getElementById("widthMode").onclick = function () {
+      state.tool = state.tool === "width" ? "select" : "width";
+      publishScene(state.doc, state.tool === "width" ? "Width profile" : "Selection");
+    };
+    var chips = document.querySelectorAll("[data-profile]");
+    for (var c = 0; c < chips.length; c++) {
+      chips[c].onclick = function () {
+        if (!state.sel) return;
+        VeloraEdit.applyWidth(state.doc, state.sel, this.getAttribute("data-profile"));
+        publishScene(state.doc, "Width " + this.getAttribute("data-profile"));
+      };
+    }
     var stage = document.getElementById("stage");
     var art = document.getElementById("art");
     var drag = null;
@@ -256,6 +292,16 @@
       if (ev.target.closest("button,select,input,textarea")) return;
       var pt = pointerPoint(ev);
       if (!pt) return;
+      if (state.tool === "width" && state.sel) {
+        var stroked = VeloraEdit.find(state.doc, state.sel);
+        var widthHit = stroked && VeloraEdit.hitWidth(stroked, pt.x, pt.y, handleRadius(state.doc));
+        if (widthHit) {
+          drag = { kind: "width", id: state.sel, i: widthHit.i, moved: false };
+          stage.setPointerCapture(ev.pointerId);
+          paintArt();
+          return;
+        }
+      }
       if (state.tool === "pen" && state.sel) {
         var current = VeloraEdit.find(state.doc, state.sel);
         var handle = current && VeloraEdit.hitHandle(current, pt.x, pt.y, handleRadius(state.doc));
@@ -288,6 +334,18 @@
         paintArt();
         return;
       }
+      if (drag.kind === "width") {
+        var host = VeloraEdit.find(state.doc, drag.id);
+        var handles = VeloraEdit.widthHandles(host);
+        var h = handles[drag.i];
+        if (h) {
+          var along = (pt.x - h.x) * h.nx + (pt.y - h.y) * h.ny;
+          VeloraEdit.setWidthSample(state.doc, drag.id, drag.i, Math.abs(along) * 2);
+          drag.moved = true;
+          paintArt();
+        }
+        return;
+      }
       var dx = pt.x - drag.x;
       var dy = pt.y - drag.y;
       if (Math.abs(dx) < 0.4 && Math.abs(dy) < 0.4) return;
@@ -301,7 +359,7 @@
       var moved = drag && drag.moved;
       var kind = drag && drag.kind;
       drag = null;
-      if (moved) publishScene(state.doc, kind === "handle" ? "Anchor edited" : "Moved");
+      if (moved) publishScene(state.doc, kind === "handle" ? "Anchor edited" : kind === "width" ? "Width edited" : "Moved");
       else publishScene(state.doc, state.sel ? "Selected" : "Selection cleared");
     };
   }
@@ -319,7 +377,7 @@
     var src = document.getElementById("editVxl");
     if (src) src.value = JSON.stringify(state.doc, null, 2);
     var msg = document.getElementById("selMsg");
-    if (msg) msg.textContent = state.sel ? "Selected " + state.sel + (state.tool === "pen" ? ". Drag an anchor or its Bezier handle. The path is rewritten in VXL." : ". Drag the canvas to move. Geometry is written back into VXL.") : "Select a shape on the canvas or in the list.";
+    if (msg) msg.textContent = state.sel ? "Selected " + state.sel + toolHint() : "Select a shape on the canvas or in the list.";
   }
 
   function publishScene(doc, note) {

@@ -45,7 +45,7 @@ Brief (+ optional attachment)
 - [x] Select, move, scale, rotate
 - [x] Recolor by job (figure/ground/accent)
 - [x] Anchor edit (pen-level)
-- [ ] Width profile on strokes
+- [x] Width profile on strokes
 - [ ] Text tool
 - [ ] Undo/redo, layers
 
