@@ -151,7 +151,7 @@
     slot.innerHTML = refMarkup();
     if (state.attachment && state.attachment.ok) {
       msg.className = "ok";
-      msg.textContent = "Image attached on this device. Needle still reads only the brief.";
+      msg.textContent = "Image stays on this device. Trace builds VXL paths. Needle still reads only the brief.";
     } else if (state.attachment && state.attachment.error && state.attachment.error !== "cancelled") {
       msg.className = "warn";
       msg.textContent = state.attachment.error;
@@ -177,6 +177,7 @@
       '<div class="card"><h2>Reference</h2><p class="muted">Optional image. Stored on this device. Not sent to Needle.</p>' +
       '<div id="refSlot"></div>' +
       '<div class="row"><button type="button" class="btn" id="pickRef">Attach image</button>' +
+      '<button type="button" class="btn" id="traceBtn">Trace to VXL</button>' +
       '<button type="button" class="ghost" id="clearRef">Remove</button>' +
       '<input id="refFile" type="file" accept="image/*" class="hidden"/></div>' +
       '<p id="refMsg" class="muted"></p></div>' +
@@ -202,6 +203,7 @@
     };
     document.getElementById("pickRef").onclick = function () { VeloraReference.pick(); };
     document.getElementById("clearRef").onclick = function () { VeloraReference.clear(); };
+    document.getElementById("traceBtn").onclick = function () { runTrace(); };
     document.getElementById("refFile").onchange = function () {
       var file = this.files && this.files[0];
       if (file) VeloraReference.fromFile(file);
@@ -239,6 +241,54 @@
     if (got.viewBox && got.viewBox.length === 4) base.viewBox = got.viewBox;
     if (got.inkCount) base.inkCount = got.inkCount;
     return base;
+  }
+
+
+  function showTrace(result, note) {
+    if (!result.ok) {
+      document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(result.error || "trace failed") + "</div>";
+      return;
+    }
+    var brief = (document.getElementById("brief") && document.getElementById("brief").value || "").trim();
+    var name = state.attachment && state.attachment.name ? state.attachment.name : "Trace";
+    var draft = VeloraTrace.documentFrom(result, brief, name);
+    VeloraReference.bindDocument(draft);
+    var checked = VeloraVxl.validate(draft);
+    if (!checked.ok) {
+      document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(checked.errors.join("; ")) + "</div>";
+      return;
+    }
+    document.getElementById("out").innerHTML = showScene(checked.document, note + " / " + result.contours + " paths");
+    bindScene();
+  }
+
+  function runTrace() {
+    var ref = VeloraReference.current();
+    if (!ref || !ref.ok) {
+      document.getElementById("out").innerHTML = '<div class="status warn">Attach an image before tracing.</div>';
+      return;
+    }
+    if (window.VeloraAttach && window.VeloraAttach.raster && ref.id && ref.store !== "session") {
+      var raw = window.VeloraAttach.raster(String(ref.id));
+      var payload = raw;
+      if (typeof raw === "string") {
+        try { payload = JSON.parse(raw); } catch (error) { payload = { ok: false, error: "parse" }; }
+      }
+      showTrace(VeloraTrace.fromRaster(payload), "Autotrace / device file");
+      return;
+    }
+    if (!ref.preview) {
+      document.getElementById("out").innerHTML = '<div class="status warn">No local pixels for this reference.</div>';
+      return;
+    }
+    var img = new Image();
+    img.onload = function () {
+      VeloraTrace.fromImage(img, function (result) { showTrace(result, "Autotrace / preview"); });
+    };
+    img.onerror = function () {
+      document.getElementById("out").innerHTML = '<div class="status warn">Unreadable reference.</div>';
+    };
+    img.src = ref.preview;
   }
 
   function sessionA(brief) {

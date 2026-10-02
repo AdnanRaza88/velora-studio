@@ -2,7 +2,7 @@
   var current = null;
 
   function summary() {
-    if (!current || !current.ok) return { attached: false, trace: "phase-3b" };
+    if (!current || !current.ok) return { attached: false, trace: "autotrace" };
     return {
       attached: true,
       id: current.id,
@@ -13,7 +13,7 @@
       height: current.height || 0,
       store: current.store || "files/attachments",
       file: current.file || ("files/attachments/" + current.id),
-      trace: "phase-3b"
+      trace: "autotrace"
     };
   }
 
@@ -64,7 +64,7 @@
           height: img.naturalHeight || 0,
           store: "session",
           file: "",
-          trace: "phase-3b",
+          trace: "autotrace",
           preview: String(reader.result || "")
         });
       };
@@ -132,7 +132,7 @@
       height: ref.height,
       store: ref.store || "session",
       file: ref.file || "",
-      trace: "phase-3b"
+      trace: "autotrace"
     });
   }
 

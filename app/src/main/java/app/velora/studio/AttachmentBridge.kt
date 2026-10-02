@@ -34,6 +34,41 @@ class AttachmentBridge(
         find(id)?.delete()
     }
 
+    @JavascriptInterface
+    fun raster(id: String): String {
+        val file = find(id) ?: return JSONObject().put("ok", false).put("error", "missing").toString()
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            return JSONObject().put("ok", false).put("error", "unreadable").toString()
+        }
+        var sample = 1
+        val edge = maxOf(bounds.outWidth, bounds.outHeight)
+        while (edge / sample > 96) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val bitmap = BitmapFactory.decodeFile(file.absolutePath, opts)
+            ?: return JSONObject().put("ok", false).put("error", "unreadable").toString()
+        val w = bitmap.width
+        val h = bitmap.height
+        val pixels = IntArray(w * h)
+        bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
+        bitmap.recycle()
+        val luma = ByteArray(w * h)
+        for (i in pixels.indices) {
+            val c = pixels[i]
+            val r = (c shr 16) and 0xff
+            val g = (c shr 8) and 0xff
+            val b = c and 0xff
+            luma[i] = ((r * 54 + g * 183 + b * 19) shr 8).toByte()
+        }
+        return JSONObject()
+            .put("ok", true)
+            .put("width", w)
+            .put("height", h)
+            .put("luma", Base64.encodeToString(luma, Base64.NO_WRAP))
+            .toString()
+    }
+
     fun onPicked(uri: Uri?) {
         if (uri == null) {
             deliver(JSONObject().put("ok", false).put("error", "cancelled"))
