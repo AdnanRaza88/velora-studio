@@ -61,15 +61,34 @@
     state.svg = VeloraVxl.compile(checked.document);
     var layers = checked.document.layers.length;
     var shapes = checked.document.layers.reduce(function (n, layer) { return n + layer.shapes.length; }, 0);
+    var source = JSON.stringify(checked.document, null, 2);
+    var shapeRows = "";
+    checked.document.layers.forEach(function (layer, li) {
+      layer.shapes.forEach(function (shape, si) {
+        var key = li + ":" + si;
+        var roles = ["figure", "ground", "accent"].map(function (role) {
+          return '<option value="' + role + '"' + (shape.role === role ? " selected" : "") + ">" + role + "</option>";
+        }).join("");
+        shapeRows += '<div class="project"><div><strong>' + VeloraVxl.esc(shape.id) + '</strong><div class="muted">' +
+          VeloraVxl.esc(layer.name) + " \u00b7 " + VeloraVxl.esc(shape.type) + "</div></div>" +
+          '<div class="row"><select data-role="' + key + '" aria-label="Role for ' + VeloraVxl.esc(shape.id) + '">' + roles +
+          '</select><button type="button" class="ghost" data-drop="' + key + '">Remove</button></div></div>';
+      });
+    });
     return '<div class="card" id="scene">' + state.svg +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
-      (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") + "</p>" +
+      (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") +
+      (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
       '<label for="pname">Project name</label><input id="pname" value="' + VeloraVxl.esc(checked.document.meta.name) + '"/>' +
       '<div class="row"><button type="button" class="btn" id="saveP">Save on device</button>' +
       '<button type="button" class="ghost" id="dlSvg">Download SVG</button>' +
-      '<button type="button" class="ghost" id="dlVxl">Download VXL</button>' +
-      '<button type="button" class="ghost" id="showVxl">Show VXL</button></div>' +
-      '<p id="saveMsg" class="muted"></p><pre id="vxlBox" class="hidden"></pre></div>';
+      '<button type="button" class="ghost" id="dlVxl">Download VXL</button></div>' +
+      '<p id="saveMsg" class="muted"></p>' +
+      '<h3>Shapes</h3><p class="muted">Trace paths are ordinary VXL shapes. Role uses the palette. Remove drops the shape from the document.</p>' +
+      shapeRows +
+      '<label for="editVxl">VXL source</label><textarea id="editVxl">' + VeloraVxl.esc(source) + '</textarea>' +
+      '<div class="row"><button type="button" class="btn" id="applyVxl">Apply VXL edits</button></div>' +
+      '<p id="editMsg" class="muted"></p></div>';
   }
 
   function bindScene() {
@@ -89,11 +108,50 @@
     document.getElementById("dlVxl").onclick = function () {
       download(JSON.stringify(state.doc, null, 2), VeloraVxl.slug(state.doc.meta.name) + ".vxl.json", "application/json");
     };
-    document.getElementById("showVxl").onclick = function () {
-      var box = document.getElementById("vxlBox");
-      box.classList.toggle("hidden");
-      box.textContent = JSON.stringify(state.doc, null, 2);
+    var roles = document.querySelectorAll("[data-role]");
+    for (var i = 0; i < roles.length; i++) {
+      roles[i].onchange = function () {
+        var parts = this.getAttribute("data-role").split(":");
+        var shape = state.doc.layers[Number(parts[0])].shapes[Number(parts[1])];
+        shape.role = this.value;
+        if (shape.fill === "figure" || shape.fill === "ground" || shape.fill === "accent" || shape.fill == null) shape.fill = this.value;
+        publishScene(state.doc, "Role updated");
+      };
+    }
+    var drops = document.querySelectorAll("[data-drop]");
+    for (var d = 0; d < drops.length; d++) {
+      drops[d].onclick = function () {
+        var parts = this.getAttribute("data-drop").split(":");
+        var shapes = state.doc.layers[Number(parts[0])].shapes;
+        shapes.splice(Number(parts[1]), 1);
+        publishScene(state.doc, "Shape removed");
+      };
+    }
+    document.getElementById("applyVxl").onclick = function () {
+      publishScene(document.getElementById("editVxl").value, "Edited VXL");
     };
+  }
+
+  function publishScene(doc, note) {
+    var out = document.getElementById("out");
+    var checked = VeloraVxl.validate(doc);
+    if (!checked.ok) {
+      var msg = document.getElementById("editMsg");
+      if (msg) {
+        msg.className = "warn";
+        msg.textContent = checked.errors.join("; ");
+      } else if (out) {
+        out.innerHTML = '<div class="status warn">' + VeloraVxl.esc(checked.errors.join("; ")) + "</div>";
+      }
+      return checked;
+    }
+    if (out) {
+      out.innerHTML = showScene(checked.document, note);
+      bindScene();
+    }
+    var paste = document.getElementById("paste");
+    if (paste) paste.value = JSON.stringify(checked.document, null, 2);
+    return checked;
   }
 
   function renderStudio() {
@@ -258,8 +316,7 @@
       document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(checked.errors.join("; ")) + "</div>";
       return;
     }
-    document.getElementById("out").innerHTML = showScene(checked.document, note + " / " + result.contours + " paths");
-    bindScene();
+    publishScene(checked.document, note + " / " + result.contours + " paths");
   }
 
   function runTrace() {

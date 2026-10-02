@@ -25,6 +25,7 @@ Attachment path (when image present):
 - The session binds `meta.reference` (id, name, mime, bytes, size, file). Preview bytes stay out of the VXL document.
 - Phase 3b reads that file: `VeloraAttach.raster` downsamples to luma, `VeloraTrace` contours and RDP-simplifies into VXL path shapes. Session previews trace from the local image element.
 - Needle does not see pixels. Trace is a separate module. `VeloraReference.summary()` is the handoff (`trace: autotrace`).
+- Trace writes a normal VXL 1 document (path shapes, palette roles, no raster). The user edits that document the same way as pasted VXL: role, remove, or rewrite the JSON, then validate and compile again.
 
 ## Why Needle 2 is the default agent
 - ~14 MB binary, ~28 MB RAM — ships inside the APK.

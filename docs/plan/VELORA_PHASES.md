@@ -39,7 +39,7 @@ Brief (+ optional attachment)
 ## Phase 3b — Reference / image to vector
 - [x] Attach image
 - [x] Autotrace → path simplify → VXL paths
-- [ ] User can edit result as normal VXL
+- [x] User can edit result as normal VXL
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [ ] Select, move, scale, rotate
