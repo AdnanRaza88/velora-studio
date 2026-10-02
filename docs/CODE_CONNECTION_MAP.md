@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-02 17:21
+Last updated: 2026-10-02 19:20
 
 ## 1. Entry Points
 
@@ -19,14 +19,16 @@ Last updated: 2026-10-02 17:21
 | app/src/main/assets/www/js/vxl.js | Schema, validate, compile, procedural builders | VeloraVxl.validate, compile, buildLogo, buildTextile | none | app.js, tools/vxl-golden.js |
 | app/src/main/assets/www/js/projects.js | Device project store | VeloraProjects | localStorage | app.js |
 | app/src/main/assets/www/js/skills.js | Skill packs and emit_vxl expand | VeloraSkills.compose, route, expand | VeloraVxl | app.js, tools/skill-packs.js |
-| app/src/main/assets/www/js/app.js | Routes and compose/import UI | sessionA default path | VeloraVxl, VeloraProjects, VeloraSkills, VeloraNeedleClient | index.html |
+| app/src/main/java/app/velora/studio/AttachmentBridge.kt | Image pick, store, lookup | VeloraAttach.pick, lookup, clear | files/attachments | MainActivity, attach.js |
+| app/src/main/assets/www/js/attach.js | Session reference | VeloraReference.bindDocument, restore | VeloraAttach | app.js |
+| app/src/main/assets/www/js/app.js | Routes and compose/import UI | sessionA default path | VeloraVxl, VeloraProjects, VeloraSkills, VeloraNeedleClient, VeloraReference | index.html |
 | app/src/main/assets/skills/*.json | APK skill packs + emit_vxl schema | pack id, system, tool | none | Needle asset load |
 | docs/spec/VXL.md | VXL 1 contract | schema | none | compiler |
 | docs/plan/VELORA_PHASES.md | Phase tracker | none | none | agents |
 
 ## 3. Import / Call Graph
 
-- index.html loads vxl.js, projects.js, skills.js, needle.js, then app.js
+- index.html loads vxl.js, projects.js, skills.js, needle.js, attach.js, then app.js
 - app.js sessionA calls VeloraNeedleClient.complete, then VeloraSkills.expand. It does not read provider keys
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
@@ -51,6 +53,7 @@ Last updated: 2026-10-02 17:21
 
 ## 6. Recent Changes Log
 
+- 2026-10-02 Phase 3b attach image: meta.reference plus files/attachments lookup, no raster in VXL
 - 2026-10-02 Phase 3 default path: Needle plus skill expand, no remote key
 - 2026-10-02 Phase 3 Needle bundle: android-arm64 asset + status bridge
 - 2026-10-02 Phase 3 skill packs: logo, textile, character, icon + emit_vxl schema

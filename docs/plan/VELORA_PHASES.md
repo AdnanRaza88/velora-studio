@@ -37,7 +37,7 @@ Brief (+ optional attachment)
 - [x] Attachment picker UI (wire to image-to-vector in Phase 3b)
 
 ## Phase 3b — Reference / image to vector
-- [ ] Attach image
+- [x] Attach image
 - [ ] Autotrace → path simplify → VXL paths
 - [ ] User can edit result as normal VXL
 

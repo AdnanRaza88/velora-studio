@@ -78,6 +78,7 @@
     save.onclick = function () {
       state.doc.meta.name = document.getElementById("pname").value.trim() || state.doc.meta.name;
       state.doc.meta.updated = new Date().toISOString();
+      VeloraReference.bindDocument(state.doc);
       var res = VeloraProjects.save(state.doc);
       document.getElementById("saveMsg").textContent = res.ok ? "Saved on this device." : res.error;
       document.getElementById("saveMsg").className = res.ok ? "ok" : "warn";
@@ -125,6 +126,7 @@
     if (!doc) return;
     state.doc = doc;
     state.type = doc.meta.category === "textile" ? "textile" : "logo";
+    if (doc.meta && doc.meta.reference) VeloraReference.restore(doc.meta.reference);
     setRoute("compose");
     var out = document.getElementById("out");
     out.innerHTML = showScene(doc, "Loaded from device");
@@ -135,9 +137,11 @@
     var ref = state.attachment;
     if (!ref || !ref.ok) return "";
     var thumb = ref.preview ? '<img class="thumb" alt="" src="' + ref.preview + '"/>' : "";
+    var size = (ref.width && ref.height) ? (ref.width + "\u00d7" + ref.height + " \u00b7 ") : "";
+    var where = ref.file ? VeloraVxl.esc(ref.file) : "session only";
     return '<div class="row">' + thumb + '<div><strong>' + VeloraVxl.esc(ref.name || "reference") +
-      '</strong><div class="muted">' + VeloraVxl.esc(ref.mime || "image") + " \u00b7 " + Math.round((ref.bytes || 0) / 1024) +
-      " KB \u00b7 on device</div></div></div>";
+      '</strong><div class="muted">' + size + VeloraVxl.esc(ref.mime || "image") + " \u00b7 " + Math.round((ref.bytes || 0) / 1024) +
+      " KB \u00b7 " + where + "</div></div></div>";
   }
 
   function paintRef() {
@@ -147,13 +151,13 @@
     slot.innerHTML = refMarkup();
     if (state.attachment && state.attachment.ok) {
       msg.className = "ok";
-      msg.textContent = "Attached. Needle still reads only the brief. Trace waits for image-to-vector.";
+      msg.textContent = "Image attached on this device. Needle still reads only the brief.";
     } else if (state.attachment && state.attachment.error && state.attachment.error !== "cancelled") {
       msg.className = "warn";
       msg.textContent = state.attachment.error;
     } else {
       msg.className = "muted";
-      msg.textContent = "No reference. Image-to-vector will trace whatever is attached.";
+      msg.textContent = "No image attached. Trace will use the file stored under files/attachments.";
     }
   }
 
@@ -248,8 +252,9 @@
       note = "Skill repair / " + skill;
     }
     if (!expanded.ok) return expanded;
+    VeloraReference.bindDocument(expanded.document);
     var ref = VeloraReference.summary();
-    if (ref.attached) note += " / reference " + ref.name + " (trace in 3b)";
+    if (ref.attached) note += " / reference " + ref.name;
     expanded.note = note + " / no key" + (call.error ? " (" + call.error + ")" : "");
     expanded.reference = ref;
     return expanded;

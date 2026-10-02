@@ -21,7 +21,8 @@ User pastes or loads VXL JSON (hand-written or from Session A).
 4. Export SVG / VXL / PNG preview.
 
 Attachment path (when image present):
-- Picker copies the image into app-private `files/attachments/<id>.<ext>` and shows a local preview. Needle still receives only the text brief.
+- Picker copies the image into app-private `files/attachments/<id>.<ext>`, records width and height, and shows a local preview. Needle still receives only the text brief.
+- The session binds `meta.reference` (id, name, mime, bytes, size, file). Preview bytes stay out of the VXL document.
 - Phase 3b reads that file: autotrace / edge simplify → path candidates → VXL path layer.
 - Needle does not see pixels. Trace is a separate module. `VeloraReference.summary()` is the handoff (`trace: phase-3b`).
 

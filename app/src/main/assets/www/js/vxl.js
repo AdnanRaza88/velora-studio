@@ -251,6 +251,39 @@
     return doc;
   }
 
+
+  function cleanReference(ref, errors) {
+    if (ref == null) return null;
+    if (typeof ref !== "object") {
+      errors.push("meta.reference must be an object");
+      return null;
+    }
+    var blob = JSON.stringify(ref);
+    if (looksUnsafe(blob)) {
+      errors.push("meta.reference must not embed raster");
+      return null;
+    }
+    var id = String(ref.id || "").replace(/[^a-zA-Z0-9-]/g, "");
+    if (!id) {
+      errors.push("meta.reference.id is required");
+      return null;
+    }
+    var file = "files/attachments/" + id;
+    if (typeof ref.file === "string" && ref.file.indexOf("files/attachments/") === 0) {
+      file = ref.file.replace(/[^a-zA-Z0-9./-]/g, "").slice(0, 120);
+    }
+    return {
+      id: id.slice(0, 64),
+      name: String(ref.name || "reference").slice(0, 80),
+      mime: String(ref.mime || "image/jpeg").slice(0, 40),
+      bytes: Math.max(0, Math.round(num(ref.bytes, 0))),
+      width: Math.max(0, Math.round(num(ref.width, 0))),
+      height: Math.max(0, Math.round(num(ref.height, 0))),
+      store: "files/attachments",
+      file: file
+    };
+  }
+
   function validate(input) {
     var errors = [];
     var warnings = [];
@@ -277,6 +310,9 @@
     doc.meta.skill = skill;
     doc.meta.purpose = String(meta.purpose || "brand").slice(0, 40);
     doc.meta.brief = String(meta.brief || "").slice(0, 500);
+    var reference = cleanReference(meta.reference, errors);
+    if (reference) doc.meta.reference = reference;
+
 
     var vb = parseViewBox(raw.canvas && raw.canvas.viewBox);
     if (!vb) errors.push("canvas.viewBox must be 4 numbers");

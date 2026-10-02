@@ -9,7 +9,10 @@
       name: current.name,
       mime: current.mime,
       bytes: current.bytes,
-      store: current.store || "session",
+      width: current.width || 0,
+      height: current.height || 0,
+      store: current.store || "files/attachments",
+      file: current.file || ("files/attachments/" + current.id),
       trace: "phase-3b"
     };
   }
@@ -20,9 +23,10 @@
       try { data = JSON.parse(payload); } catch (error) { data = { ok: false, error: "parse" }; }
     }
     if (!data || !data.ok) {
-      current = null;
+      current = data && data.error ? data : null;
     } else {
       current = data;
+      if (!current.file && current.id) current.file = "files/attachments/" + current.id;
     }
     if (root.VeloraApp && root.VeloraApp.onAttachment) root.VeloraApp.onAttachment(current);
   }
@@ -48,16 +52,26 @@
     }
     var reader = new FileReader();
     reader.onload = function () {
-      apply({
-        ok: true,
-        id: "session-" + Date.now(),
-        name: file.name,
-        mime: file.type,
-        bytes: file.size,
-        store: "session",
-        trace: "phase-3b",
-        preview: String(reader.result || "")
-      });
+      var img = new Image();
+      img.onload = function () {
+        apply({
+          ok: true,
+          id: "session-" + Date.now(),
+          name: file.name,
+          mime: file.type,
+          bytes: file.size,
+          width: img.naturalWidth || 0,
+          height: img.naturalHeight || 0,
+          store: "session",
+          file: "",
+          trace: "phase-3b",
+          preview: String(reader.result || "")
+        });
+      };
+      img.onerror = function () {
+        apply({ ok: false, error: "unreadable" });
+      };
+      img.src = String(reader.result || "");
     };
     reader.readAsDataURL(file);
   }
@@ -70,12 +84,66 @@
     if (root.VeloraApp && root.VeloraApp.onAttachment) root.VeloraApp.onAttachment(null);
   }
 
+  function bindDocument(doc) {
+    if (!doc || !doc.meta) return doc;
+    var ref = summary();
+    if (!ref.attached) {
+      delete doc.meta.reference;
+      return doc;
+    }
+    doc.meta.reference = {
+      id: ref.id,
+      name: ref.name,
+      mime: ref.mime,
+      bytes: ref.bytes,
+      width: ref.width,
+      height: ref.height,
+      store: ref.store,
+      file: ref.file
+    };
+    return doc;
+  }
+
+  function restore(ref) {
+    if (!ref || !ref.id) {
+      current = null;
+      if (root.VeloraApp && root.VeloraApp.onAttachment) root.VeloraApp.onAttachment(null);
+      return;
+    }
+    if (root.VeloraAttach && root.VeloraAttach.lookup) {
+      var found = root.VeloraAttach.lookup(String(ref.id));
+      if (typeof found === "string") {
+        try { found = JSON.parse(found); } catch (error) { found = { ok: false, error: "parse" }; }
+      }
+      if (found && found.ok) {
+        found.name = ref.name || found.name;
+        found.mime = ref.mime || found.mime;
+      }
+      apply(found);
+      return;
+    }
+    apply({
+      ok: true,
+      id: ref.id,
+      name: ref.name,
+      mime: ref.mime,
+      bytes: ref.bytes,
+      width: ref.width,
+      height: ref.height,
+      store: ref.store || "session",
+      file: ref.file || "",
+      trace: "phase-3b"
+    });
+  }
+
   root.VeloraReference = {
     pick: pick,
     fromFile: fromFile,
     clear: clear,
     summary: summary,
     apply: apply,
+    bindDocument: bindDocument,
+    restore: restore,
     current: function () { return current; }
   };
   root.VeloraAttachReceive = apply;

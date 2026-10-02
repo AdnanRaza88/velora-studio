@@ -5,7 +5,7 @@ Source document for Velora Studio. The compiler is deterministic: the same docum
 ## Document
 
 - `vxl`: must be `1`
-- `meta`: `id`, `name`, `created`, `updated`, `category` (`logo` | `textile` | `illustration`), `purpose`, `brief`
+- `meta`: `id`, `name`, `created`, `updated`, `category` (`logo` | `textile` | `illustration`), `purpose`, `brief`, optional `reference`
 - `canvas.viewBox`: four numbers, units `px`
 - `palette`: `ground`, `figure`, `accent` as hex
 - `repeat`: `null`, or `{ type, tile, cols, rows }`
@@ -28,6 +28,8 @@ Paste JSON, or open a `.json` file. Validation runs before compile. Phase 1 docu
 ## Storage
 
 Projects live in `localStorage` under `velora.projects`. Keys stay in `velora.providers` and are not copied into a project. Cap: 30 projects, 180 KB each.
+
+`meta.reference` may point at an on-device file (`files/attachments/<id>.<ext>`) with name, mime, bytes, width, and height. It must not contain a data URL or base64 payload. The image file is not the design.
 
 ## Skill output
 

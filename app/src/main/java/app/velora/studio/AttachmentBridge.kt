@@ -24,10 +24,14 @@ class AttachmentBridge(
     }
 
     @JavascriptInterface
+    fun lookup(id: String): String {
+        val file = find(id) ?: return JSONObject().put("ok", false).put("error", "missing").toString()
+        return describe(file, includePreview = true).toString()
+    }
+
+    @JavascriptInterface
     fun clear(id: String) {
-        val safe = id.replace(Regex("[^a-zA-Z0-9-]"), "")
-        if (safe.isEmpty()) return
-        dir().listFiles()?.filter { it.name.startsWith("$safe.") }?.forEach { it.delete() }
+        find(id)?.delete()
     }
 
     fun onPicked(uri: Uri?) {
@@ -69,15 +73,42 @@ class AttachmentBridge(
             dest.delete()
             return JSONObject().put("ok", false).put("error", "image over 12 MB")
         }
-        return JSONObject()
+        val named = describe(dest, includePreview = true)
+        named.put("name", queryName(uri) ?: "reference.$ext")
+        named.put("mime", mime)
+        return named
+    }
+
+    private fun find(id: String): File? {
+        val safe = id.replace(Regex("[^a-zA-Z0-9-]"), "")
+        if (safe.isEmpty()) return null
+        return dir().listFiles()?.firstOrNull { it.name.startsWith("$safe.") }
+    }
+
+    private fun describe(file: File, includePreview: Boolean): JSONObject {
+        val ext = file.extension.ifEmpty { "jpg" }
+        val mime = when (ext) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            else -> "image/jpeg"
+        }
+        val id = file.name.substringBeforeLast('.')
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val payload = JSONObject()
             .put("ok", true)
             .put("id", id)
-            .put("name", queryName(uri) ?: "reference.$ext")
+            .put("name", file.name)
             .put("mime", mime)
-            .put("bytes", dest.length())
+            .put("bytes", file.length())
+            .put("width", bounds.outWidth)
+            .put("height", bounds.outHeight)
             .put("store", "files/attachments")
+            .put("file", "files/attachments/${file.name}")
             .put("trace", "phase-3b")
-            .put("preview", previewData(dest))
+        if (includePreview) payload.put("preview", previewData(file, bounds))
+        return payload
     }
 
     private fun queryName(uri: Uri): String? {
@@ -91,9 +122,7 @@ class AttachmentBridge(
         }
     }
 
-    private fun previewData(file: File): String {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.absolutePath, bounds)
+    private fun previewData(file: File, bounds: BitmapFactory.Options): String {
         var sample = 1
         val edge = maxOf(bounds.outWidth, bounds.outHeight)
         while (edge / sample > 480) sample *= 2

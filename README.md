@@ -32,6 +32,6 @@ Requires JDK 17 + Android SDK.
 
 ## Privacy
 
-Projects and keys stay on device. The default Session A path is Needle 2 plus skill expand. It does not read or send an API key. Saved projects do not include API keys.
+Projects and keys stay on device. The default Session A path is Needle 2 plus skill expand. It does not read or send an API key. Saved projects do not include API keys. An attached reference is a file under `files/attachments` plus `meta.reference`; pixels are not written into VXL.
 
 Needle 2 (android-arm64, Apache-2.0) is bundled at `app/src/main/assets/needle/needle-android-arm64`. If the binary cannot run, skill expand still produces VXL.
