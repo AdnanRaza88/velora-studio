@@ -34,7 +34,7 @@ Brief (+ optional attachment)
 - [x] Bundle Needle 2 android-arm64 binary in APK assets (~14 MB)
 - [x] Session A: brief → Needle tool call → VXL → canvas
 - [x] No remote key required for default path
-- [ ] Attachment picker UI (wire to image-to-vector in Phase 3b)
+- [x] Attachment picker UI (wire to image-to-vector in Phase 3b)
 
 ## Phase 3b — Reference / image to vector
 - [ ] Attach image
@@ -63,4 +63,4 @@ Brief (+ optional attachment)
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 
 ## Privacy
-Needle runs on device. Projects stay on device. Remote is opt-in only. The default path never reads or sends an API key.
+Needle runs on device. Projects stay on device. Remote is opt-in only. The default path never reads or sends an API key. Reference images stay in app files (`files/attachments`) and are not uploaded.

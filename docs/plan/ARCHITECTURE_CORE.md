@@ -21,8 +21,9 @@ User pastes or loads VXL JSON (hand-written or from Session A).
 4. Export SVG / VXL / PNG preview.
 
 Attachment path (when image present):
-- Autotrace / edge simplify → path candidates → VXL path layer (Phase image-to-vector).
-- Needle does not "see" pixels; it only structures the text brief. Trace is a separate module.
+- Picker copies the image into app-private `files/attachments/<id>.<ext>` and shows a local preview. Needle still receives only the text brief.
+- Phase 3b reads that file: autotrace / edge simplify → path candidates → VXL path layer.
+- Needle does not see pixels. Trace is a separate module. `VeloraReference.summary()` is the handoff (`trace: phase-3b`).
 
 ## Why Needle 2 is the default agent
 - ~14 MB binary, ~28 MB RAM — ships inside the APK.

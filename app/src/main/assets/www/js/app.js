@@ -1,7 +1,7 @@
 (function () {
   var $ = document.getElementById("app");
   var nav = document.getElementById("nav");
-  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "" };
+  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null };
   var REMOTE = { openai: 1, anthropic: 1, gemini: 1, openrouter: 1 };
 
   function theme() { return localStorage.getItem("velora.theme") || "light"; }
@@ -131,6 +131,32 @@
     bindScene();
   }
 
+  function refMarkup() {
+    var ref = state.attachment;
+    if (!ref || !ref.ok) return "";
+    var thumb = ref.preview ? '<img class="thumb" alt="" src="' + ref.preview + '"/>' : "";
+    return '<div class="row">' + thumb + '<div><strong>' + VeloraVxl.esc(ref.name || "reference") +
+      '</strong><div class="muted">' + VeloraVxl.esc(ref.mime || "image") + " \u00b7 " + Math.round((ref.bytes || 0) / 1024) +
+      " KB \u00b7 on device</div></div></div>";
+  }
+
+  function paintRef() {
+    var slot = document.getElementById("refSlot");
+    var msg = document.getElementById("refMsg");
+    if (!slot || !msg) return;
+    slot.innerHTML = refMarkup();
+    if (state.attachment && state.attachment.ok) {
+      msg.className = "ok";
+      msg.textContent = "Attached. Needle still reads only the brief. Trace waits for image-to-vector.";
+    } else if (state.attachment && state.attachment.error && state.attachment.error !== "cancelled") {
+      msg.className = "warn";
+      msg.textContent = state.attachment.error;
+    } else {
+      msg.className = "muted";
+      msg.textContent = "No reference. Image-to-vector will trace whatever is attached.";
+    }
+  }
+
   function renderCompose() {
     $.innerHTML = '<h1>Compose</h1><p class="muted">Skill pack: ' + VeloraVxl.esc(state.type) + '. Needle emit_vxl, then the app compiles. No API key.</p>' +
       '<div class="grid"><button type="button" class="chip' + (state.type === "logo" ? " on" : "") + '" data-type="logo">Logo</button>' +
@@ -144,6 +170,12 @@
       '<div class="card"><label for="brief">Brief</label><textarea id="brief" placeholder="Geometric falcon mark for North Workshop, two inks."></textarea>' +
       '<div class="row"><button type="button" class="btn" id="composeBtn">Compose</button></div>' +
       '<p class="muted">Default path stays on this device if Needle cannot run.</p></div>' +
+      '<div class="card"><h2>Reference</h2><p class="muted">Optional image. Stored on this device. Not sent to Needle.</p>' +
+      '<div id="refSlot"></div>' +
+      '<div class="row"><button type="button" class="btn" id="pickRef">Attach image</button>' +
+      '<button type="button" class="ghost" id="clearRef">Remove</button>' +
+      '<input id="refFile" type="file" accept="image/*" class="hidden"/></div>' +
+      '<p id="refMsg" class="muted"></p></div>' +
       '<div class="card"><h2>Import VXL</h2><p class="muted">Paste a VXL 1 document. Invalid JSON is rejected before compile.</p>' +
       '<textarea id="paste" placeholder="Paste a VXL 1 document"></textarea>' +
       '<div class="row"><button type="button" class="btn" id="importBtn">Render pasted VXL</button>' +
@@ -164,6 +196,13 @@
       document.getElementById("out").innerHTML = showScene(made.document, made.note);
       bindScene();
     };
+    document.getElementById("pickRef").onclick = function () { VeloraReference.pick(); };
+    document.getElementById("clearRef").onclick = function () { VeloraReference.clear(); };
+    document.getElementById("refFile").onchange = function () {
+      var file = this.files && this.files[0];
+      if (file) VeloraReference.fromFile(file);
+    };
+    paintRef();
     document.getElementById("importBtn").onclick = function () { importText(document.getElementById("paste").value); };
     document.getElementById("sampleBtn").onclick = function () {
       document.getElementById("paste").value = JSON.stringify(sample(), null, 2);
@@ -209,7 +248,10 @@
       note = "Skill repair / " + skill;
     }
     if (!expanded.ok) return expanded;
+    var ref = VeloraReference.summary();
+    if (ref.attached) note += " / reference " + ref.name + " (trace in 3b)";
     expanded.note = note + " / no key" + (call.error ? " (" + call.error + ")" : "");
+    expanded.reference = ref;
     return expanded;
   }
 
@@ -262,7 +304,7 @@
       '<option value="openai"' + (active === "openai" ? " selected" : "") + ">OpenAI (stored, unused)</option>" +
       '<option value="anthropic"' + (active === "anthropic" ? " selected" : "") + ">Anthropic (stored, unused)</option>" +
       '<option value="gemini"' + (active === "gemini" ? " selected" : "") + ">Gemini (stored, unused)</option>" +
-      '<option value="openrouter"' + (active === "openrouter" ? " selected" : "") + ">OpenRouter (stored, unused)</option></select>' +
+      '<option value="openrouter"' + (active === "openrouter" ? " selected" : "") + ">OpenRouter (stored, unused)</option></select>" +
       '<p class="muted">Choosing a remote name does not send the brief. Compose still uses Needle.</p></div>' +
       '<div class="card"><h2>Remote API keys</h2>' +
       '<label>OpenAI</label><input id="k_openai" type="password" placeholder="optional" value="' + VeloraVxl.esc(p.keys.openai || "") + '"/>' +
@@ -309,7 +351,7 @@
   function renderSettings() {
     $.innerHTML = '<h1>Workshop</h1><div class="card"><h2>Theme</h2><button type="button" class="btn" id="themeBtn">' +
       (theme() === "dark" ? "Dark ink" : "Light paper") + "</button></div>" +
-      '<div class="card"><h2>Privacy</h2><p>Projects stay on this device. The default path does not read or send an API key. Saved projects never include keys.</p></div>' +
+      '<div class="card"><h2>Privacy</h2><p>Projects stay on this device. The default path does not read or send an API key. Saved projects never include keys. Reference images stay in app files and are not uploaded.</p></div>' +
       '<div class="card"><h2>Device store</h2><p class="muted">' + VeloraProjects.list().length + ' projects in local storage.</p>' +
       '<button type="button" class="ghost" id="wipe">Clear saved projects</button></div>' +
       '<div class="card"><h2>About</h2><p class="muted">Velora Studio. VXL 1 is the source of truth. The compiler is deterministic: same document, same SVG.</p></div>';
@@ -324,6 +366,13 @@
       renderSettings();
     };
   }
+
+  window.VeloraApp = {
+    onAttachment: function (payload) {
+      state.attachment = payload && payload.ok ? payload : (payload && payload.error ? payload : null);
+      if (state.route === "compose") paintRef();
+    }
+  };
 
   setRoute("studio");
 })();
