@@ -25,6 +25,7 @@ class NeedleBridge(private val context: Context) {
                     .put("engine", "needle2")
                     .put("arm64", arm)
                     .put("loaded", arm && fd.length == EXPECTED_BYTES)
+                    .put("keyRequired", false)
                     .put("reason", if (arm) "ready for emit_vxl" else "binary is android-arm64; skill expand is the fallback")
                     .toString()
             }
@@ -34,6 +35,7 @@ class NeedleBridge(private val context: Context) {
                 .put("asset", ASSET_PATH)
                 .put("bytes", 0)
                 .put("loaded", false)
+                .put("keyRequired", false)
                 .put("error", error.message ?: "missing")
                 .toString()
         }
@@ -63,6 +65,7 @@ class NeedleBridge(private val context: Context) {
                 .put("tool", parsed.optString("name"))
                 .put("arguments", parsed.optJSONObject("arguments") ?: JSONObject())
                 .put("confidence", result.confidence)
+                .put("keyRequired", false)
                 .put("elapsedMs", System.currentTimeMillis() - started)
                 .toString()
         } catch (error: Exception) {
@@ -117,6 +120,7 @@ class NeedleBridge(private val context: Context) {
         return JSONObject()
             .put("ok", false)
             .put("source", "fallback")
+            .put("keyRequired", false)
             .put("error", message)
             .put("raw", raw)
             .put("elapsedMs", System.currentTimeMillis() - started)

@@ -8,7 +8,7 @@ Android WebView shell (`app.velora.studio`) loads the on-device workshop:
 
 - **Studio** — pipeline status and saved projects
 - **New** — logo / textile brief, or paste / open VXL JSON
-- **Providers** — remote key slots (device only) and local model slot
+- **Providers** — Needle is the default path; remote key slots are optional and unused
 - **Settings** — theme, privacy, clear projects
 
 VXL 1 is the source of truth. See `docs/spec/VXL.md`.
@@ -32,6 +32,6 @@ Requires JDK 17 + Android SDK.
 
 ## Privacy
 
-Projects and keys stay on device. The studio engine does not send briefs by default. Saved projects do not include API keys.
+Projects and keys stay on device. The default Session A path is Needle 2 plus skill expand. It does not read or send an API key. Saved projects do not include API keys.
 
-Needle 2 (android-arm64, Apache-2.0) is bundled at `app/src/main/assets/needle/needle-android-arm64`. Default Session A still uses the skill expander until the tool-call bridge is wired.
+Needle 2 (android-arm64, Apache-2.0) is bundled at `app/src/main/assets/needle/needle-android-arm64`. If the binary cannot run, skill expand still produces VXL.

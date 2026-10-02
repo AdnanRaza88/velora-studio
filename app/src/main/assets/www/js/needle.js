@@ -3,12 +3,14 @@
 
   function status() {
     if (!root.VeloraNeedle || !root.VeloraNeedle.status) {
-      return { present: false, asset: ASSET, bytes: 0, loaded: false, error: "bridge missing" };
+      return { present: false, asset: ASSET, bytes: 0, loaded: false, keyRequired: false, error: "bridge missing" };
     }
     try {
-      return JSON.parse(root.VeloraNeedle.status());
+      var parsed = JSON.parse(root.VeloraNeedle.status());
+      parsed.keyRequired = false;
+      return parsed;
     } catch (error) {
-      return { present: false, asset: ASSET, bytes: 0, loaded: false, error: "status parse" };
+      return { present: false, asset: ASSET, bytes: 0, loaded: false, keyRequired: false, error: "status parse" };
     }
   }
 
@@ -35,12 +37,14 @@
       prompt: body.prompt || promptFor(body.brief, skill, body.repeat)
     };
     if (!root.VeloraNeedle || !root.VeloraNeedle.complete) {
-      return { ok: false, source: "fallback", error: "bridge missing" };
+      return { ok: false, source: "fallback", keyRequired: false, error: "bridge missing" };
     }
     try {
-      return JSON.parse(root.VeloraNeedle.complete(JSON.stringify(request)));
+      var parsed = JSON.parse(root.VeloraNeedle.complete(JSON.stringify(request)));
+      parsed.keyRequired = false;
+      return parsed;
     } catch (error) {
-      return { ok: false, source: "fallback", error: "complete parse" };
+      return { ok: false, source: "fallback", keyRequired: false, error: "complete parse" };
     }
   }
 
