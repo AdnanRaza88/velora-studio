@@ -27,6 +27,7 @@ Attachment path (when image present):
 - Needle does not see pixels. Trace is a separate module. `VeloraReference.summary()` is the handoff (`trace: autotrace`).
 - Trace writes a normal VXL 1 document (path shapes, palette roles, no raster). The user edits that document the same way as pasted VXL: role, remove, or rewrite the JSON, then validate and compile again.
 - Phase 4 select / move / scale / rotate bakes the change into the shape (path `d`, primitive fields, or `rot`). The compiler does not keep a live transform stack. Drag maps pointer position through the SVG screen matrix. Repeat motifs are still stored in tile space.
+- Recolor by job writes `palette.figure`, `palette.ground`, and `palette.accent` (plus `ink2`–`ink4` when present). Shapes keep role names. A hex fill or stroke that matched the previous job ink is linked back to that role so the next recolor stays shared. Ground also paints the canvas paper.
 
 ## Why Needle 2 is the default agent
 - ~14 MB binary, ~28 MB RAM — ships inside the APK.

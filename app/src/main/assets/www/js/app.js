@@ -89,6 +89,7 @@
       '<button type="button" class="ghost" id="scaleDn">Scale down</button>' +
       '<button type="button" class="ghost" id="rotL">Rotate left</button>' +
       '<button type="button" class="ghost" id="rotR">Rotate right</button></div>' +
+      inkControls(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ". Drag the canvas to move. Geometry is written back into VXL." : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") +
@@ -103,6 +104,19 @@
       '<label for="editVxl">VXL source</label><textarea id="editVxl">' + VeloraVxl.esc(source) + '</textarea>' +
       '<div class="row"><button type="button" class="btn" id="applyVxl">Apply VXL edits</button></div>' +
       '<p id="editMsg" class="muted"></p></div>';
+  }
+
+
+  function inkControls(doc) {
+    var jobs = ["ground", "figure", "accent"];
+    ["ink2", "ink3", "ink4"].forEach(function (key) {
+      if (doc.palette && doc.palette[key]) jobs.push(key);
+    });
+    return '<h3>Inks</h3><p class="muted">Recolor by job. Figure, ground, and accent update every shape on that role. Matching hex fills are linked back to the role.</p><div class="row" id="inks">' +
+      jobs.map(function (job) {
+        var color = (doc.palette && doc.palette[job]) || "#000000";
+        return '<label class="ink">' + job + '<input type="color" data-ink="' + job + '" value="' + color + '" aria-label="Recolor ' + job + '"/></label>';
+      }).join("") + "</div>";
   }
 
   function bindScene() {
@@ -140,6 +154,14 @@
         shapes.splice(Number(parts[1]), 1);
         state.sel = "";
         publishScene(state.doc, "Shape removed");
+      };
+    }
+    var inks = document.querySelectorAll("[data-ink]");
+    for (var ink = 0; ink < inks.length; ink++) {
+      inks[ink].onchange = function () {
+        var job = this.getAttribute("data-ink");
+        var result = VeloraEdit.recolor(state.doc, job, this.value);
+        publishScene(state.doc, result ? "Recolored " + job : "Ink unchanged");
       };
     }
     document.getElementById("applyVxl").onclick = function () {

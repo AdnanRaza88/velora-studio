@@ -470,6 +470,53 @@
     return shape;
   }
 
+
+  var JOBS = ["ground", "figure", "accent", "ink2", "ink3", "ink4"];
+
+  function isHex(v) {
+    return typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
+  }
+
+  function expandHex(v) {
+    if (!isHex(v)) return "";
+    var s = v.toLowerCase();
+    if (s.length === 4) return "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+    return s;
+  }
+
+  function sameInk(a, b) {
+    var left = expandHex(a);
+    return left && left === expandHex(b);
+  }
+
+  function eachShape(shapes, fn) {
+    (shapes || []).forEach(function (shape) {
+      fn(shape);
+      if (shape.type === "group") eachShape(shape.children, fn);
+    });
+  }
+
+  function recolor(doc, job, hex) {
+    if (!doc || JOBS.indexOf(job) < 0) return null;
+    var next = expandHex(hex);
+    if (!next) return null;
+    if (!doc.palette) doc.palette = {};
+    var prev = doc.palette[job];
+    doc.palette[job] = next;
+    var linked = 0;
+    (doc.layers || []).forEach(function (layer) {
+      eachShape(layer.shapes, function (shape) {
+        if (shape.role === job) linked++;
+        ["fill", "stroke"].forEach(function (key) {
+          if (shape[key] === job) return;
+          if (prev && sameInk(shape[key], prev)) shape[key] = job;
+        });
+      });
+    });
+    if (doc.meta) doc.meta.updated = new Date().toISOString();
+    return { job: job, color: next, linked: linked };
+  }
+
   root.VeloraEdit = {
     bounds: boundsOf,
     find: find,
@@ -478,6 +525,8 @@
     moveMatrix: moveMatrix,
     scaleMatrix: scaleMatrix,
     rotateMatrix: rotateMatrix,
-    identity: identity
+    identity: identity,
+    jobs: JOBS.slice(),
+    recolor: recolor
   };
 })(typeof window !== "undefined" ? window : globalThis);
