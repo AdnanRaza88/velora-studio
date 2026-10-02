@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-02 14:20
+Last updated: 2026-10-02 15:20
 
 ## 1. Entry Points
 
@@ -11,7 +11,10 @@ Last updated: 2026-10-02 14:20
 
 | Path | Role | Key exports | Depends on | Depended by |
 |------|------|-------------|------------|-------------|
-| app/src/main/java/app/velora/studio/MainActivity.kt | WebView shell | MainActivity | AndroidX | manifest |
+| app/src/main/java/app/velora/studio/MainActivity.kt | WebView shell | MainActivity | AndroidX, NeedleBridge | manifest |
+| app/src/main/java/app/velora/studio/NeedleBridge.kt | Needle asset status | NeedleBridge.status | assets/needle | MainActivity, needle.js |
+| app/src/main/assets/needle/needle-android-arm64 | Needle 2 arm64 binary | none | none | NeedleBridge |
+| app/src/main/assets/www/js/needle.js | JS status client | VeloraNeedleClient.status | VeloraNeedle | app.js |
 | app/src/main/assets/www/index.html | Workshop shell | routes | js/vxl.js, js/projects.js, js/app.js | WebView |
 | app/src/main/assets/www/js/vxl.js | Schema, validate, compile, procedural builders | VeloraVxl.validate, compile, buildLogo, buildTextile | none | app.js, tools/vxl-golden.js |
 | app/src/main/assets/www/js/projects.js | Device project store | VeloraProjects | localStorage | app.js |
@@ -27,7 +30,8 @@ Last updated: 2026-10-02 14:20
 - app.js calls VeloraSkills.compose for Session A briefs
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
-- MainActivity does not bridge JS. Storage is WebView DOM storage (domStorageEnabled)
+- MainActivity exposes VeloraNeedle.status via addJavascriptInterface. Storage is WebView DOM storage (domStorageEnabled)
+- needle.js reads VeloraNeedle.status. app.js shows bundle presence on Providers. Compose still uses VeloraSkills.compose
 
 ## 4. Critical Shared Contracts
 
@@ -46,6 +50,7 @@ Last updated: 2026-10-02 14:20
 
 ## 6. Recent Changes Log
 
+- 2026-10-02 Phase 3 Needle bundle: android-arm64 asset + status bridge
 - 2026-10-02 Phase 3 skill packs: logo, textile, character, icon + emit_vxl schema
 - 2026-10-02 Phase 2 harden: skill aliases, raster reject, palette repair warnings, golden tests
 - 2026-10-02 Phase 2: VXL 1 schema, compiler, paste/file import, device project store

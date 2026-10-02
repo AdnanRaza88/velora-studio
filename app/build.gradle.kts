@@ -38,6 +38,9 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    androidResources {
+        noCompress += "needle-android-arm64"
+    }
 }
 
 dependencies {

@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = WebViewClient()
         webView.webChromeClient = WebChromeClient()
+        webView.addJavascriptInterface(NeedleBridge(this), "VeloraNeedle")
         webView.loadUrl("file:///android_asset/www/index.html")
 
         onBackPressedDispatcher.addCallback(

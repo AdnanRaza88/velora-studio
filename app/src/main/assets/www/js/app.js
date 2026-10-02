@@ -231,9 +231,8 @@
       '<label>OpenRouter</label><input id="k_openrouter" type="password" placeholder="sk-or-..." value="' + VeloraVxl.esc(p.keys.openrouter || "") + '"/>' +
       '<div class="row"><button type="button" class="btn" id="saveKeys">Save keys</button></div>' +
       '<p class="muted">Phase 3 wires these to VXL generation. Keys are not written into projects.</p></div>' +
-      '<div class="card"><h2>Local models</h2><p class="muted">Needle 2/3 planned for on-device structured intent. Download lands in Phase 4.</p>' +
-      '<div class="row"><button type="button" class="btn" id="dlNeedle">Download Needle (placeholder)</button></div>' +
-      '<div id="localStatus" class="status muted">Not installed.</div></div>';
+      '<div class="card"><h2>Local models</h2><p class="muted">Needle 2 is the default on-device agent. No API key. Asset path needle/needle-android-arm64.</p>' +
+      '<div id="localStatus" class="status muted">Checking bundle…</div></div>';
     document.getElementById("saveKeys").onclick = function () {
       var cur = providers();
       cur.keys = cur.keys || {};
@@ -253,10 +252,15 @@
       cur.active = this.value;
       saveProviders(cur);
     };
-    document.getElementById("dlNeedle").onclick = function () {
-      document.getElementById("localStatus").textContent = "Phase 4: on-device runtime + model fetch. UI slot ready.";
-      document.getElementById("localStatus").className = "status warn";
-    };
+    var local = document.getElementById("localStatus");
+    var needle = VeloraNeedleClient.status();
+    if (needle.present) {
+      local.className = "status ok";
+      local.textContent = "Needle 2 bundled (" + needle.bytes + " bytes, " + needle.abi + "). Tool call is not wired yet.";
+    } else {
+      local.className = "status warn";
+      local.textContent = needle.error || "Needle 2 asset missing at needle/needle-android-arm64.";
+    }
   }
 
   function renderSettings() {

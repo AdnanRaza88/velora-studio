@@ -33,3 +33,5 @@ Requires JDK 17 + Android SDK.
 ## Privacy
 
 Projects and keys stay on device. The studio engine does not send briefs by default. Saved projects do not include API keys.
+
+Needle 2 (android-arm64, Apache-2.0) is bundled at `app/src/main/assets/needle/needle-android-arm64`. Default Session A still uses the skill expander until the tool-call bridge is wired.
