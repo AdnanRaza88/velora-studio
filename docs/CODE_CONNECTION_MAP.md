@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-02 13:20
+Last updated: 2026-10-02 14:20
 
 ## 1. Entry Points
 
@@ -15,14 +15,17 @@ Last updated: 2026-10-02 13:20
 | app/src/main/assets/www/index.html | Workshop shell | routes | js/vxl.js, js/projects.js, js/app.js | WebView |
 | app/src/main/assets/www/js/vxl.js | Schema, validate, compile, procedural builders | VeloraVxl.validate, compile, buildLogo, buildTextile | none | app.js, tools/vxl-golden.js |
 | app/src/main/assets/www/js/projects.js | Device project store | VeloraProjects | localStorage | app.js |
-| app/src/main/assets/www/js/app.js | Routes and compose/import UI | none | VeloraVxl, VeloraProjects | index.html |
+| app/src/main/assets/www/js/skills.js | Skill packs and emit_vxl expand | VeloraSkills.compose, route | VeloraVxl | app.js, tools/skill-packs.js |
+| app/src/main/assets/www/js/app.js | Routes and compose/import UI | none | VeloraVxl, VeloraProjects, VeloraSkills | index.html |
+| app/src/main/assets/skills/*.json | APK skill packs + emit_vxl schema | pack id, system, tool | none | Needle asset load |
 | docs/spec/VXL.md | VXL 1 contract | schema | none | compiler |
 | docs/plan/VELORA_PHASES.md | Phase tracker | none | none | agents |
 
 ## 3. Import / Call Graph
 
-- index.html loads vxl.js, then projects.js, then app.js
-- app.js calls VeloraVxl.validate, compile, buildLogo, buildTextile
+- index.html loads vxl.js, projects.js, skills.js, then app.js
+- app.js calls VeloraSkills.compose for Session A briefs
+- skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
 - MainActivity does not bridge JS. Storage is WebView DOM storage (domStorageEnabled)
 
@@ -43,6 +46,7 @@ Last updated: 2026-10-02 13:20
 
 ## 6. Recent Changes Log
 
+- 2026-10-02 Phase 3 skill packs: logo, textile, character, icon + emit_vxl schema
 - 2026-10-02 Phase 2 harden: skill aliases, raster reject, palette repair warnings, golden tests
 - 2026-10-02 Phase 2: VXL 1 schema, compiler, paste/file import, device project store
 - 2026-10-02 Phase 1: nav, procedural logo/textile, provider key UI, SVG download

@@ -125,9 +125,11 @@
 
   function renderCompose() {
     var ap = activeProvider();
-    $.innerHTML = '<h1>Compose</h1><p class="muted">Agent path: ' + VeloraVxl.esc(ap.name) + '. Offline builds a full VXL document from the brief.</p>' +
+    $.innerHTML = '<h1>Compose</h1><p class="muted">Skill pack: ' + VeloraVxl.esc(state.type) + '. emit_vxl fills VXL. The app compiles.</p>' +
       '<div class="grid"><button type="button" class="chip' + (state.type === "logo" ? " on" : "") + '" data-type="logo">Logo</button>' +
-      '<button type="button" class="chip' + (state.type === "textile" ? " on" : "") + '" data-type="textile">Textile</button></div>' +
+      '<button type="button" class="chip' + (state.type === "textile" ? " on" : "") + '" data-type="textile">Textile</button>' +
+      '<button type="button" class="chip' + (state.type === "character" ? " on" : "") + '" data-type="character">Character</button>' +
+      '<button type="button" class="chip' + (state.type === "icon" ? " on" : "") + '" data-type="icon">Icon</button></div>' +
       (state.type === "textile" ? '<label>Repeat</label><div class="grid">' +
         ["block", "half-drop", "half-brick", "mirror"].map(function (rep) {
           return '<button type="button" class="chip' + (state.repeat === rep ? " on" : "") + '" data-rep="' + rep + '">' + rep + "</button>";
@@ -146,8 +148,12 @@
     for (var j = 0; j < reps.length; j++) reps[j].onclick = function () { state.repeat = this.getAttribute("data-rep"); renderCompose(); };
     document.getElementById("composeBtn").onclick = function () {
       var brief = (document.getElementById("brief").value || "").trim() || (state.type === "logo" ? "Mark for Velora" : "Floral for summer cloth");
-      var doc = state.type === "textile" ? VeloraVxl.buildTextile(brief, state.repeat) : VeloraVxl.buildLogo(brief);
-      document.getElementById("out").innerHTML = showScene(doc, "Compiled from brief");
+      var made = VeloraSkills.compose(brief, state.type, state.repeat);
+      if (!made.ok) {
+        document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(made.errors.join("; ")) + "</div>";
+        return;
+      }
+      document.getElementById("out").innerHTML = showScene(made.document, made.skill + " skill / " + made.tool);
       bindScene();
     };
     document.getElementById("importBtn").onclick = function () { importText(document.getElementById("paste").value); };

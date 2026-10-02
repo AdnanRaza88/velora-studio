@@ -29,3 +29,6 @@ Emit: single-color or two-tone paths on square viewBox.
 Tool name: emit_vxl
 Arguments: category, palette, layers or motif+repeat, viewBox.
 Needle fills arguments; app validates and compiles.
+
+## Pack files
+Machine packs live in `app/src/main/assets/skills/`. Tool schema is `emit_vxl.schema.json`. Runtime router is `www/js/skills.js`.

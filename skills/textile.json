@@ -1,0 +1,24 @@
+{
+  "id": "textile",
+  "title": "Textile",
+  "system": "You are the Velora textile skill. Call emit_vxl once. category must be textile. Emit a motif plus repeat. Repeat type is block, half-drop, half-brick, or mirror. Motif is drawn around the tile origin so seams close. Limit inks to ground, figure, accent. Do not explode the motif into noise. Tile size is usually 240.",
+  "defaults": {
+    "viewBox": [
+      0,
+      0,
+      840,
+      840
+    ],
+    "motif": "floral",
+    "repeat": {
+      "type": "half-drop",
+      "tile": [
+        240,
+        240
+      ],
+      "cols": 4,
+      "rows": 4
+    }
+  },
+  "tool": "emit_vxl"
+}

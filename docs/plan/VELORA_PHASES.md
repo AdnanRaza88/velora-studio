@@ -30,7 +30,7 @@ Brief (+ optional attachment)
 - [x] Harden schema against skill output; golden tests
 
 ## Phase 3 — Skills + Needle-first agent (active)
-- [ ] Skill packs: logo, textile, character, icon (system instructions + tool schema)
+- [x] Skill packs: logo, textile, character, icon (system instructions + tool schema)
 - [ ] Bundle Needle 2 android-arm64 binary in APK assets (~14 MB)
 - [ ] Session A: brief → Needle tool call → VXL → canvas
 - [ ] No remote key required for default path

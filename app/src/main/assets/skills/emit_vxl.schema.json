@@ -1,0 +1,141 @@
+{
+  "name": "emit_vxl",
+  "description": "Emit a Velora VXL 1 design. The app compiles geometry. Do not emit SVG, pixels, or base64.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "category",
+      "name",
+      "viewBox",
+      "palette"
+    ],
+    "properties": {
+      "category": {
+        "type": "string",
+        "enum": [
+          "logo",
+          "textile",
+          "character",
+          "icon"
+        ]
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 80
+      },
+      "brief": {
+        "type": "string",
+        "maxLength": 500
+      },
+      "viewBox": {
+        "type": "array",
+        "items": {
+          "type": "number"
+        },
+        "minItems": 4,
+        "maxItems": 4
+      },
+      "palette": {
+        "type": "object",
+        "required": [
+          "ground",
+          "figure",
+          "accent"
+        ],
+        "properties": {
+          "ground": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "figure": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "accent": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "ink2": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        }
+      },
+      "style": {
+        "type": "string",
+        "enum": [
+          "geometric",
+          "wordmark",
+          "emblem",
+          "organic"
+        ]
+      },
+      "inkCount": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4
+      },
+      "motif": {
+        "type": "string",
+        "enum": [
+          "floral",
+          "leaf",
+          "geometric",
+          "paisley"
+        ]
+      },
+      "repeat": {
+        "type": "object",
+        "required": [
+          "type",
+          "tile"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "block",
+              "half-drop",
+              "half-brick",
+              "mirror"
+            ]
+          },
+          "tile": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "cols": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          }
+        }
+      },
+      "grid": {
+        "type": "integer",
+        "enum": [
+          24,
+          32,
+          48
+        ]
+      },
+      "parts": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 8
+      }
+    }
+  }
+}
