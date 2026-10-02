@@ -91,6 +91,8 @@
       '<button type="button" class="ghost' + (state.tool === "pen" ? " on" : "") + '" id="penMode">Anchors</button>' +
       '<button type="button" class="ghost' + (state.tool === "width" ? " on" : "") + '" id="widthMode">Width</button>' +
       '<button type="button" class="ghost' + (state.tool === "type" ? " on" : "") + '" id="typeMode">Type</button>' +
+      '<button type="button" class="ghost" id="unite">Unite</button>' +
+      '<button type="button" class="ghost" id="subtract">Subtract</button>' +
       widthChips() + typeControls() + '</div>' +
       inkControls(checked.document) +
       layerPanel(checked.document) +
@@ -122,7 +124,7 @@
     if (state.tool === "pen") return ". Drag an anchor or its Bezier handle. The path is rewritten in VXL.";
     if (state.tool === "width") return ". Pick a profile or drag a width point. The stroke expands on compile.";
     if (state.tool === "type") return ". Tap the canvas to place type. Area width wraps the line. Outline expands glyphs to paths.";
-    return ". Drag the canvas to move. Geometry is written back into VXL.";
+    return ". Drag the canvas to move. Unite and Subtract bake the selection with the shape behind it.";
   }
 
   function typeControls() {
@@ -395,6 +397,13 @@
       state.tool = state.tool === "type" ? "select" : "type";
       publishScene(state.doc, state.tool === "type" ? "Type" : "Selection");
     };
+    function runBoolean(op) {
+      if (!state.sel) return;
+      var path = VeloraBoolean.apply(state.doc, state.sel, op);
+      publishScene(state.doc, path ? (op === "unite" ? "United" : "Subtracted") : "Need a shape behind the selection");
+    }
+    document.getElementById("unite").onclick = function () { runBoolean("unite"); };
+    document.getElementById("subtract").onclick = function () { runBoolean("subtract"); };
     var typeText = document.getElementById("typeText");
     if (typeText) {
       function readType() {

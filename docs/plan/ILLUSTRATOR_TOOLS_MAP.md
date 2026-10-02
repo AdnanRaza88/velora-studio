@@ -20,7 +20,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 ## Build complex form
 | Tool | What it produces | Velora mapping |
 |------|------------------|----------------|
-| Pathfinder / Shape Builder | Unite, subtract, intersect, exclude | VXL boolean ops |
+| Pathfinder / Shape Builder | Unite, subtract, intersect, exclude | VXL path baked by unite/subtract; holes use fill-rule evenodd |
 | Blend | Morph steps between two shapes/colors along spine | VXL `blend` node |
 | Compound path | Holes (counterforms in letters, logos) | path fill-rule evenodd |
 

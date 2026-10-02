@@ -50,7 +50,7 @@ Brief (+ optional attachment)
 - [x] Undo/redo, layers
 
 ## Phase 5 — Advanced geometry
-- [ ] Boolean (unite/subtract)
+- [x] Boolean (unite/subtract)
 - [ ] Blend steps
 - [ ] Pattern instance controls
 - [ ] Pencil + smooth
