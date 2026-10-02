@@ -1,14 +1,17 @@
 # Velora Studio
 
-Purpose-first vector design studio. A brief becomes an editable vector scene — logo, textile, illustration — compiled to SVG. Raster is a preview, never the source.
+Purpose-first vector design studio. A brief or a VXL document becomes an editable vector scene — logo, textile, illustration — compiled to SVG. Raster is a preview, never the source.
 
 ## App
 
 Android WebView shell (`app.velora.studio`) loads the on-device workshop:
 
-- **Studio** — home
-- **New** — Logo / Textile brief → on-device SVG
-- **Settings** — light/dark theme, privacy
+- **Studio** — pipeline status and saved projects
+- **New** — logo / textile brief, or paste / open VXL JSON
+- **Providers** — remote key slots (device only) and local model slot
+- **Settings** — theme, privacy, clear projects
+
+VXL 1 is the source of truth. See `docs/spec/VXL.md`.
 
 ## Build APK (GitHub Actions)
 
@@ -27,10 +30,6 @@ Download from the workflow run page after the job finishes.
 
 Requires JDK 17 + Android SDK.
 
-## Spec
-
-See `docs/spec/` for PRD, VXL language, textile/logo skills, and roadmap.
-
 ## Privacy
 
-Projects stay on device. The studio engine does not send briefs by default.
+Projects and keys stay on device. The studio engine does not send briefs by default. Saved projects do not include API keys.
