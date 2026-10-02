@@ -27,11 +27,13 @@ p{margin:8px 0;color:var(--muted)}label{display:block;font-weight:600;margin:8px
 pre{background:var(--paper);border-radius:12px;padding:12px;overflow:auto;font-size:12px;line-height:1.4;max-height:220px;border:1px solid var(--line)}
 .ok{color:#2c6e49}.warn{color:#8a3b24}.hidden{display:none}
 .status{font-size:13px;padding:8px 12px;border-radius:10px;background:var(--paper);margin:8px 0}
+.project{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line)}
+.project strong{color:var(--fg)}
 </style>
 </head>
 <body>
 <header>
-<svg width="28" height="28" viewBox="0 0 16 16"><rect width="16" height="16" rx="3" fill="#1e1b16"/><polygon points="2,3 7,3 8,13 4,13" fill="#efe8dc"/><polygon points="9,3 14,3 12,13 8,13" fill="#355e57"/></svg>
+<svg width="28" height="28" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" rx="3" fill="#1e1b16"/><polygon points="2,3 7,3 8,13 4,13" fill="#efe8dc"/><polygon points="9,3 14,3 12,13 8,13" fill="#355e57"/></svg>
 <strong>Velora</strong>
 <nav id="nav">
 <button type="button" class="ghost on" data-route="studio">Studio</button>
@@ -41,87 +43,8 @@ pre{background:var(--paper);border-radius:12px;padding:12px;overflow:auto;font-s
 </nav>
 </header>
 <main id="app"></main>
-<script>
-(function(){
-var $=document.getElementById("app");
-var nav=document.getElementById("nav");
-var state={route:"studio",type:"logo",repeat:"half-drop",lastVxl:null,lastSvg:null};
-function theme(){return localStorage.getItem("velora.theme")||"light"}
-document.documentElement.dataset.theme=theme();
-function providers(){try{return JSON.parse(localStorage.getItem("velora.providers")||"{}")}catch(e){return {}}}
-function saveProviders(p){localStorage.setItem("velora.providers",JSON.stringify(p))}
-function setRoute(r){
- state.route=r;
- var btns=nav.querySelectorAll("[data-route]");
- for(var i=0;i<btns.length;i++)btns[i].classList.toggle("on",btns[i].getAttribute("data-route")===r);
- if(r==="studio")renderStudio();else if(r==="compose")renderCompose();else if(r==="providers")renderProviders();else if(r==="settings")renderSettings();
-}
-nav.addEventListener("click",function(e){var b=e.target.closest("[data-route]");if(!b)return;setRoute(b.getAttribute("data-route"));});
-function hash(s){var h=2166136261>>>0;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
-function pick(arr,h){return arr[h%arr.length]}
-function logoPalette(h){var sets=[["#f6f1e8","#1b3358","#355e57"],["#efe8dc","#1e1b16","#8a3b24"],["#f4efe6","#0f2a24","#c4a574"],["#ebe4d7","#2c1e3a","#5c7a6e"],["#f0ebe3","#1a2744","#b85c38"]];return sets[h%sets.length]}
-function buildLogoVxl(brief){
- var h=hash(brief||"mark");
- var name=(brief.match(/for\s+([A-Z][\w]+)/)||[,""])[1]||pick(["Velora","Aether","North","Quill","Forge"],h);
- var kind=pick(["shield","bird","leaf","gear","wave"],h>>3);
- var pal=logoPalette(h>>5);
- var shapes=[];
- if(kind==="shield"){shapes.push({type:"path",role:"figure",d:"M512 180 L780 280 L720 720 Q512 900 304 720 L244 280 Z"});shapes.push({type:"path",role:"accent",d:"M512 260 L620 320 L580 620 Q512 720 444 620 L404 320 Z"});}
- else if(kind==="bird"){shapes.push({type:"path",role:"figure",d:"M512 260 C360 340 250 430 180 560 C310 500 410 520 500 590 C490 470 500 360 512 260 Z"});shapes.push({type:"path",role:"figure",d:"M512 260 C664 340 774 430 844 560 C714 500 614 520 524 590 C534 470 524 360 512 260 Z"});shapes.push({type:"path",role:"accent",d:"M512 240 C490 430 496 560 512 700 C528 560 534 430 512 240 Z"});}
- else if(kind==="leaf"){shapes.push({type:"path",role:"figure",d:"M512 200 C700 320 780 520 512 820 C244 520 324 320 512 200 Z"});shapes.push({type:"path",role:"accent",d:"M512 260 C560 400 560 560 512 740 C464 560 464 400 512 260 Z"});}
- else if(kind==="gear"){shapes.push({type:"circle",role:"figure",cx:512,cy:480,r:220});shapes.push({type:"circle",role:"ground",cx:512,cy:480,r:90});for(var i=0;i<8;i++){var a=(i/8)*Math.PI*2;var x=512+Math.cos(a)*260,y=480+Math.sin(a)*260;shapes.push({type:"rect",role:"accent",x:x-28,y:y-28,w:56,h:56,rot:i*45});}}
- else{shapes.push({type:"path",role:"figure",d:"M120 520 C280 360 420 360 512 480 C604 360 744 360 904 520 C760 600 600 640 512 600 C424 640 264 600 120 520 Z"});shapes.push({type:"path",role:"accent",d:"M200 540 C340 440 420 450 512 520 C604 450 684 440 824 540"});}
- shapes.push({type:"text",role:"figure",x:512,y:900,size:48,text:name});
- return{vxl:1,category:"logo",purpose:"brand",brief:brief||"",palette:{ground:pal[0],figure:pal[1],accent:pal[2]},viewBox:[0,0,1024,1024],layers:[{id:"mark",shapes:shapes}]};
-}
-function motifPath(kind){
- if(kind==="floral")return "M0 -70 C18 -70 28 -40 28 -20 C28 10 12 28 0 40 C-12 28 -28 10 -28 -20 C-28 -40 -18 -70 0 -70 Z";
- if(kind==="leaf")return "M0 -80 C40 -40 40 20 0 70 C-40 20 -40 -40 0 -80 Z";
- if(kind==="geometric")return "M0 -50 L43 -25 L43 25 L0 50 L-43 25 L-43 -25 Z";
- return "M-30 -20 Q0 -60 30 -20 Q50 10 0 40 Q-50 10 -30 -20 Z";
-}
-function buildTextileVxl(brief){
- var h=hash(brief||"cloth");
- var kind=pick(["floral","leaf","geometric","paisley"],h);
- var repeat=state.repeat||pick(["block","half-drop","half-brick","mirror"],h>>2);
- var pal=logoPalette(h>>4);
- var tile=240;
- return{vxl:1,category:"textile",purpose:"surface",brief:brief||"",palette:{ground:pal[0],figure:pal[1],accent:pal[2]},repeat:{type:repeat,tile:[tile,tile]},viewBox:[0,0,tile*3.5,tile*3.5],motif:{kind:kind,path:motifPath(kind)},layers:[{id:"surface",shapes:[]}]};
-}
-function vxlToSvg(vxl){
- var g=vxl.palette.ground,f=vxl.palette.figure,a=vxl.palette.accent,vb=vxl.viewBox;
- var parts=['<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.join(" ")+'">'];
- parts.push('<rect width="'+vb[2]+'" height="'+vb[3]+'" fill="'+g+'"/>');
- if(vxl.category==="textile"){
- var tw=vxl.repeat.tile[0],th=vxl.repeat.tile[1],rt=vxl.repeat.type,path=vxl.motif.path;
- for(var r=0;r<4;r++)for(var c=0;c<4;c++){
- var ox=c*tw,oy=r*th;
- if(rt==="half-brick")ox+=(r%2)*(tw/2);
- if(rt==="half-drop")oy+=(c%2)*(th/2);
- if(rt==="mirror"){var sx=(c%2)?-1:1,sy=(r%2)?-1:1;ox=c*tw+tw/2;oy=r*th+th/2;parts.push('<g transform="translate('+ox+' '+oy+') scale('+sx+' '+sy+')"><path d="'+path+'" fill="'+((c+r)%2?a:f)+'"/><circle r="14" fill="'+g+'"/></g>');}
- else{parts.push('<g transform="translate('+(ox+tw/2)+' '+(oy+th/2)+')"><path d="'+path+'" fill="'+((c+r)%2?a:f)+'"/><circle r="12" fill="'+g+'"/></g>');}
- }
- }else{
- var shapes=(vxl.layers[0]&&vxl.layers[0].shapes)||[];
- for(var i=0;i<shapes.length;i++){
- var s=shapes[i],col=s.role==="accent"?a:(s.role==="ground"?g:f);
- if(s.type==="path")parts.push('<path d="'+s.d+'" fill="'+col+'"/>');
- else if(s.type==="circle")parts.push('<circle cx="'+s.cx+'" cy="'+s.cy+'" r="'+s.r+'" fill="'+col+'"/>');
- else if(s.type==="rect"){var t='translate('+(s.x+s.w/2)+' '+(s.y+s.h/2)+') rotate('+(s.rot||0)+')';parts.push('<g transform="'+t+'"><rect x="'+(-s.w/2)+'" y="'+(-s.h/2)+'" width="'+s.w+'" height="'+s.h+'" fill="'+col+'"/></g>');}
- else if(s.type==="text")parts.push('<text x="'+s.x+'" y="'+s.y+'" text-anchor="middle" font-size="'+s.size+'" font-family="Georgia,serif" fill="'+col+'">'+esc(s.text)+'</text>');
- }
- }
- parts.push('</svg>');return parts.join('');
-}
-function esc(t){return String(t).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>')}
-function downloadSvg(svg,name){var blob=new Blob([svg],{type:'image/svg+xml'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=(name||'velora')+'.svg';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},500)}
-function activeProvider(){var p=providers();if(p.active==='local')return{kind:'local',name:p.localModel||'Needle (planned)'};if(p.active&&p.keys&&p.keys[p.active])return{kind:'remote',name:p.active};return{kind:'offline',name:'On-device procedural'}}
-function renderStudio(){var ap=activeProvider();$.innerHTML='<h1>Design that names its job.</h1><p class="muted">Prompt or VXL JSON becomes an editable vector scene. Raster is only a preview.</p><div class="card"><h2>Pipeline</h2><p class="muted">Brief → intent → VXL → compile → SVG. Provider: <strong style="color:var(--fg)">'+esc(ap.name)+'</strong> ('+ap.kind+').</p><div class="row"><button type="button" class="btn" id="goNew">New composition</button><button type="button" class="ghost" id="goProv">Providers</button></div></div><div class="grid"><div class="card"><h3>Logo</h3><p>Geometry with ink jobs: figure, ground, accent.</p></div><div class="card"><h3>Textile</h3><p>Motif + repeat (block, half-drop, brick, mirror). Seam is measured.</p></div></div><div class="card"><h3>How to use</h3><p class="muted">1) Set a remote API key or stay offline. 2) New → type a brief. 3) Compose → VXL + SVG. 4) Download SVG (infinite zoom).</p></div>';document.getElementById('goNew').onclick=function(){setRoute('compose')};document.getElementById('goProv').onclick=function(){setRoute('providers')}}
-function renderCompose(){var ap=activeProvider();$.innerHTML='<h1>Compose</h1><p class="muted">Agent path: '+esc(ap.name)+'. Offline builds procedural VXL from the brief.</p><div class="grid"><button type="button" class="chip'+(state.type==='logo'?' on':'')+'" data-type="logo">Logo</button><button type="button" class="chip'+(state.type==='textile'?' on':'')+'" data-type="textile">Textile</button></div>'+(state.type==='textile'?'<label>Repeat</label><div class="grid"><button type="button" class="chip'+(state.repeat==='block'?' on':'')+'" data-rep="block">Block</button><button type="button" class="chip'+(state.repeat==='half-drop'?' on':'')+'" data-rep="half-drop">Half-drop</button><button type="button" class="chip'+(state.repeat==='half-brick'?' on':'')+'" data-rep="half-brick">Half-brick</button><button type="button" class="chip'+(state.repeat==='mirror'?' on':'')+'" data-rep="mirror">Mirror</button></div>':'')+'<div class="card"><label for="brief">Brief</label><textarea id="brief" placeholder="Geometric falcon mark for North Workshop, two inks."></textarea><div class="row"><button type="button" class="btn" id="composeBtn">Compose</button></div></div><div id="out"></div>';var chips=$.querySelectorAll('[data-type]');for(var i=0;i<chips.length;i++)chips[i].onclick=function(){state.type=this.getAttribute('data-type');renderCompose()};var reps=$.querySelectorAll('[data-rep]');for(var j=0;j<reps.length;j++)reps[j].onclick=function(){state.repeat=this.getAttribute('data-rep');renderCompose()};document.getElementById('composeBtn').onclick=function(){var brief=(document.getElementById('brief').value||'').trim()||(state.type==='logo'?'Mark for Velora':'Floral for summer cloth');var vxl=state.type==='textile'?buildTextileVxl(brief):buildLogoVxl(brief);var svg=vxlToSvg(vxl);state.lastVxl=vxl;state.lastSvg=svg;var out=document.getElementById('out');out.innerHTML='<div class="card">'+svg+'<p class="muted">'+(state.type==='textile'?('Repeat: '+vxl.repeat.type+' · motif: '+vxl.motif.kind):('Logo grammar · '+vxl.layers[0].shapes.length+' shapes'))+'</p><div class="row"><button type="button" class="btn" id="dl">Download SVG</button><button type="button" class="ghost" id="showVxl">Show VXL JSON</button></div><pre id="vxlBox" class="hidden"></pre></div>';document.getElementById('dl').onclick=function(){downloadSvg(svg,'velora-'+state.type)};document.getElementById('showVxl').onclick=function(){var box=document.getElementById('vxlBox');box.classList.toggle('hidden');box.textContent=JSON.stringify(vxl,null,2)}}}
-function renderProviders(){var p=providers();p.keys=p.keys||{};p.active=p.active||'offline';$.innerHTML='<h1>Providers</h1><p class="muted">Keys stay on this device. Remote agents only receive the text you type.</p><div class="card"><h2>Active path</h2><select id="active"><option value="offline"'+(p.active==='offline'?' selected':'')+'>Offline procedural (no key)</option><option value="openai"'+(p.active==='openai'?' selected':'')+'>OpenAI</option><option value="anthropic"'+(p.active==='anthropic'?' selected':'')+'>Anthropic</option><option value="gemini"'+(p.active==='gemini'?' selected':'')+'>Gemini</option><option value="openrouter"'+(p.active==='openrouter'?' selected':'')+'>OpenRouter</option><option value="local"'+(p.active==='local'?' selected':'')+'>Local on-device</option></select></div><div class="card"><h2>Remote API keys</h2><label>OpenAI</label><input id="k_openai" type="password" placeholder="sk-..." value="'+esc(p.keys.openai||'')+'"/><label>Anthropic</label><input id="k_anthropic" type="password" placeholder="sk-ant-..." value="'+esc(p.keys.anthropic||'')+'"/><label>Gemini</label><input id="k_gemini" type="password" placeholder="AIza..." value="'+esc(p.keys.gemini||'')+'"/><label>OpenRouter</label><input id="k_openrouter" type="password" placeholder="sk-or-..." value="'+esc(p.keys.openrouter||'')+'"/><div class="row"><button type="button" class="btn" id="saveKeys">Save keys</button></div><p class="muted">Phase 3 wires these to VXL generation.</p></div><div class="card"><h2>Local models</h2><p class="muted">Needle 2/3 (~8–29 MB) planned for on-device structured intent. Full VXL may use a larger quant later.</p><div class="row"><button type="button" class="btn" id="dlNeedle">Download Needle (placeholder)</button></div><div id="localStatus" class="status muted">Not installed. Download lands in Phase 4.</div></div>';document.getElementById('saveKeys').onclick=function(){var cur=providers();cur.keys=cur.keys||{};cur.keys.openai=document.getElementById('k_openai').value.trim();cur.keys.anthropic=document.getElementById('k_anthropic').value.trim();cur.keys.gemini=document.getElementById('k_gemini').value.trim();cur.keys.openrouter=document.getElementById('k_openrouter').value.trim();cur.active=document.getElementById('active').value;saveProviders(cur);var st=document.createElement('p');st.className='ok';st.textContent='Saved on device.';document.getElementById('saveKeys').parentNode.appendChild(st)};document.getElementById('active').onchange=function(){var cur=providers();cur.active=this.value;saveProviders(cur)};document.getElementById('dlNeedle').onclick=function(){document.getElementById('localStatus').textContent='Phase 4: on-device runtime + model fetch. UI slot ready.';document.getElementById('localStatus').className='status warn'}}
-function renderSettings(){$.innerHTML='<h1>Workshop</h1><div class="card"><h2>Theme</h2><button type="button" class="btn" id="themeBtn">'+(theme()==='dark'?'Dark ink':'Light paper')+'</button></div><div class="card"><h2>Privacy</h2><p>Projects and keys stay on this device. Remote providers only receive the brief you typed.</p></div><div class="card"><h2>About</h2><p class="muted">Velora Studio — purpose-first vector design. VXL is source of truth. SVG export scales without pixelation.</p></div>';document.getElementById('themeBtn').onclick=function(){var next=theme()==='light'?'dark':'light';localStorage.setItem('velora.theme',next);document.documentElement.dataset.theme=next;renderSettings()}}
-setRoute('studio');
-})();
-</script>
+<script src="js/vxl.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
