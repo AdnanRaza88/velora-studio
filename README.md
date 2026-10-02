@@ -11,7 +11,7 @@ Android WebView shell (`app.velora.studio`) loads the on-device workshop:
 - **Providers** — Needle is the default path; remote key slots are optional and unused
 - **Settings** — theme, privacy, clear projects
 
-VXL 1 is the source of truth. See `docs/spec/VXL.md`.
+VXL 1 is the source of truth. See `docs/spec/VXL.md`. On the canvas, select a shape and move, scale, or rotate it; the edit is written back into the document.
 
 ## Build APK (GitHub Actions)
 

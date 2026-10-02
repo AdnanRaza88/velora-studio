@@ -213,6 +213,7 @@
       shape.size = Math.max(1, num(raw.size != null ? raw.size : raw.fontSize, 32));
       shape.text = String(raw.text || "").slice(0, 80);
       shape.anchor = raw.anchor === "start" || raw.anchor === "end" ? raw.anchor : "middle";
+      if (raw.rot != null) shape.rot = num(raw.rot, 0);
     } else if (type === "group") {
       shape.children = [];
       var kids = Array.isArray(raw.children) ? raw.children : Array.isArray(raw.shapes) ? raw.shapes : [];
@@ -406,7 +407,9 @@
       return '<polygon points="' + pts + '"' + attrs + "/>";
     }
     if (shape.type === "text") {
-      return '<text x="' + shape.x + '" y="' + shape.y + '" text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">" + esc(shape.text) + "</text>";
+      var text = '<text x="' + shape.x + '" y="' + shape.y + '" text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">" + esc(shape.text) + "</text>";
+      if (shape.rot) return '<g transform="rotate(' + shape.rot + " " + shape.x + " " + shape.y + ')">' + text + "</g>";
+      return text;
     }
     if (shape.type === "group") {
       var inner = shape.children.map(function (c) { return compileShape(c, palette); }).join("");

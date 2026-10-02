@@ -1,7 +1,7 @@
 (function () {
   var $ = document.getElementById("app");
   var nav = document.getElementById("nav");
-  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null };
+  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null, sel: "" };
   var REMOTE = { openai: 1, anthropic: 1, gemini: 1, openrouter: 1 };
 
   function theme() { return localStorage.getItem("velora.theme") || "light"; }
@@ -69,13 +69,27 @@
         var roles = ["figure", "ground", "accent"].map(function (role) {
           return '<option value="' + role + '"' + (shape.role === role ? " selected" : "") + ">" + role + "</option>";
         }).join("");
-        shapeRows += '<div class="project"><div><strong>' + VeloraVxl.esc(shape.id) + '</strong><div class="muted">' +
+        shapeRows += '<div class="project' + (shape.id === state.sel ? " on" : "") + '" data-pick="' + key + '"><div><strong>' + VeloraVxl.esc(shape.id) + '</strong><div class="muted">' +
           VeloraVxl.esc(layer.name) + " \u00b7 " + VeloraVxl.esc(shape.type) + "</div></div>" +
           '<div class="row"><select data-role="' + key + '" aria-label="Role for ' + VeloraVxl.esc(shape.id) + '">' + roles +
           '</select><button type="button" class="ghost" data-drop="' + key + '">Remove</button></div></div>';
       });
     });
-    return '<div class="card" id="scene">' + state.svg +
+    var vb = checked.document.canvas.viewBox.join(" ");
+    var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(checked.document, state.sel)) : null;
+    var overlay = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
+    return '<div class="card" id="scene">' +
+      '<div class="stage" id="stage"><div class="art" id="art">' + state.svg + '</div>' +
+      '<svg class="overlay" id="overlay" viewBox="' + vb + '" aria-hidden="true">' + overlay + "</svg></div>" +
+      '<div class="row"><button type="button" class="ghost" id="nudgeL">Move left</button>' +
+      '<button type="button" class="ghost" id="nudgeR">Move right</button>' +
+      '<button type="button" class="ghost" id="nudgeU">Move up</button>' +
+      '<button type="button" class="ghost" id="nudgeD">Move down</button>' +
+      '<button type="button" class="ghost" id="scaleUp">Scale up</button>' +
+      '<button type="button" class="ghost" id="scaleDn">Scale down</button>' +
+      '<button type="button" class="ghost" id="rotL">Rotate left</button>' +
+      '<button type="button" class="ghost" id="rotR">Rotate right</button></div>' +
+      '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ". Drag the canvas to move. Geometry is written back into VXL." : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -84,7 +98,7 @@
       '<button type="button" class="ghost" id="dlSvg">Download SVG</button>' +
       '<button type="button" class="ghost" id="dlVxl">Download VXL</button></div>' +
       '<p id="saveMsg" class="muted"></p>' +
-      '<h3>Shapes</h3><p class="muted">Trace paths are ordinary VXL shapes. Role uses the palette. Remove drops the shape from the document.</p>' +
+      '<h3>Shapes</h3><p class="muted">Select, move, scale, or rotate. The change is baked into the VXL shape, then compiled again.</p>' +
       shapeRows +
       '<label for="editVxl">VXL source</label><textarea id="editVxl">' + VeloraVxl.esc(source) + '</textarea>' +
       '<div class="row"><button type="button" class="btn" id="applyVxl">Apply VXL edits</button></div>' +
@@ -124,12 +138,110 @@
         var parts = this.getAttribute("data-drop").split(":");
         var shapes = state.doc.layers[Number(parts[0])].shapes;
         shapes.splice(Number(parts[1]), 1);
+        state.sel = "";
         publishScene(state.doc, "Shape removed");
       };
     }
     document.getElementById("applyVxl").onclick = function () {
       publishScene(document.getElementById("editVxl").value, "Edited VXL");
     };
+    var picks = document.querySelectorAll("[data-pick]");
+    for (var p = 0; p < picks.length; p++) {
+      picks[p].onclick = function (ev) {
+        if (ev.target.closest("select,button")) return;
+        var parts = this.getAttribute("data-pick").split(":");
+        var shape = state.doc.layers[Number(parts[0])].shapes[Number(parts[1])];
+        state.sel = shape ? shape.id : "";
+        publishScene(state.doc, "Selected");
+      };
+    }
+    function editAround(mode, matrix) {
+      if (!state.sel) return;
+      VeloraEdit.apply(state.doc, state.sel, matrix, mode);
+      publishScene(state.doc, mode === "move" ? "Moved" : mode === "scale" ? "Scaled" : "Rotated");
+    }
+    function centerOf() {
+      var box = VeloraEdit.bounds(VeloraEdit.find(state.doc, state.sel));
+      if (!box) return { x: 0, y: 0 };
+      return { x: box.cx, y: box.cy };
+    }
+    document.getElementById("nudgeL").onclick = function () { editAround("move", VeloraEdit.moveMatrix(-12, 0)); };
+    document.getElementById("nudgeR").onclick = function () { editAround("move", VeloraEdit.moveMatrix(12, 0)); };
+    document.getElementById("nudgeU").onclick = function () { editAround("move", VeloraEdit.moveMatrix(0, -12)); };
+    document.getElementById("nudgeD").onclick = function () { editAround("move", VeloraEdit.moveMatrix(0, 12)); };
+    document.getElementById("scaleUp").onclick = function () {
+      var c = centerOf();
+      editAround("scale", VeloraEdit.scaleMatrix(1.1, 1.1, c.x, c.y));
+    };
+    document.getElementById("scaleDn").onclick = function () {
+      var c = centerOf();
+      editAround("scale", VeloraEdit.scaleMatrix(0.9, 0.9, c.x, c.y));
+    };
+    document.getElementById("rotL").onclick = function () {
+      var c = centerOf();
+      editAround("rotate", VeloraEdit.rotateMatrix(-15, c.x, c.y));
+    };
+    document.getElementById("rotR").onclick = function () {
+      var c = centerOf();
+      editAround("rotate", VeloraEdit.rotateMatrix(15, c.x, c.y));
+    };
+    var stage = document.getElementById("stage");
+    var art = document.getElementById("art");
+    var drag = null;
+    function pointerPoint(ev) {
+      var svg = art.querySelector("svg");
+      if (!svg || !svg.createSVGPoint || !svg.getScreenCTM()) return null;
+      var pt = svg.createSVGPoint();
+      pt.x = ev.clientX;
+      pt.y = ev.clientY;
+      var mapped = pt.matrixTransform(svg.getScreenCTM().inverse());
+      return { x: mapped.x, y: mapped.y };
+    }
+    stage.onpointerdown = function (ev) {
+      if (ev.target.closest("button,select,input,textarea")) return;
+      var pt = pointerPoint(ev);
+      if (!pt) return;
+      var hit = VeloraEdit.hitTest(state.doc, pt.x, pt.y);
+      state.sel = hit ? hit.id : "";
+      drag = state.sel ? { x: pt.x, y: pt.y, id: state.sel, moved: false } : null;
+      if (drag) stage.setPointerCapture(ev.pointerId);
+      paintArt();
+    };
+    stage.onpointermove = function (ev) {
+      if (!drag) return;
+      var pt = pointerPoint(ev);
+      if (!pt) return;
+      var dx = pt.x - drag.x;
+      var dy = pt.y - drag.y;
+      if (Math.abs(dx) < 0.4 && Math.abs(dy) < 0.4) return;
+      VeloraEdit.apply(state.doc, drag.id, VeloraEdit.moveMatrix(dx, dy), "move");
+      drag.x = pt.x;
+      drag.y = pt.y;
+      drag.moved = true;
+      paintArt();
+    };
+    stage.onpointerup = function () {
+      var moved = drag && drag.moved;
+      drag = null;
+      if (moved) publishScene(state.doc, "Moved");
+      else publishScene(state.doc, state.sel ? "Selected" : "Selection cleared");
+    };
+  }
+
+  function paintArt() {
+    var checked = VeloraVxl.validate(state.doc);
+    if (!checked.ok) return;
+    state.doc = checked.document;
+    state.svg = VeloraVxl.compile(state.doc);
+    var art = document.getElementById("art");
+    if (art) art.innerHTML = state.svg;
+    var overlay = document.getElementById("overlay");
+    var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(state.doc, state.sel)) : null;
+    if (overlay) overlay.innerHTML = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
+    var src = document.getElementById("editVxl");
+    if (src) src.value = JSON.stringify(state.doc, null, 2);
+    var msg = document.getElementById("selMsg");
+    if (msg) msg.textContent = state.sel ? "Selected " + state.sel + ". Drag the canvas to move. Geometry is written back into VXL." : "Select a shape on the canvas or in the list.";
   }
 
   function publishScene(doc, note) {

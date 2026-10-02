@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-02 19:20
+Last updated: 2026-10-02 22:15
 
 ## 1. Entry Points
 
@@ -21,14 +21,15 @@ Last updated: 2026-10-02 19:20
 | app/src/main/assets/www/js/skills.js | Skill packs and emit_vxl expand | VeloraSkills.compose, route, expand | VeloraVxl | app.js, tools/skill-packs.js |
 | app/src/main/java/app/velora/studio/AttachmentBridge.kt | Image pick, store, lookup | VeloraAttach.pick, lookup, clear | files/attachments | MainActivity, attach.js |
 | app/src/main/assets/www/js/attach.js | Session reference | VeloraReference.bindDocument, restore | VeloraAttach | app.js |
-| app/src/main/assets/www/js/app.js | Routes and compose/import UI | sessionA default path | VeloraVxl, VeloraProjects, VeloraSkills, VeloraNeedleClient, VeloraReference | index.html |
+| app/src/main/assets/www/js/editor.js | Select bounds and baked transforms | VeloraEdit.apply, hitTest, bounds | none | app.js, tools/editor-check.js |
+| app/src/main/assets/www/js/app.js | Routes and compose/import UI | sessionA default path | VeloraVxl, VeloraProjects, VeloraSkills, VeloraNeedleClient, VeloraReference, VeloraEdit | index.html |
 | app/src/main/assets/skills/*.json | APK skill packs + emit_vxl schema | pack id, system, tool | none | Needle asset load |
 | docs/spec/VXL.md | VXL 1 contract | schema | none | compiler |
 | docs/plan/VELORA_PHASES.md | Phase tracker | none | none | agents |
 
 ## 3. Import / Call Graph
 
-- index.html loads vxl.js, projects.js, skills.js, needle.js, attach.js, then app.js
+- index.html loads vxl.js, projects.js, skills.js, needle.js, attach.js, trace.js, editor.js, then app.js
 - app.js sessionA calls VeloraNeedleClient.complete, then VeloraSkills.expand. It does not read provider keys
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
@@ -53,6 +54,7 @@ Last updated: 2026-10-02 19:20
 
 ## 6. Recent Changes Log
 
+- 2026-10-02 Phase 4 select/move/scale/rotate: VeloraEdit bakes geometry, canvas hit-test
 - 2026-10-02 Phase 3b attach image: meta.reference plus files/attachments lookup, no raster in VXL
 - 2026-10-02 Phase 3 default path: Needle plus skill expand, no remote key
 - 2026-10-02 Phase 3 Needle bundle: android-arm64 asset + status bridge

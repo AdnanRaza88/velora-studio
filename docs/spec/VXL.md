@@ -17,7 +17,7 @@ Repeat types: `block`, `half-drop`, `half-brick`, `mirror`. When `repeat` is set
 
 `path`, `circle`, `ellipse`, `rect`, `line`, `polygon`, `text`, `group`.
 
-Paint fields `fill` and `stroke` accept a palette role (`ground`, `figure`, `accent`), a hex color, or `none`. `group.children` may nest shapes. `rect` may set `rot` in degrees.
+`rect` and `text` may set `rot` in degrees. The editor bakes move, scale, and rotate into geometry before the next compile. Path commands are rewritten absolute. A rotated circle or ellipse becomes a path.
 
 Path `d` is restricted to SVG path commands and numbers. Text is escaped on compile.
 

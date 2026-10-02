@@ -42,7 +42,7 @@ Brief (+ optional attachment)
 - [x] User can edit result as normal VXL
 
 ## Phase 4 — Editor (Illustrator-mapped)
-- [ ] Select, move, scale, rotate
+- [x] Select, move, scale, rotate
 - [ ] Recolor by job (figure/ground/accent)
 - [ ] Anchor edit (pen-level)
 - [ ] Width profile on strokes
