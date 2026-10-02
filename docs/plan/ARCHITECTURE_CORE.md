@@ -42,3 +42,5 @@ They are not required for the core loop.
 AI never draws pixels. AI emits VXL. The app always owns geometry.
 - Phase 4 type places a VXL `text` node (point or area width). Area width wraps into tspans on compile. Outline expands the string to monoline glyph paths the pen tools can edit. The compiler still owns the SVG text until outline.
 
+- Undo and redo keep up to 40 document snapshots. A step is recorded only when geometry, layers, or palette change. Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z walk that stack.
+- Layers are the VXL `layers[]` stack. Later layers paint in front. Each layer has a name, opacity, visible, and locked flag. Hide and lock skip hit testing. Merge folds a layer into the one behind it. New type lands on the active unlocked layer.

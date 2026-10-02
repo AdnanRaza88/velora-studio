@@ -437,7 +437,7 @@
   function hitTest(doc, x, y) {
     var layers = (doc && doc.layers) || [];
     for (var i = layers.length - 1; i >= 0; i--) {
-      if (layers[i].visible === false) continue;
+      if (layers[i].visible === false || layers[i].locked) continue;
       var hit = hitShapes(layers[i].shapes || [], x, y);
       if (hit) return hit;
     }
@@ -462,9 +462,18 @@
     return null;
   }
 
+  function hostLayer(doc, id) {
+    var layers = (doc && doc.layers) || [];
+    for (var i = 0; i < layers.length; i++) {
+      if (walk(layers[i].shapes || [], id)) return layers[i];
+    }
+    return null;
+  }
+
   function apply(doc, id, m, mode) {
     var shape = find(doc, id);
-    if (!shape) return null;
+    var host = hostLayer(doc, id);
+    if (!shape || (host && host.locked)) return null;
     transformShape(shape, m, mode);
     if (doc.meta) doc.meta.updated = new Date().toISOString();
     return shape;
@@ -730,8 +739,18 @@
     (doc.layers || []).forEach(function (layer) { walk(layer.shapes, layer, "shapes"); });
   }
 
-  function placeText(doc, x, y, content, size) {
-    var layer = doc && doc.layers && doc.layers[0];
+  function placeText(doc, x, y, content, size, layerId) {
+    var layers = (doc && doc.layers) || [];
+    var layer = null;
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].id === layerId && layers[i].visible !== false && !layers[i].locked) layer = layers[i];
+    }
+    if (!layer) {
+      for (var j = layers.length - 1; j >= 0; j--) {
+        if (layers[j].visible !== false && !layers[j].locked) { layer = layers[j]; break; }
+      }
+    }
+    if (!layer) layer = layers[0];
     if (!layer) return null;
     if (!Array.isArray(layer.shapes)) layer.shapes = [];
     var shape = {
@@ -838,6 +857,87 @@
     return group;
   }
 
+  function layerById(doc, id) {
+    var layers = (doc && doc.layers) || [];
+    for (var i = 0; i < layers.length; i++) if (layers[i].id === id) return layers[i];
+    return null;
+  }
+
+  function addLayer(doc, name) {
+    if (!doc || !doc.layers) return null;
+    if (doc.layers.length >= 16) return null;
+    var layer = {
+      id: freshId("layer"),
+      name: String(name || ("Layer " + (doc.layers.length + 1))).slice(0, 40),
+      visible: true,
+      locked: false,
+      opacity: 1,
+      shapes: []
+    };
+    doc.layers.push(layer);
+    return layer;
+  }
+
+  function renameLayer(doc, id, name) {
+    var layer = layerById(doc, id);
+    if (!layer) return null;
+    layer.name = String(name || layer.name).slice(0, 40) || layer.name;
+    return layer;
+  }
+
+  function setLayer(doc, id, patch) {
+    var layer = layerById(doc, id);
+    if (!layer || !patch) return null;
+    if (patch.visible != null) layer.visible = patch.visible !== false;
+    if (patch.locked != null) layer.locked = patch.locked === true;
+    if (patch.opacity != null) layer.opacity = Math.max(0, Math.min(1, Number(patch.opacity) || 0));
+    return layer;
+  }
+
+  function orderLayer(doc, id, dir) {
+    var layers = (doc && doc.layers) || [];
+    var index = -1;
+    for (var i = 0; i < layers.length; i++) if (layers[i].id === id) index = i;
+    if (index < 0) return null;
+    var next = index + dir;
+    if (next < 0 || next >= layers.length) return layers[index];
+    var swap = layers[index];
+    layers[index] = layers[next];
+    layers[next] = swap;
+    return swap;
+  }
+
+  function removeLayer(doc, id) {
+    var layers = (doc && doc.layers) || [];
+    if (layers.length < 2) return null;
+    var index = -1;
+    for (var i = 0; i < layers.length; i++) if (layers[i].id === id) index = i;
+    if (index < 0) return null;
+    var gone = layers.splice(index, 1)[0];
+    var sink = layers[Math.max(0, index - 1)];
+    sink.shapes = (sink.shapes || []).concat(gone.shapes || []);
+    return sink;
+  }
+
+  function moveShape(doc, shapeId, layerId) {
+    var target = layerById(doc, layerId);
+    if (!target || target.locked) return null;
+    var pulled = null;
+    (doc.layers || []).forEach(function (layer) {
+      if (!layer.shapes) return;
+      for (var i = 0; i < layer.shapes.length; i++) {
+        if (layer.shapes[i].id === shapeId) {
+          pulled = layer.shapes.splice(i, 1)[0];
+          break;
+        }
+      }
+    });
+    if (!pulled) return null;
+    if (!target.shapes) target.shapes = [];
+    target.shapes.push(pulled);
+    return pulled;
+  }
+
   root.VeloraEdit = {
     bounds: boundsOf,
     find: find,
@@ -859,6 +959,13 @@
     hitWidth: hitWidth,
     placeText: placeText,
     setText: setText,
-    outlineText: outlineText
+    outlineText: outlineText,
+    addLayer: addLayer,
+    renameLayer: renameLayer,
+    setLayer: setLayer,
+    orderLayer: orderLayer,
+    removeLayer: removeLayer,
+    moveShape: moveShape,
+    hostLayer: hostLayer
   };
 })(typeof window !== "undefined" ? window : globalThis);

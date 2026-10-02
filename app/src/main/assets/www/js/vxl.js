@@ -360,6 +360,7 @@
         id: typeof layer.id === "string" && layer.id ? layer.id.slice(0, 64) : "layer-" + (i + 1),
         name: String(layer.name || ("Layer " + (i + 1))).slice(0, 40),
         visible: layer.visible !== false,
+        locked: layer.locked === true,
         opacity: Math.max(0, Math.min(1, num(layer.opacity, 1))),
         shapes: []
       };

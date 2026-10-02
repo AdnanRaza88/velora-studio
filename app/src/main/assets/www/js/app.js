@@ -1,7 +1,7 @@
 (function () {
   var $ = document.getElementById("app");
   var nav = document.getElementById("nav");
-  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null, sel: "", tool: "select" };
+  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null, sel: "", tool: "select", layer: "", history: [], future: [] };
   var REMOTE = { openai: 1, anthropic: 1, gemini: 1, openrouter: 1 };
 
   function theme() { return localStorage.getItem("velora.theme") || "light"; }
@@ -93,6 +93,7 @@
       '<button type="button" class="ghost' + (state.tool === "type" ? " on" : "") + '" id="typeMode">Type</button>' +
       widthChips() + typeControls() + '</div>' +
       inkControls(checked.document) +
+      layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") +
@@ -179,6 +180,35 @@
     return marks;
   }
 
+
+  function layerPanel(doc) {
+    var rows = (doc.layers || []).map(function (layer) {
+      var on = layer.id === state.layer ? " on" : "";
+      var op = Math.round((layer.opacity == null ? 1 : layer.opacity) * 100);
+      return '<div class="layer' + on + '" data-layer="' + VeloraVxl.esc(layer.id) + '">' +
+        '<input type="text" data-lname="' + VeloraVxl.esc(layer.id) + '" value="' + VeloraVxl.esc(layer.name) + '" aria-label="Layer name"/>' +
+        '<input type="number" min="0" max="100" data-lop="' + VeloraVxl.esc(layer.id) + '" value="' + op + '" aria-label="Layer opacity"/>' +
+        '<button type="button" class="ghost' + (layer.visible === false ? "" : " on") + '" data-lvis="' + VeloraVxl.esc(layer.id) + '">' + (layer.visible === false ? "Show" : "Hide") + '</button>' +
+        '<button type="button" class="ghost' + (layer.locked ? " on" : "") + '" data-llock="' + VeloraVxl.esc(layer.id) + '">' + (layer.locked ? "Unlock" : "Lock") + '</button>' +
+        '<button type="button" class="ghost" data-lback="' + VeloraVxl.esc(layer.id) + '">Back</button>' +
+        '<button type="button" class="ghost" data-lfront="' + VeloraVxl.esc(layer.id) + '">Front</button>' +
+        '<button type="button" class="ghost" data-ldrop="' + VeloraVxl.esc(layer.id) + '">Merge</button></div>';
+    }).join("");
+    var assign = "";
+    if (state.sel) {
+      assign = '<label for="assignLayer">Move selection</label><select id="assignLayer" aria-label="Move selection to layer">' +
+        (doc.layers || []).map(function (layer) {
+          var host = VeloraEdit.hostLayer(doc, state.sel);
+          var selected = host && host.id === layer.id ? " selected" : "";
+          return '<option value="' + VeloraVxl.esc(layer.id) + '"' + selected + '>' + VeloraVxl.esc(layer.name) + '</option>';
+        }).join("") + '</select>';
+    }
+    return '<h3>Layers</h3><p class="muted">Later layers paint in front. Hidden and locked layers stay out of the hit test. Undo restores the document.</p>' +
+      '<div class="row"><button type="button" class="ghost" id="undoBtn"' + (state.history.length ? "" : " disabled") + '>Undo</button>' +
+      '<button type="button" class="ghost" id="redoBtn"' + (state.future.length ? "" : " disabled") + '>Redo</button>' +
+      '<button type="button" class="ghost" id="addLayer">New layer</button></div>' + rows + assign;
+  }
+
   function inkControls(doc) {
     var jobs = ["ground", "figure", "accent"];
     ["ink2", "ink3", "ink4"].forEach(function (key) {
@@ -239,6 +269,79 @@
     document.getElementById("applyVxl").onclick = function () {
       publishScene(document.getElementById("editVxl").value, "Edited VXL");
     };
+
+    var undoBtn = document.getElementById("undoBtn");
+    var redoBtn = document.getElementById("redoBtn");
+    if (undoBtn) undoBtn.onclick = function () { undoDoc(); };
+    if (redoBtn) redoBtn.onclick = function () { redoDoc(); };
+    var addLayer = document.getElementById("addLayer");
+    if (addLayer) addLayer.onclick = function () {
+      var made = VeloraEdit.addLayer(state.doc, "Layer " + (state.doc.layers.length + 1));
+      if (made) state.layer = made.id;
+      publishScene(state.doc, made ? "Layer added" : "Layer limit");
+    };
+    document.querySelectorAll("[data-layer]").forEach(function (row) {
+      row.onclick = function (ev) {
+        if (ev.target.closest("input,button,select")) return;
+        state.layer = this.getAttribute("data-layer");
+        publishScene(state.doc, "Layer active");
+      };
+    });
+    document.querySelectorAll("[data-lname]").forEach(function (input) {
+      input.onchange = function () {
+        VeloraEdit.renameLayer(state.doc, this.getAttribute("data-lname"), this.value);
+        publishScene(state.doc, "Layer renamed");
+      };
+    });
+    document.querySelectorAll("[data-lop]").forEach(function (input) {
+      input.onchange = function () {
+        VeloraEdit.setLayer(state.doc, this.getAttribute("data-lop"), { opacity: Number(this.value) / 100 });
+        publishScene(state.doc, "Layer opacity");
+      };
+    });
+    document.querySelectorAll("[data-lvis]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = this.getAttribute("data-lvis");
+        var layer = (state.doc.layers || []).filter(function (item) { return item.id === id; })[0];
+        VeloraEdit.setLayer(state.doc, id, { visible: layer && layer.visible === false });
+        publishScene(state.doc, "Layer visibility");
+      };
+    });
+    document.querySelectorAll("[data-llock]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = this.getAttribute("data-llock");
+        var layer = (state.doc.layers || []).filter(function (item) { return item.id === id; })[0];
+        VeloraEdit.setLayer(state.doc, id, { locked: !(layer && layer.locked) });
+        publishScene(state.doc, "Layer lock");
+      };
+    });
+    document.querySelectorAll("[data-lback]").forEach(function (btn) {
+      btn.onclick = function () {
+        VeloraEdit.orderLayer(state.doc, this.getAttribute("data-lback"), -1);
+        publishScene(state.doc, "Layer back");
+      };
+    });
+    document.querySelectorAll("[data-lfront]").forEach(function (btn) {
+      btn.onclick = function () {
+        VeloraEdit.orderLayer(state.doc, this.getAttribute("data-lfront"), 1);
+        publishScene(state.doc, "Layer front");
+      };
+    });
+    document.querySelectorAll("[data-ldrop]").forEach(function (btn) {
+      btn.onclick = function () {
+        var id = this.getAttribute("data-ldrop");
+        var sink = VeloraEdit.removeLayer(state.doc, id);
+        if (sink) state.layer = sink.id;
+        publishScene(state.doc, sink ? "Layer merged" : "Keep one layer");
+      };
+    });
+    var assign = document.getElementById("assignLayer");
+    if (assign) assign.onchange = function () {
+      VeloraEdit.moveShape(state.doc, state.sel, this.value);
+      state.layer = this.value;
+      publishScene(state.doc, "Shape moved");
+    };
+
     var picks = document.querySelectorAll("[data-pick]");
     for (var p = 0; p < picks.length; p++) {
       picks[p].onclick = function (ev) {
@@ -361,7 +464,7 @@
           publishScene(state.doc, "Type selected");
           return;
         }
-        var placed = VeloraEdit.placeText(state.doc, pt.x, pt.y, state.typeText || "Velora", state.typeSize || 64);
+        var placed = VeloraEdit.placeText(state.doc, pt.x, pt.y, state.typeText || "Velora", state.typeSize || 64, state.layer);
         if (!placed) return;
         placed.anchor = state.typeAnchor || "middle";
         if (state.typeWidth > 0) placed.w = state.typeWidth;
@@ -458,7 +561,19 @@
     if (msg) msg.textContent = state.sel ? "Selected " + state.sel + toolHint() : "Select a shape on the canvas or in the list.";
   }
 
-  function publishScene(doc, note) {
+  function bodyStamp(doc) {
+    if (!doc) return "";
+    try {
+      var copy = JSON.parse(JSON.stringify(doc));
+      if (copy.meta) delete copy.meta.updated;
+      return JSON.stringify(copy);
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function publishScene(doc, note, flags) {
+    flags = flags || {};
     var out = document.getElementById("out");
     var checked = VeloraVxl.validate(doc);
     if (!checked.ok) {
@@ -471,6 +586,20 @@
       }
       return checked;
     }
+    if (flags.reset) {
+      state.history = [];
+      state.future = [];
+    } else if (!flags.replay) {
+      var prev = bodyStamp(state.doc);
+      var next = bodyStamp(checked.document);
+      if (prev && prev !== next) {
+        state.history.push(JSON.stringify(state.doc));
+        if (state.history.length > 40) state.history.shift();
+        state.future = [];
+      }
+    }
+    var known = (checked.document.layers || []).some(function (layer) { return layer.id === state.layer; });
+    if (!known && checked.document.layers.length) state.layer = checked.document.layers[checked.document.layers.length - 1].id;
     if (out) {
       out.innerHTML = showScene(checked.document, note);
       bindScene();
@@ -478,6 +607,18 @@
     var paste = document.getElementById("paste");
     if (paste) paste.value = JSON.stringify(checked.document, null, 2);
     return checked;
+  }
+
+  function undoDoc() {
+    if (!state.history.length || !state.doc) return;
+    state.future.push(JSON.stringify(state.doc));
+    publishScene(JSON.parse(state.history.pop()), "Undo", { replay: true });
+  }
+
+  function redoDoc() {
+    if (!state.future.length || !state.doc) return;
+    state.history.push(JSON.stringify(state.doc));
+    publishScene(JSON.parse(state.future.pop()), "Redo", { replay: true });
   }
 
   function renderStudio() {
@@ -511,10 +652,10 @@
     state.doc = doc;
     state.type = doc.meta.category === "textile" ? "textile" : "logo";
     if (doc.meta && doc.meta.reference) VeloraReference.restore(doc.meta.reference);
+    state.history = [];
+    state.future = [];
+    state.layer = (doc.layers && doc.layers.length) ? doc.layers[doc.layers.length - 1].id : "";
     setRoute("compose");
-    var out = document.getElementById("out");
-    out.innerHTML = showScene(doc, "Loaded from device");
-    bindScene();
   }
 
   function refMarkup() {
@@ -582,6 +723,9 @@
         document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(made.errors.join("; ")) + "</div>";
         return;
       }
+      state.history = [];
+      state.future = [];
+      state.layer = "";
       document.getElementById("out").innerHTML = showScene(made.document, made.note);
       bindScene();
     };
@@ -703,6 +847,9 @@
     }
     msg.className = "ok";
     msg.textContent = "Valid VXL. Compiled.";
+    state.history = [];
+    state.future = [];
+    state.layer = "";
     document.getElementById("out").innerHTML = showScene(checked.document, "Imported VXL");
     bindScene();
   }
@@ -813,4 +960,15 @@
   };
 
   setRoute("studio");
+
+  document.addEventListener("keydown", function (ev) {
+    if (!state.doc) return;
+    var tag = ev.target && ev.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    var meta = ev.metaKey || ev.ctrlKey;
+    if (!meta) return;
+    var key = String(ev.key || "").toLowerCase();
+    if (key === "z" && !ev.shiftKey) { ev.preventDefault(); undoDoc(); }
+    if (key === "y" || (key === "z" && ev.shiftKey)) { ev.preventDefault(); redoDoc(); }
+  });
 })();

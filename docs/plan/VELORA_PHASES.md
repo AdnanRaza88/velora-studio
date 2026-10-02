@@ -47,7 +47,7 @@ Brief (+ optional attachment)
 - [x] Anchor edit (pen-level)
 - [x] Width profile on strokes
 - [x] Text tool
-- [ ] Undo/redo, layers
+- [x] Undo/redo, layers
 
 ## Phase 5 — Advanced geometry
 - [ ] Boolean (unite/subtract)
