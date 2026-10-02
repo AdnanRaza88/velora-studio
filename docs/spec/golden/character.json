@@ -1,0 +1,28 @@
+{
+  "name": "skill-character",
+  "doc": {
+    "vxl": 1,
+    "meta": {
+      "id": "golden-character",
+      "name": "Walker",
+      "category": "character",
+      "purpose": "figure",
+      "brief": "Simple standing figure"
+    },
+    "canvas": { "viewBox": [0, 0, 512, 768] },
+    "palette": { "ground": "#f4efe6", "figure": "#0f2a24", "accent": "#c4a574" },
+    "layers": [{
+      "id": "figure",
+      "name": "Figure",
+      "shapes": [{
+        "id": "body-group",
+        "type": "group",
+        "children": [
+          { "id": "head", "type": "circle", "role": "accent", "cx": 256, "cy": 160, "r": 56 },
+          { "id": "torso", "type": "rect", "role": "figure", "x": 216, "y": 220, "width": 80, "height": 180, "rx": 16 },
+          { "id": "leg", "type": "line", "role": "figure", "stroke": "figure", "strokeWidth": 10, "x1": 240, "y1": 400, "x2": 220, "y2": 560 }
+        ]
+      }]
+    }]
+  }
+}

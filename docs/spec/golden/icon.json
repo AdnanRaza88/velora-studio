@@ -1,0 +1,30 @@
+{
+  "name": "skill-icon",
+  "doc": {
+    "vxl": 1,
+    "meta": {
+      "id": "golden-icon",
+      "name": "Mark 24",
+      "category": "icon",
+      "purpose": "ui",
+      "brief": "Two-tone 24 grid"
+    },
+    "canvas": { "viewBox": [0, 0, 24, 24] },
+    "palette": { "ground": "#ffffff", "figure": "#111111", "accent": "#355e57", "ink2": "#8a3b24" },
+    "layers": [{
+      "id": "icon",
+      "name": "Icon",
+      "shapes": [
+        { "id": "plate", "type": "rect", "role": "figure", "x": 3, "y": 3, "w": 18, "h": 18, "rx": 4 },
+        {
+          "id": "counter",
+          "type": "path",
+          "role": "ground",
+          "fill": "ground",
+          "fillRule": "evenodd",
+          "d": "M7 7 H17 V17 H7 Z M10 10 H14 V14 H10 Z"
+        }
+      ]
+    }]
+  }
+}

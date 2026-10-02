@@ -27,7 +27,7 @@ Brief (+ optional attachment)
 - [x] VXL schema + compile to SVG
 - [x] Paste/import VXL → render
 - [x] Project save/load on device
-- [ ] Harden schema against skill output; golden tests
+- [x] Harden schema against skill output; golden tests
 
 ## Phase 3 — Skills + Needle-first agent (active)
 - [ ] Skill packs: logo, textile, character, icon (system instructions + tool schema)

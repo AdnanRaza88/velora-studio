@@ -1,0 +1,25 @@
+{
+  "name": "skill-textile",
+  "doc": {
+    "vxl": 1,
+    "meta": {
+      "id": "golden-textile",
+      "name": "Leaf half-drop",
+      "category": "textile",
+      "skill": "textile",
+      "purpose": "surface",
+      "brief": "Leaf motif, half-drop"
+    },
+    "canvas": { "viewBox": "0 0 840 840", "units": "px" },
+    "palette": { "ground": "#efe8dc", "figure": "#1e1b16", "accent": "#8a3b24" },
+    "repeat": { "type": "half-drop", "tile": [240, 240], "cols": 3, "rows": 3 },
+    "layers": [{
+      "id": "motif",
+      "name": "Motif",
+      "shapes": [
+        { "id": "leaf", "type": "path", "role": "figure", "d": "M0 -80 C40 -40 40 20 0 70 C-40 20 -40 -40 0 -80 Z" },
+        { "id": "dot", "type": "circle", "role": "ground", "fill": "ground", "cx": 0, "cy": 0, "r": 10 }
+      ]
+    }]
+  }
+}

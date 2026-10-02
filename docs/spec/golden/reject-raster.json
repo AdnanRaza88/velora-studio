@@ -1,0 +1,14 @@
+{
+  "name": "reject-raster",
+  "expect": "reject",
+  "doc": {
+    "vxl": 1,
+    "meta": { "name": "Bad", "category": "logo" },
+    "canvas": { "viewBox": [0, 0, 100, 100] },
+    "palette": { "ground": "#fff", "figure": "#111", "accent": "#333" },
+    "layers": [{
+      "id": "l",
+      "shapes": [{ "id": "img", "type": "image", "href": "data:image/png;base64,aaaa", "x": 0, "y": 0, "w": 100, "h": 100 }]
+    }]
+  }
+}

@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-02 09:50
+Last updated: 2026-10-02 13:20
 
 ## 1. Entry Points
 
@@ -13,7 +13,7 @@ Last updated: 2026-10-02 09:50
 |------|------|-------------|------------|-------------|
 | app/src/main/java/app/velora/studio/MainActivity.kt | WebView shell | MainActivity | AndroidX | manifest |
 | app/src/main/assets/www/index.html | Workshop shell | routes | js/vxl.js, js/projects.js, js/app.js | WebView |
-| app/src/main/assets/www/js/vxl.js | Schema, validate, compile, procedural builders | VeloraVxl | none | app.js |
+| app/src/main/assets/www/js/vxl.js | Schema, validate, compile, procedural builders | VeloraVxl.validate, compile, buildLogo, buildTextile | none | app.js, tools/vxl-golden.js |
 | app/src/main/assets/www/js/projects.js | Device project store | VeloraProjects | localStorage | app.js |
 | app/src/main/assets/www/js/app.js | Routes and compose/import UI | none | VeloraVxl, VeloraProjects | index.html |
 | docs/spec/VXL.md | VXL 1 contract | schema | none | compiler |
@@ -43,5 +43,6 @@ Last updated: 2026-10-02 09:50
 
 ## 6. Recent Changes Log
 
+- 2026-10-02 Phase 2 harden: skill aliases, raster reject, palette repair warnings, golden tests
 - 2026-10-02 Phase 2: VXL 1 schema, compiler, paste/file import, device project store
 - 2026-10-02 Phase 1: nav, procedural logo/textile, provider key UI, SVG download

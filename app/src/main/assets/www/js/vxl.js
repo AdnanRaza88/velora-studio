@@ -2,6 +2,9 @@
   var TYPES = ["path", "circle", "ellipse", "rect", "line", "polygon", "text", "group"];
   var REPEATS = ["block", "half-drop", "half-brick", "mirror"];
   var ROLES = ["ground", "figure", "accent"];
+  var CATEGORIES = ["logo", "textile", "illustration"];
+  var INK_KEYS = ["ink2", "ink3", "ink4"];
+  var MAX_DEPTH = 4;
 
   function isHex(v) {
     return typeof v === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
@@ -15,7 +18,9 @@
   function paint(value, palette) {
     if (value == null || value === "") return null;
     if (value === "none") return "none";
-    if (ROLES.indexOf(value) >= 0 && palette && palette[value]) return palette[value];
+    var role = typeof value === "string" ? value.toLowerCase() : value;
+    if (ROLES.indexOf(role) >= 0 && palette && palette[role]) return palette[role];
+    if (INK_KEYS.indexOf(role) >= 0 && palette && palette[role]) return palette[role];
     if (isHex(value)) return value;
     return null;
   }
@@ -28,8 +33,15 @@
       .replace(/"/g, "&" + "quot;");
   }
 
+  function looksUnsafe(v) {
+    if (typeof v !== "string") return false;
+    var s = v.toLowerCase();
+    return s.indexOf("data:image") >= 0 || s.indexOf("base64,") >= 0 || s.indexOf("<script") >= 0 || s.indexOf("javascript:") >= 0;
+  }
+
   function safePath(d) {
     if (typeof d !== "string") return "";
+    if (looksUnsafe(d)) return "";
     if (!/^[MmLlHhVvCcSsQqTtAaZz0-9eE+\-.,\s]+$/.test(d)) return "";
     return d.trim();
   }
@@ -81,6 +93,7 @@
         created: now,
         updated: now,
         category: "logo",
+        skill: "logo",
         purpose: "brand",
         brief: ""
       },
@@ -91,28 +104,81 @@
     };
   }
 
-  function normalizeShape(raw, errors, path) {
+  function mapCategory(raw) {
+    var c = String(raw || "").toLowerCase();
+    if (c === "icon") return { category: "logo", skill: "icon" };
+    if (c === "character") return { category: "illustration", skill: "character" };
+    if (c === "textile") return { category: "textile", skill: "textile" };
+    if (c === "illustration") return { category: "illustration", skill: "character" };
+    if (c === "logo") return { category: "logo", skill: "logo" };
+    return { category: "", skill: "" };
+  }
+
+  function parsePoints(raw) {
+    if (typeof raw === "string") {
+      var bits = raw.trim().split(/[\s,]+/);
+      var out = [];
+      for (var i = 0; i + 1 < bits.length && out.length < 256; i += 2) {
+        out.push([num(bits[i], 0), num(bits[i + 1], 0)]);
+      }
+      return out;
+    }
+    var pts = Array.isArray(raw) ? raw : [];
+    return pts.slice(0, 256).map(function (p) {
+      if (Array.isArray(p)) return [num(p[0], 0), num(p[1], 0)];
+      return [num(p && p.x, 0), num(p && p.y, 0)];
+    });
+  }
+
+  function parseViewBox(vb) {
+    if (typeof vb === "string") vb = vb.trim().split(/[\s,]+/);
+    if (!Array.isArray(vb) || vb.length !== 4) return null;
+    var nums = vb.map(function (n) { return num(n, NaN); });
+    if (nums.some(function (n) { return !isFinite(n); })) return null;
+    return nums;
+  }
+
+  function normalizeShape(raw, errors, path, depth) {
     if (!raw || typeof raw !== "object") {
       errors.push(path + " is not an object");
       return null;
     }
+    if (looksUnsafe(JSON.stringify(raw))) {
+      errors.push(path + " embeds a raster or script");
+      return null;
+    }
     var type = raw.type;
+    if (type === "image" || type === "raster") {
+      errors.push(path + " raster is not a design source");
+      return null;
+    }
     if (TYPES.indexOf(type) < 0) {
       errors.push(path + " has unknown type");
       return null;
     }
+    if (depth > MAX_DEPTH) {
+      errors.push(path + " is nested too deep");
+      return null;
+    }
+    var role = typeof raw.role === "string" ? raw.role.toLowerCase() : "";
     var shape = {
-      id: typeof raw.id === "string" && raw.id ? raw.id : uid(),
+      id: typeof raw.id === "string" && raw.id ? raw.id.slice(0, 64) : uid(),
       type: type,
-      role: ROLES.indexOf(raw.role) >= 0 ? raw.role : "figure",
+      role: ROLES.indexOf(role) >= 0 ? role : "figure",
       opacity: Math.max(0, Math.min(1, num(raw.opacity, 1)))
     };
     if (raw.fill != null) shape.fill = raw.fill;
     if (raw.stroke != null) shape.stroke = raw.stroke;
     if (raw.strokeWidth != null) shape.strokeWidth = Math.max(0, num(raw.strokeWidth, 0));
-    if (raw.strokeLinecap) shape.strokeLinecap = raw.strokeLinecap;
-    if (raw.strokeLinejoin) shape.strokeLinejoin = raw.strokeLinejoin;
+    if (raw.strokeLinecap) shape.strokeLinecap = String(raw.strokeLinecap).slice(0, 16);
+    if (raw.strokeLinejoin) shape.strokeLinejoin = String(raw.strokeLinejoin).slice(0, 16);
     if (typeof raw.transform === "string") shape.transform = raw.transform.slice(0, 240);
+    var rule = raw.fillRule || raw["fill-rule"];
+    if (rule === "evenodd" || rule === "nonzero") shape.fillRule = rule;
+
+    if (Array.isArray(raw.widthProfile)) {
+      shape.widthProfile = raw.widthProfile.slice(0, 16).map(function (n) { return Math.max(0, num(n, 0)); });
+    }
 
     if (type === "path") {
       shape.d = safePath(raw.d);
@@ -139,23 +205,19 @@
       shape.x2 = num(raw.x2, 0);
       shape.y2 = num(raw.y2, 0);
     } else if (type === "polygon") {
-      var pts = Array.isArray(raw.points) ? raw.points : [];
-      shape.points = pts.slice(0, 256).map(function (p) {
-        if (Array.isArray(p)) return [num(p[0], 0), num(p[1], 0)];
-        return [num(p.x, 0), num(p.y, 0)];
-      });
+      shape.points = parsePoints(raw.points);
       if (shape.points.length < 3) errors.push(path + " polygon needs 3 points");
     } else if (type === "text") {
       shape.x = num(raw.x, 0);
       shape.y = num(raw.y, 0);
-      shape.size = Math.max(1, num(raw.size, 32));
+      shape.size = Math.max(1, num(raw.size != null ? raw.size : raw.fontSize, 32));
       shape.text = String(raw.text || "").slice(0, 80);
       shape.anchor = raw.anchor === "start" || raw.anchor === "end" ? raw.anchor : "middle";
     } else if (type === "group") {
       shape.children = [];
       var kids = Array.isArray(raw.children) ? raw.children : Array.isArray(raw.shapes) ? raw.shapes : [];
       for (var i = 0; i < kids.length && i < 64; i++) {
-        var child = normalizeShape(kids[i], errors, path + ".children[" + i + "]");
+        var child = normalizeShape(kids[i], errors, path + ".children[" + i + "]", depth + 1);
         if (child) shape.children.push(child);
       }
     }
@@ -174,7 +236,7 @@
     if (raw.palette) doc.palette = raw.palette;
     if (raw.repeat) doc.repeat = raw.repeat;
     if (Array.isArray(raw.layers)) doc.layers = raw.layers;
-    if (raw.motif && raw.motif.path && doc.meta.category === "textile") {
+    if (raw.motif && raw.motif.path && String(raw.category) === "textile") {
       doc.layers = [{
         id: "motif",
         name: "Motif",
@@ -191,32 +253,46 @@
 
   function validate(input) {
     var errors = [];
+    var warnings = [];
     var raw = input;
     if (typeof input === "string") {
       try { raw = JSON.parse(input); }
-      catch (e) { return { ok: false, errors: ["JSON parse failed"], document: null }; }
+      catch (e) { return { ok: false, errors: ["JSON parse failed"], warnings: [], document: null }; }
     }
-    if (!raw || typeof raw !== "object") return { ok: false, errors: ["VXL must be an object"], document: null };
+    if (!raw || typeof raw !== "object") return { ok: false, errors: ["VXL must be an object"], warnings: [], document: null };
     raw = liftLegacy(raw);
     if (raw.vxl !== 1) errors.push("vxl version must be 1");
 
     var doc = blank();
     var meta = raw.meta || {};
-    doc.meta.id = typeof meta.id === "string" && meta.id ? meta.id : uid();
+    doc.meta.id = typeof meta.id === "string" && meta.id ? meta.id.slice(0, 64) : uid();
     doc.meta.name = String(meta.name || "Untitled").slice(0, 80);
     doc.meta.created = typeof meta.created === "string" ? meta.created : doc.meta.created;
     doc.meta.updated = new Date().toISOString();
-    doc.meta.category = ["logo", "textile", "illustration"].indexOf(meta.category) >= 0 ? meta.category : "logo";
+    var mapped = mapCategory(meta.category);
+    if (!mapped.category) errors.push("meta.category must be logo, textile, illustration, icon, or character");
+    else doc.meta.category = mapped.category;
+    var skill = typeof meta.skill === "string" ? meta.skill.toLowerCase() : mapped.skill;
+    if (["logo", "textile", "character", "icon"].indexOf(skill) < 0) skill = mapped.skill || "logo";
+    doc.meta.skill = skill;
     doc.meta.purpose = String(meta.purpose || "brand").slice(0, 40);
     doc.meta.brief = String(meta.brief || "").slice(0, 500);
 
-    var vb = raw.canvas && raw.canvas.viewBox;
-    if (!Array.isArray(vb) || vb.length !== 4) errors.push("canvas.viewBox must be 4 numbers");
-    else doc.canvas.viewBox = vb.map(function (n) { return num(n, 0); });
+    var vb = parseViewBox(raw.canvas && raw.canvas.viewBox);
+    if (!vb) errors.push("canvas.viewBox must be 4 numbers");
+    else doc.canvas.viewBox = vb;
     doc.canvas.units = "px";
 
     var pal = raw.palette || {};
+    var defaults = doc.palette;
     ["ground", "figure", "accent"].forEach(function (key) {
+      if (!isHex(pal[key])) {
+        warnings.push("palette." + key + " missing or not hex; repaired");
+        doc.palette[key] = defaults[key];
+      } else doc.palette[key] = pal[key];
+    });
+    INK_KEYS.forEach(function (key) {
+      if (pal[key] == null) return;
       if (!isHex(pal[key])) errors.push("palette." + key + " must be a hex color");
       else doc.palette[key] = pal[key];
     });
@@ -225,6 +301,7 @@
       var rt = raw.repeat.type;
       if (REPEATS.indexOf(rt) < 0) errors.push("repeat.type is not supported");
       var tile = raw.repeat.tile || [240, 240];
+      if (typeof tile === "string") tile = tile.split(/[\s,]+/);
       doc.repeat = {
         type: REPEATS.indexOf(rt) >= 0 ? rt : "block",
         tile: [Math.max(8, num(tile[0], 240)), Math.max(8, num(tile[1], 240))],
@@ -239,7 +316,7 @@
     for (var i = 0; i < layers.length && i < 16; i++) {
       var layer = layers[i] || {};
       var out = {
-        id: typeof layer.id === "string" && layer.id ? layer.id : "layer-" + (i + 1),
+        id: typeof layer.id === "string" && layer.id ? layer.id.slice(0, 64) : "layer-" + (i + 1),
         name: String(layer.name || ("Layer " + (i + 1))).slice(0, 40),
         visible: layer.visible !== false,
         opacity: Math.max(0, Math.min(1, num(layer.opacity, 1))),
@@ -247,12 +324,12 @@
       };
       var shapes = Array.isArray(layer.shapes) ? layer.shapes : [];
       for (var s = 0; s < shapes.length && s < 80; s++) {
-        var shape = normalizeShape(shapes[s], errors, "layers[" + i + "].shapes[" + s + "]");
+        var shape = normalizeShape(shapes[s], errors, "layers[" + i + "].shapes[" + s + "]", 1);
         if (shape) out.shapes.push(shape);
       }
       doc.layers.push(out);
     }
-    return { ok: errors.length === 0, errors: errors, document: doc };
+    return { ok: errors.length === 0, errors: errors, warnings: warnings, document: doc };
   }
 
   function styleAttrs(shape, palette) {
@@ -261,6 +338,7 @@
     var attrs = "";
     if (fill) attrs += ' fill="' + fill + '"';
     else attrs += ' fill="' + palette.figure + '"';
+    if (shape.fillRule) attrs += ' fill-rule="' + shape.fillRule + '"';
     if (stroke) {
       attrs += ' stroke="' + stroke + '"';
       attrs += ' stroke-width="' + num(shape.strokeWidth, 2) + '"';
@@ -334,7 +412,7 @@
       for (var r = 0; r < doc.repeat.rows; r++) {
         for (var c = 0; c < doc.repeat.cols; c++) {
           var pal = doc.palette;
-          if ((c + r) % 2) pal = { ground: doc.palette.ground, figure: doc.palette.accent, accent: doc.palette.figure };
+          if ((c + r) % 2) pal = { ground: doc.palette.ground, figure: doc.palette.accent, accent: doc.palette.figure, ink2: doc.palette.ink2, ink3: doc.palette.ink3, ink4: doc.palette.ink4 };
           var motif = compileLayer(doc.layers[0], pal);
           parts.push('<g transform="' + tileTransform(doc.repeat, c, r) + '">' + motif + "</g>");
         }
@@ -385,6 +463,7 @@
     var doc = blank();
     doc.meta.name = name;
     doc.meta.category = "logo";
+    doc.meta.skill = "logo";
     doc.meta.purpose = "brand";
     doc.meta.brief = brief || "";
     doc.palette = pal;
@@ -401,6 +480,7 @@
     var doc = blank();
     doc.meta.name = kind + " " + repeat;
     doc.meta.category = "textile";
+    doc.meta.skill = "textile";
     doc.meta.purpose = "surface";
     doc.meta.brief = brief || "";
     doc.palette = pal;

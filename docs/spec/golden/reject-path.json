@@ -1,0 +1,14 @@
+{
+  "name": "reject-path",
+  "expect": "reject",
+  "doc": {
+    "vxl": 1,
+    "meta": { "name": "Bad path", "category": "logo" },
+    "canvas": { "viewBox": [0, 0, 100, 100] },
+    "palette": { "ground": "#ffffff", "figure": "#111111", "accent": "#333333" },
+    "layers": [{
+      "id": "l",
+      "shapes": [{ "id": "p", "type": "path", "d": "M0 0 L10 10 <script>" }]
+    }]
+  }
+}

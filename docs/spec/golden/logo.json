@@ -1,0 +1,28 @@
+{
+  "name": "skill-logo",
+  "doc": {
+    "vxl": 1,
+    "meta": {
+      "id": "golden-logo",
+      "name": "North mark",
+      "category": "logo",
+      "skill": "logo",
+      "purpose": "brand",
+      "brief": "Geometric falcon, two inks"
+    },
+    "canvas": { "viewBox": [0, 0, 1024, 1024], "units": "px" },
+    "palette": { "ground": "#f6f1e8", "figure": "#1b3358", "accent": "#355e57" },
+    "repeat": null,
+    "layers": [{
+      "id": "mark",
+      "name": "Mark",
+      "visible": true,
+      "opacity": 1,
+      "shapes": [
+        { "id": "wing", "type": "path", "role": "figure", "d": "M512 220 C360 340 240 460 200 620 C340 540 430 560 512 640 C430 500 450 340 512 220 Z" },
+        { "id": "body", "type": "path", "role": "accent", "fill": "accent", "d": "M512 240 C496 420 500 560 512 700 C524 560 528 420 512 240 Z" },
+        { "id": "word", "type": "text", "role": "figure", "x": 512, "y": 920, "size": 48, "text": "North", "anchor": "middle" }
+      ]
+    }]
+  }
+}
