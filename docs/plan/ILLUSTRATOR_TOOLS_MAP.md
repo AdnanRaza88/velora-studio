@@ -1,0 +1,44 @@
+# Illustrator tools → Velora VXL / editor map
+
+What professionals actually use, and what those tools produce, mapped to our engine.
+
+## Core draw
+| Tool | What it produces | Velora mapping |
+|------|------------------|----------------|
+| Pen | Anchor points + Bezier handles; closed/open paths | VXL `path` with `d` or anchors[] |
+| Pencil | Freehand path, then simplified | VXL path + smooth |
+| Curvature | Click-to-curve paths | Path builder UI |
+| Shape tools | Rect, ellipse, polygon, star | VXL primitive shapes |
+
+## Stroke expression
+| Tool | What it produces | Velora mapping |
+|------|------------------|----------------|
+| Width | Variable stroke thickness along one path (taper, swell) | VXL `stroke.widthProfile` |
+| Stroke profiles | Reusable taper shapes | Named profiles in skill pack |
+| Brushes | Textured / calligraphic strokes | Phase later: brush instances |
+
+## Build complex form
+| Tool | What it produces | Velora mapping |
+|------|------------------|----------------|
+| Pathfinder / Shape Builder | Unite, subtract, intersect, exclude | VXL boolean ops |
+| Blend | Morph steps between two shapes/colors along spine | VXL `blend` node |
+| Compound path | Holes (counterforms in letters, logos) | path fill-rule evenodd |
+
+## Type
+| Tool | What it produces | Velora mapping |
+|------|------------------|----------------|
+| Type / Area type / Type on path | Editable text objects | VXL `text` → optional expand to paths |
+
+## Structure
+| Tool | What it produces | Velora mapping |
+|------|------------------|----------------|
+| Layers / groups | Hierarchy for edit and export | VXL layers[] groups[] |
+| Direct selection | Move individual anchors | Editor node handles |
+
+## Design quality bar (from real use)
+- Logos: few clean shapes, strong silhouette, 1–3 inks, works at favicon size.
+- Characters: semantic groups (head, hair, body, limbs), not thousands of micro-paths.
+- Textile: motif + measured repeat (block / half-drop / half-brick / mirror); seam must close.
+- Line art: width profiles for organic taper, not uniform stroke only.
+
+Procedural detail should prefer stroke, width, blend, and repeat over exploding every curve into noise.

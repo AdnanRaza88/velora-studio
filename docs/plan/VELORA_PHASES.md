@@ -1,60 +1,66 @@
 # Velora Studio — Build Phases
 
 ## Vision
-Code-to-design platform. Prompt or JSON (VXL) becomes editable, print-safe vector. Raster is preview only.
+JSON (VXL) is the design. Two sessions: (A) query → VXL via Needle + skills, (B) VXL → editable vector. High-level Illustrator-class output. Raster is preview only.
 
 ## Pipeline
-Prompt → Intent / skill → VXL (JSON) → validate → vector compile → SVG canvas → edit → export SVG/PNG/VXL
+Brief (+ optional attachment)
+→ skill router
+→ Needle 2 structured extract (bundled in APK)
+→ VXL JSON
+→ validate
+→ vector engine
+→ SVG canvas / edit / export
 
-## Phase 0 — Shell that works (done)
+## Phase 0 — Shell (done)
 - [x] Android WebView shell
-- [x] GitHub Actions APK (artifact: velora-debug-apk)
-- [x] Studio / New / Settings routes load content
+- [x] GitHub Actions APK (`velora-debug-apk`)
+- [x] Basic routes
 
 ## Phase 1 — Workshop core (done)
-- [x] Reliable navigation
-- [x] Provider registry UI (remote + local slots)
-- [x] API keys stored only on device (localStorage / EncryptedSharedPreferences later)
-- [x] Prompt → procedural VXL → SVG (logo + textile)
+- [x] Navigation Studio / New / Providers / Settings
+- [x] Offline prompt → procedural VXL → SVG
 - [x] Textile repeats: block, half-drop, half-brick, mirror
-- [x] Export SVG download
-- [x] Show VXL JSON for the generated scene
+- [x] SVG download + VXL JSON view
 
-## Phase 2 — Real VXL engine (done)
-- [x] Full VXL schema (paths, groups, strokes, fills, layers) — docs/spec/VXL.md
-- [x] Deterministic compiler to SVG
-- [x] Import/paste VXL JSON → render
+## Phase 2 — VXL engine (done / hardening)
+- [x] VXL schema + compile to SVG
+- [x] Paste/import VXL → render
 - [x] Project save/load on device
+- [ ] Harden schema against skill output; golden tests
 
-## Phase 3 — Remote agents
-- [ ] Provider adapters: OpenAI, Anthropic, Gemini, Grok/OpenRouter
-- [ ] System skill prompts per category (logo, textile, illustration)
-- [ ] Adaptive questions when brief is thin
-- [ ] Validate model JSON before compile; repair loop
+## Phase 3 — Skills + Needle-first agent (active)
+- [ ] Skill packs: logo, textile, character, icon (system instructions + tool schema)
+- [ ] Bundle Needle 2 android-arm64 binary in APK assets (~14 MB)
+- [ ] Session A: brief → Needle tool call → VXL → canvas
+- [ ] No remote key required for default path
+- [ ] Attachment picker UI (wire to image-to-vector in Phase 3b)
 
-## Phase 4 — Local agents
-- [ ] On-device model download UI
-- [ ] Needle 2/3 (or similar 8–30 MB tool-call model) for structured intent extraction
-- [ ] Optional larger quant later via llama.cpp / MLC for full VXL generation
-- [ ] Offline-first path: local extract → rule/template VXL if no remote key
+## Phase 3b — Reference / image to vector
+- [ ] Attach image
+- [ ] Autotrace → path simplify → VXL paths
+- [ ] User can edit result as normal VXL
 
-## Phase 5 — Editor
+## Phase 4 — Editor (Illustrator-mapped)
 - [ ] Select, move, scale, rotate
-- [ ] Recolor (figure / ground / accent jobs)
-- [ ] Path node edit (basic)
-- [ ] Undo/redo
+- [ ] Recolor by job (figure/ground/accent)
+- [ ] Anchor edit (pen-level)
+- [ ] Width profile on strokes
 - [ ] Text tool
-- [ ] Layers panel
+- [ ] Undo/redo, layers
 
-## Phase 6 — Illustrator-grade tools
-- [ ] Pen / pencil
-- [ ] Variable width stroke
-- [ ] Blend
-- [ ] Boolean (union, subtract)
+## Phase 5 — Advanced geometry
+- [ ] Boolean (unite/subtract)
+- [ ] Blend steps
 - [ ] Pattern instance controls
+- [ ] Pencil + smooth
 
-## Acceptance (MVP)
-User can: set one provider key OR use offline procedural path → describe a logo or textile → get unique editable SVG → download vector → optionally paste VXL and re-render.
+## Phase 6 — Optional remote assist
+- [ ] OpenAI / Anthropic / Gemini / OpenRouter as optional planners
+- [ ] Same skill packs; same VXL validator
+
+## Acceptance
+User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 
 ## Privacy
-Keys and projects stay on device. Remote providers receive only the brief text the user typed. No silent uploads. Projects never store API keys.
+Needle runs on device. Projects stay on device. Remote is opt-in only.
