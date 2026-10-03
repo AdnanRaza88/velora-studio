@@ -98,10 +98,11 @@
       '<button type="button" class="ghost" id="expandBlend">Expand blend</button>' +
       widthChips() + typeControls() + '</div>' +
       inkControls(checked.document) +
+      patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
-      (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type : "") +
+      (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
       '<label for="pname">Project name</label><input id="pname" value="' + VeloraVxl.esc(checked.document.meta.name) + '"/>' +
       '<div class="row"><button type="button" class="btn" id="saveP">Save on device</button>' +
@@ -122,6 +123,30 @@
     return Math.max(8, Number(vb[2] || 400) / 42);
   }
 
+
+  function patternPanel(doc) {
+    var rep = doc.repeat;
+    if (!rep) return "";
+    var types = ["block", "half-drop", "half-brick", "mirror"].map(function (type) {
+      return '<button type="button" class="chip' + (rep.type === type ? " on" : "") + '" data-pat="' + type + '">' + type + "</button>";
+    }).join("");
+    function field(id, label, value, step) {
+      return '<label class="ink">' + label + '<input id="' + id + '" type="number" step="' + (step || "1") + '" value="' + value + '"/></label>';
+    }
+    return '<div id="pattern"><h3>Pattern</h3><p class="muted">Instance controls. The motif stays in tile space. Scale, rotate, offset, and gap compile as the pattern transform.</p>' +
+      '<div class="row">' + types + "</div><div class=\"row\">" +
+      field("patW", "Tile W", rep.tile[0]) +
+      field("patH", "Tile H", rep.tile[1]) +
+      field("patCols", "Cols", rep.cols) +
+      field("patRows", "Rows", rep.rows) +
+      field("patOx", "Offset X", rep.offset[0]) +
+      field("patOy", "Offset Y", rep.offset[1]) +
+      field("patScale", "Scale", rep.scale, "0.05") +
+      field("patRot", "Rotate", rep.rotate) +
+      field("patGapX", "Gap X", rep.gap[0]) +
+      field("patGapY", "Gap Y", rep.gap[1]) +
+      '</div><button type="button" class="ghost" id="applyPattern">Apply pattern</button></div>';
+  }
 
   function toolHint() {
     if (state.tool === "pen") return ". Drag an anchor or its Bezier handle. The path is rewritten in VXL.";
@@ -421,6 +446,32 @@
       var group = VeloraBlend.expand(state.doc, state.sel, state.doc.palette);
       publishScene(state.doc, group ? "Blend expanded" : "Select a blend");
     };
+    var applyPattern = document.getElementById("applyPattern");
+    if (applyPattern) {
+      var pats = document.querySelectorAll("[data-pat]");
+      for (var p = 0; p < pats.length; p++) {
+        pats[p].onclick = function () {
+          var all = document.querySelectorAll("[data-pat]");
+          for (var k = 0; k < all.length; k++) all[k].className = "chip";
+          this.className = "chip on";
+        };
+      }
+      applyPattern.onclick = function () {
+        if (!state.doc || !state.doc.repeat) return;
+        var typeBtn = document.querySelector("[data-pat].on");
+        state.doc.repeat = VeloraVxl.normalizeRepeat({
+          type: typeBtn ? typeBtn.getAttribute("data-pat") : state.doc.repeat.type,
+          tile: [document.getElementById("patW").value, document.getElementById("patH").value],
+          cols: document.getElementById("patCols").value,
+          rows: document.getElementById("patRows").value,
+          offset: [document.getElementById("patOx").value, document.getElementById("patOy").value],
+          scale: document.getElementById("patScale").value,
+          rotate: document.getElementById("patRot").value,
+          gap: [document.getElementById("patGapX").value, document.getElementById("patGapY").value]
+        });
+        publishScene(state.doc, "Pattern instance");
+      };
+    }
     var typeText = document.getElementById("typeText");
     if (typeText) {
       function readType() {

@@ -52,7 +52,7 @@ Brief (+ optional attachment)
 ## Phase 5 — Advanced geometry
 - [x] Boolean (unite/subtract)
 - [x] Blend steps
-- [ ] Pattern instance controls
+- [x] Pattern instance controls
 - [ ] Pencil + smooth
 
 ## Phase 6 — Optional remote assist

@@ -8,10 +8,10 @@ Source document for Velora Studio. The compiler is deterministic: the same docum
 - `meta`: `id`, `name`, `created`, `updated`, `category` (`logo` | `textile` | `illustration`), `purpose`, `brief`, optional `reference`
 - `canvas.viewBox`: four numbers, units `px`
 - `palette`: `ground`, `figure`, `accent` as hex
-- `repeat`: `null`, or `{ type, tile, cols, rows }`
+- `repeat`: `null`, or `{ type, tile, cols, rows, offset, gap, scale, rotate }`
 - `layers[]`: `{ id, name, visible, opacity, shapes[] }`
 
-Repeat types: `block`, `half-drop`, `half-brick`, `mirror`. When `repeat` is set, layer 0 is the motif and is tiled. Later layers draw once.
+Repeat types: `block`, `half-drop`, `half-brick`, `mirror`. When `repeat` is set, layer 0 is the motif and is tiled. Later layers draw once. Instance controls live on the repeat, not on the motif geometry: `offset` shifts the pattern origin, `gap` adds space between tiles, `scale` and `rotate` transform each instance, and `tile` / `cols` / `rows` set the step and copy count. The compiler applies those as the tile transform. Motifs stay in tile space.
 
 ## Shapes
 

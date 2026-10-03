@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-03 01:20
+Last updated: 2026-10-03 06:20
 
 ## 1. Entry Points
 
@@ -34,7 +34,7 @@ Last updated: 2026-10-03 01:20
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
 - MainActivity exposes VeloraNeedle.status and complete via addJavascriptInterface. Storage is WebView DOM storage (domStorageEnabled)
-- Default active path is needle. Stored offline/local values map to needle. Remote keys stay in velora.providers and are unused until Phase 6
+- app.js pattern panel writes `document.repeat` through VeloraVxl.normalizeRepeat. Compile reads offset, gap, scale, and rotate in tileTransform. Motif paths are not baked.
 
 ## 4. Critical Shared Contracts
 

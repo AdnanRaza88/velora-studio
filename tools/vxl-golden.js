@@ -39,6 +39,24 @@ const textileSvg = V.compile(textileChecked.document);
 assert.ok(textileSvg.indexOf("translate(") >= 0);
 assert.strictEqual(V.compile(V.validate(textile.doc).document), textileSvg);
 
+const patterned = JSON.parse(JSON.stringify(textile.doc));
+patterned.repeat.offset = [12, -4];
+patterned.repeat.gap = [8, 6];
+patterned.repeat.scale = 0.8;
+patterned.repeat.rotate = 15;
+patterned.repeat.cols = 3;
+patterned.repeat.rows = 2;
+const patternedChecked = V.validate(patterned);
+assert.strictEqual(patternedChecked.ok, true, patternedChecked.errors.join("; "));
+assert.deepStrictEqual(patternedChecked.document.repeat.offset, [12, -4]);
+assert.deepStrictEqual(patternedChecked.document.repeat.gap, [8, 6]);
+assert.strictEqual(patternedChecked.document.repeat.scale, 0.8);
+assert.strictEqual(patternedChecked.document.repeat.rotate, 15);
+const patternedSvg = V.compile(patternedChecked.document);
+assert.ok(patternedSvg.indexOf("rotate(15)") >= 0);
+assert.ok(patternedSvg.indexOf("scale(0.8)") >= 0);
+assert.strictEqual(V.compile(V.validate(patterned).document), patternedSvg);
+
 const character = load("character.json");
 const characterChecked = V.validate(character.doc);
 assert.strictEqual(characterChecked.ok, true, characterChecked.errors.join("; "));

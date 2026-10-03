@@ -345,18 +345,8 @@
       else doc.palette[key] = pal[key];
     });
 
-    if (raw.repeat) {
-      var rt = raw.repeat.type;
-      if (REPEATS.indexOf(rt) < 0) errors.push("repeat.type is not supported");
-      var tile = raw.repeat.tile || [240, 240];
-      if (typeof tile === "string") tile = tile.split(/[\s,]+/);
-      doc.repeat = {
-        type: REPEATS.indexOf(rt) >= 0 ? rt : "block",
-        tile: [Math.max(8, num(tile[0], 240)), Math.max(8, num(tile[1], 240))],
-        cols: Math.max(1, Math.min(8, num(raw.repeat.cols, 4))),
-        rows: Math.max(1, Math.min(8, num(raw.repeat.rows, 4)))
-      };
-    } else doc.repeat = null;
+    if (raw.repeat) doc.repeat = normalizeRepeat(raw.repeat);
+    else doc.repeat = null;
 
     doc.layers = [];
     var layers = Array.isArray(raw.layers) ? raw.layers : [];
@@ -674,19 +664,50 @@
     return body;
   }
 
+  function readPair(raw, fallback) {
+    if (raw == null) return fallback.slice();
+    if (typeof raw === "string") raw = raw.split(/[\s,]+/);
+    if (!Array.isArray(raw)) return fallback.slice();
+    return [num(raw[0], fallback[0]), num(raw[1], fallback[1])];
+  }
+
+  function normalizeRepeat(raw) {
+    var rt = raw && raw.type;
+    if (REPEATS.indexOf(rt) < 0) rt = "block";
+    var tile = raw && raw.tile ? raw.tile : [240, 240];
+    if (typeof tile === "string") tile = tile.split(/[\s,]+/);
+    var offset = readPair(raw && raw.offset, [0, 0]);
+    var gap = readPair(raw && raw.gap, [0, 0]);
+    return {
+      type: rt,
+      tile: [Math.max(8, num(tile[0], 240)), Math.max(8, num(tile[1], 240))],
+      cols: Math.max(1, Math.min(12, num(raw && raw.cols, 4))),
+      rows: Math.max(1, Math.min(12, num(raw && raw.rows, 4))),
+      offset: [round2(offset[0]), round2(offset[1])],
+      gap: [Math.max(0, round2(gap[0])), Math.max(0, round2(gap[1]))],
+      scale: Math.max(0.05, Math.min(8, round2(num(raw && raw.scale, 1)))),
+      rotate: round2(num(raw && raw.rotate, 0))
+    };
+  }
+
   function tileTransform(repeat, c, r) {
-    var tw = repeat.tile[0];
-    var th = repeat.tile[1];
-    var ox = c * tw;
-    var oy = r * th;
-    if (repeat.type === "half-brick") ox += (r % 2) * (tw / 2);
-    if (repeat.type === "half-drop") oy += (c % 2) * (th / 2);
+    var gapX = repeat.gap ? repeat.gap[0] : 0;
+    var gapY = repeat.gap ? repeat.gap[1] : 0;
+    var stepX = repeat.tile[0] + gapX;
+    var stepY = repeat.tile[1] + gapY;
+    var ox = (repeat.offset ? repeat.offset[0] : 0) + c * stepX;
+    var oy = (repeat.offset ? repeat.offset[1] : 0) + r * stepY;
+    if (repeat.type === "half-brick") ox += (r % 2) * (stepX / 2);
+    if (repeat.type === "half-drop") oy += (c % 2) * (stepY / 2);
+    var transform = "translate(" + (ox + stepX / 2) + " " + (oy + stepY / 2) + ")";
+    if (repeat.rotate) transform += " rotate(" + repeat.rotate + ")";
+    var sc = repeat.scale == null ? 1 : repeat.scale;
     if (repeat.type === "mirror") {
-      var sx = c % 2 ? -1 : 1;
-      var sy = r % 2 ? -1 : 1;
-      return "translate(" + (c * tw + tw / 2) + " " + (r * th + th / 2) + ") scale(" + sx + " " + sy + ")";
+      transform += " scale(" + ((c % 2 ? -1 : 1) * sc) + " " + ((r % 2 ? -1 : 1) * sc) + ")";
+    } else if (sc !== 1) {
+      transform += " scale(" + sc + ")";
     }
-    return "translate(" + (ox + tw / 2) + " " + (oy + th / 2) + ")";
+    return transform;
   }
 
   function compile(doc) {
@@ -770,7 +791,7 @@
     doc.meta.brief = brief || "";
     doc.palette = pal;
     doc.canvas.viewBox = [0, 0, tile * 3.5, tile * 3.5];
-    doc.repeat = { type: repeat, tile: [tile, tile], cols: 4, rows: 4 };
+    doc.repeat = { type: repeat, tile: [tile, tile], cols: 4, rows: 4, offset: [0, 0], gap: [0, 0], scale: 1, rotate: 0 };
     doc.layers = [{
       id: "motif",
       name: "Motif",
@@ -787,6 +808,7 @@
   root.VeloraVxl = {
     validate: validate,
     compile: compile,
+    normalizeRepeat: normalizeRepeat,
     buildLogo: buildLogo,
     buildTextile: buildTextile,
     blank: blank,
