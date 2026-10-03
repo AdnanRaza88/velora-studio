@@ -77,6 +77,9 @@ Brief (+ optional attachment)
 ## Phase 12 — Offset path
 - [x] Offset a selected path or primitive by a distance; miter joins bevel past the limit; original stays; the new path is normal VXL
 
+## Phase 13 — Align / distribute
+- [x] Align selection to the artboard (one shape) or to the selection bounds (shift-click set); distribute horizontal and vertical gaps; geometry is baked with the move matrix
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 

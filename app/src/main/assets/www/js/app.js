@@ -1,7 +1,7 @@
 (function () {
   var $ = document.getElementById("app");
   var nav = document.getElementById("nav");
-  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null, sel: "", tool: "select", layer: "", history: [], future: [] };
+  var state = { route: "studio", type: "logo", repeat: "half-drop", doc: null, svg: "", attachment: null, sel: "", also: [], tool: "select", layer: "", history: [], future: [] };
   var REMOTE = { openai: 1, anthropic: 1, gemini: 1, openrouter: 1 };
 
   function theme() { return localStorage.getItem("velora.theme") || "light"; }
@@ -79,7 +79,7 @@
         var roles = ["figure", "ground", "accent"].map(function (role) {
           return '<option value="' + role + '"' + (shape.role === role ? " selected" : "") + ">" + role + "</option>";
         }).join("");
-        shapeRows += '<div class="project' + (shape.id === state.sel ? " on" : "") + '" data-pick="' + key + '"><div><strong>' + VeloraVxl.esc(shape.id) + '</strong><div class="muted">' +
+        shapeRows += '<div class="project' + (shape.id === state.sel || (state.also || []).indexOf(shape.id) >= 0 ? " on" : "") + '" data-pick="' + key + '"><div><strong>' + VeloraVxl.esc(shape.id) + '</strong><div class="muted">' +
           VeloraVxl.esc(layer.name) + " \u00b7 " + VeloraVxl.esc(shape.type) + "</div></div>" +
           '<div class="row"><select data-role="' + key + '" aria-label="Role for ' + VeloraVxl.esc(shape.id) + '">' + roles +
           '</select><button type="button" class="ghost" data-drop="' + key + '">Remove</button></div></div>';
@@ -110,6 +110,14 @@
       '<button type="button" class="ghost" id="smoothPath">Smooth</button>' +
       '<label class="ink">Offset<input id="offsetDist" type="number" step="1" value="' + (state.offsetDist || 16) + '" aria-label="Offset distance"/></label>' +
       '<button type="button" class="ghost" id="offsetPath">Offset path</button>' +
+      '<button type="button" class="ghost" data-align="left">Align left</button>' +
+      '<button type="button" class="ghost" data-align="hcenter">Align center</button>' +
+      '<button type="button" class="ghost" data-align="right">Align right</button>' +
+      '<button type="button" class="ghost" data-align="top">Align top</button>' +
+      '<button type="button" class="ghost" data-align="vmiddle">Align middle</button>' +
+      '<button type="button" class="ghost" data-align="bottom">Align bottom</button>' +
+      '<button type="button" class="ghost" data-align="hgap">Distribute H</button>' +
+      '<button type="button" class="ghost" data-align="vgap">Distribute V</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
       '<button type="button" class="ghost" id="intersect">Intersect</button>' +
@@ -121,7 +129,8 @@
       inkControls(checked.document) +
       patternPanel(checked.document) +
       layerPanel(checked.document) +
-      '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
+      '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -218,8 +227,13 @@
   }
 
   function overlayMarks(doc) {
-    var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(doc, state.sel)) : null;
-    var marks = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
+    var marks = "";
+    function markBox(box) {
+      if (!box) return;
+      marks += '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>';
+    }
+    markBox(state.sel ? VeloraEdit.bounds(VeloraEdit.find(doc, state.sel)) : null);
+    (state.also || []).forEach(function (id) { markBox(VeloraEdit.bounds(VeloraEdit.find(doc, id))); });
     if (state.tool === "pencil" && state.pencil && state.pencil.length) {
       var live = state.pencil;
       marks += '<polyline fill="none" points="' + live.map(function (p) { return p[0] + "," + p[1]; }).join(" ") + '"/>';
@@ -427,7 +441,7 @@
         if (ev.target.closest("select,button")) return;
         var parts = this.getAttribute("data-pick").split(":");
         var shape = state.doc.layers[Number(parts[0])].shapes[Number(parts[1])];
-        state.sel = shape ? shape.id : "";
+        toggleSel(shape ? shape.id : "", ev.shiftKey);
         publishScene(state.doc, "Selected");
       };
     }
@@ -530,6 +544,18 @@
     };
     var offsetDist = document.getElementById("offsetDist");
     if (offsetDist) offsetDist.onchange = function () { state.offsetDist = Number(offsetDist.value) || 16; };
+    document.querySelectorAll("[data-align]").forEach(function (btn) {
+      btn.onclick = function () {
+        var ids = selectionIds();
+        if (!ids.length) return;
+        var mode = this.getAttribute("data-align");
+        var vb = state.doc.canvas && state.doc.canvas.viewBox;
+        var moves = VeloraEdit.alignShapes(state.doc, ids, mode, vb);
+        var labels = { left: "Aligned left", hcenter: "Aligned center", right: "Aligned right", top: "Aligned top", vmiddle: "Aligned middle", bottom: "Aligned bottom", hgap: "Distributed across", vgap: "Distributed down" };
+        var miss = mode === "hgap" || mode === "vgap" ? "Need three shapes" : "Nothing to align";
+        publishScene(state.doc, moves.length ? (labels[mode] || "Aligned") : miss);
+      };
+    });
     var offsetPath = document.getElementById("offsetPath");
     if (offsetPath) offsetPath.onclick = function () {
       if (!state.sel) return;
@@ -772,7 +798,7 @@
         }
       }
       var hit = VeloraEdit.hitTest(state.doc, pt.x, pt.y);
-      state.sel = hit ? hit.id : "";
+      toggleSel(hit ? hit.id : "", ev.shiftKey);
       if (hit && hit.type === "path") state.pathId = hit.id;
       if (state.tool === "pen") {
         if (state.sel) VeloraEdit.penReady(VeloraEdit.find(state.doc, state.sel));
@@ -874,6 +900,32 @@
     } catch (err) {
       return "";
     }
+  }
+
+
+  function selectionIds() {
+    var ids = [];
+    if (state.sel) ids.push(state.sel);
+    (state.also || []).forEach(function (id) {
+      if (id && id !== state.sel && ids.indexOf(id) < 0) ids.push(id);
+    });
+    return ids;
+  }
+
+  function toggleSel(id, shift) {
+    if (!state.also) state.also = [];
+    if (!id) {
+      if (!shift) { state.sel = ""; state.also = []; }
+      return;
+    }
+    if (shift && state.sel && id !== state.sel) {
+      var at = state.also.indexOf(id);
+      if (at >= 0) state.also.splice(at, 1);
+      else state.also.push(id);
+      return;
+    }
+    state.sel = id;
+    state.also = [];
   }
 
   function publishScene(doc, note, flags) {

@@ -819,6 +819,27 @@
   }
 
 
+
+  function alignShapes(doc, ids, mode, viewBox) {
+    if (!root.VeloraAlign || !ids || !ids.length) return [];
+    var want = {};
+    ids.forEach(function (id) { if (id) want[id] = 1; });
+    var items = [];
+    eachShape(doc, function (shape, parent) {
+      if (!shape || !want[shape.id] || (parent && parent.locked)) return;
+      var box = boundsOf(shape);
+      if (!box) return;
+      items.push({ id: shape.id, box: box });
+    });
+    var moves = mode === "hgap" || mode === "vgap"
+      ? root.VeloraAlign.distribute(items, mode === "vgap" ? "v" : "h")
+      : root.VeloraAlign.align(items, mode, viewBox);
+    moves.forEach(function (move) {
+      apply(doc, move.id, moveMatrix(move.dx, move.dy), "move");
+    });
+    return moves;
+  }
+
   function offsetShape(doc, id, distance, miterLimit) {
     if (!root.VeloraOffset) return null;
     var dist = Number(distance);
@@ -1153,6 +1174,7 @@
     placeText: placeText,
     placePencil: placePencil,
     offsetShape: offsetShape,
+    alignShapes: alignShapes,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,
