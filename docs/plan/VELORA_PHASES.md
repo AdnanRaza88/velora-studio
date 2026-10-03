@@ -59,6 +59,9 @@ Brief (+ optional attachment)
 - [x] OpenAI / Anthropic / Gemini / OpenRouter as optional planners
 - [x] Same skill packs; same VXL validator
 
+## Phase 7 — Curvature
+- [x] Click-to-curve path builder (smooth points, corner points, close, finish)
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 

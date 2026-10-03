@@ -102,6 +102,10 @@
       '<button type="button" class="ghost' + (state.tool === "width" ? " on" : "") + '" id="widthMode">Width</button>' +
       '<button type="button" class="ghost' + (state.tool === "type" ? " on" : "") + '" id="typeMode">Type</button>' +
       '<button type="button" class="ghost' + (state.tool === "pencil" ? " on" : "") + '" id="pencilMode">Pencil</button>' +
+      '<button type="button" class="ghost' + (state.tool === "curve" ? " on" : "") + '" id="curveMode">Curve</button>' +
+      '<button type="button" class="ghost' + (state.curveCorner ? " on" : "") + '" id="curveCorner">Corner</button>' +
+      '<button type="button" class="ghost" id="curveClose">Close curve</button>' +
+      '<button type="button" class="ghost" id="curveFinish">Finish curve</button>' +
       '<button type="button" class="ghost" id="smoothPath">Smooth</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
@@ -165,6 +169,7 @@
     if (state.tool === "width") return ". Pick a profile or drag a width point. The stroke expands on compile.";
     if (state.tool === "type") return ". Tap the canvas to place type. Area width wraps the line. Outline expands glyphs to paths.";
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
+    if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
     return ". Drag the canvas to move. Unite and Subtract bake the selection with the shape behind it.";
   }
 
@@ -200,6 +205,14 @@
     if (state.tool === "pencil" && state.pencil && state.pencil.length) {
       var live = state.pencil;
       marks += '<polyline fill="none" points="' + live.map(function (p) { return p[0] + "," + p[1]; }).join(" ") + '"/>';
+      return marks;
+    }
+    if (state.tool === "curve" && state.curve && state.curve.length) {
+      var preview = VeloraCurve.fit(state.curve, false);
+      if (preview) marks += '<path fill="none" d="' + preview.d + '"/>';
+      state.curve.forEach(function (p) {
+        marks += '<circle class="' + (p.corner ? "handle" : "anchor") + '" cx="' + p.x + '" cy="' + p.y + '" r="' + (handleRadius(doc) * 0.36) + '"/>';
+      });
       return marks;
     }
     if (!state.sel || (state.tool !== "pen" && state.tool !== "width")) return marks;
@@ -449,6 +462,42 @@
       state.pencil = [];
       publishScene(state.doc, state.tool === "pencil" ? "Pencil" : "Selection");
     };
+    var curveMode = document.getElementById("curveMode");
+    if (curveMode) curveMode.onclick = function () {
+      state.tool = state.tool === "curve" ? "select" : "curve";
+      state.curve = [];
+      publishScene(state.doc, state.tool === "curve" ? "Curvature" : "Selection");
+    };
+    var curveCorner = document.getElementById("curveCorner");
+    if (curveCorner) curveCorner.onclick = function () {
+      state.curveCorner = !state.curveCorner;
+      publishScene(state.doc, state.curveCorner ? "Corner point" : "Smooth point");
+    };
+    function commitCurve(closed) {
+      var pts = (state.curve || []).slice();
+      state.curve = [];
+      state.curveAt = 0;
+      if (pts.length < 2 || !VeloraCurve) {
+        publishScene(state.doc, "Curve needs two points");
+        return;
+      }
+      var fit = VeloraCurve.fit(pts, closed);
+      if (!fit) {
+        publishScene(state.doc, "Curve needs two points");
+        return;
+      }
+      var vb = (state.doc.canvas && state.doc.canvas.viewBox) || [0, 0, 1024, 1024];
+      var span = Math.max(vb[2] || 1024, vb[3] || 1024);
+      var placed = VeloraEdit.placePencil(state.doc, fit.d, state.layer, Math.max(4, span / 80));
+      if (!placed) return;
+      placed.id = placed.id.replace("pencil", "curve");
+      state.sel = placed.id;
+      publishScene(state.doc, fit.closed ? "Curve closed" : "Curve path");
+    }
+    var curveClose = document.getElementById("curveClose");
+    if (curveClose) curveClose.onclick = function () { commitCurve(true); };
+    var curveFinish = document.getElementById("curveFinish");
+    if (curveFinish) curveFinish.onclick = function () { commitCurve(false); };
     var smoothPath = document.getElementById("smoothPath");
     if (smoothPath) smoothPath.onclick = function () {
       if (!state.sel) return;
@@ -564,6 +613,26 @@
         state.pencil = [[pt.x, pt.y]];
         drag = { kind: "pencil", moved: false };
         stage.setPointerCapture(ev.pointerId);
+        paintArt();
+        return;
+      }
+      if (state.tool === "curve") {
+        state.curve = state.curve || [];
+        var radius = handleRadius(state.doc) * 1.4;
+        var now = Date.now();
+        var last = state.curve[state.curve.length - 1];
+        if (last && now - (state.curveAt || 0) < 320 && VeloraCurve.dist(last, pt) <= radius) {
+          commitCurve(false);
+          return;
+        }
+        var first = state.curve[0];
+        if (state.curve.length >= 3 && first && VeloraCurve.dist(first, pt) <= radius) {
+          commitCurve(true);
+          return;
+        }
+        state.curve.push({ x: pt.x, y: pt.y, corner: !!(state.curveCorner || ev.altKey) });
+        state.curveAt = now;
+        drag = null;
         paintArt();
         return;
       }

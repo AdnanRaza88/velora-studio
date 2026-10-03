@@ -7,7 +7,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 |------|------------------|----------------|
 | Pen | Anchor points + Bezier handles; closed/open paths | VXL `path` with `d` or anchors[] |
 | Pencil | Freehand path, then simplified | VXL path from pencil stroke; Smooth refits cubics |
-| Curvature | Click-to-curve paths | Path builder UI |
+| Curvature | Click-to-curve paths | Curve tool: points the path passes through; Corner cusp; Close / double-click finish |
 | Shape tools | Rect, ellipse, polygon, star | VXL primitive shapes |
 
 ## Stroke expression
