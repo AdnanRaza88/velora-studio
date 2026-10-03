@@ -132,6 +132,7 @@
       '<button type="button" class="ghost' + (state.shearAxis === "v" ? " on" : "") + '" id="shearAxis">' + (state.shearAxis === "v" ? "Shear V" : "Shear H") + '</button>' +
       '<button type="button" class="ghost" id="shearApply">Shear</button>' +
       '<button type="button" class="ghost" id="shearCopy">Shear copy</button>' +
+      '<button type="button" class="ghost" id="outlineStroke">Outline stroke</button>' +
       '<button type="button" class="ghost" id="clipMask">Clip</button>' +
       '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
@@ -146,7 +147,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -684,6 +685,17 @@
     if (shearApply) shearApply.onclick = function () { shearSelection("apply"); };
     var shearCopy = document.getElementById("shearCopy");
     if (shearCopy) shearCopy.onclick = function () { shearSelection("copy"); };
+    var outlineStroke = document.getElementById("outlineStroke");
+    if (outlineStroke) outlineStroke.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length || !window.VeloraOutline) return;
+      var made = VeloraOutline.apply(state.doc, ids);
+      if (made.length) {
+        state.sel = made[0];
+        state.also = made.slice(1);
+      }
+      publishScene(state.doc, made.length ? "Outlined stroke" : "Select a stroked path");
+    };
     var offsetPath = document.getElementById("offsetPath");
     if (offsetPath) offsetPath.onclick = function () {
       if (!state.sel) return;

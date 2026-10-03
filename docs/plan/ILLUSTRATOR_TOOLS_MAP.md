@@ -34,6 +34,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Reflect | Mirror artwork across an axis | Editor Reflect copy bakes a mirrored VXL duplicate across the selection center; Axis V/H chooses the axis; Flip rewrites the selection in place |
 | Join | Connect open endpoints into one path | Editor Join bakes the nearest open ends into one VXL path; a single open path closes; the extra path is dropped |
 | Shear | Skew artwork along an axis | Editor Shear bakes a horizontal or vertical skew about the selection center; primitives become VXL paths; Shear copy keeps the source |
+| Outline stroke | Expand a stroke into a filled shape | Editor Outline stroke bakes stroke, width profile, or brush into a filled VXL path; fill stays and loses its stroke |
 
 ## Type
 | Tool | What it produces | Velora mapping |

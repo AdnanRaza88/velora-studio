@@ -56,3 +56,4 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 - Scissors bakes a cut into VXL paths. A click on a closed path opens it. A click on an open path splits it into two paths on the same layer. Primitive shapes become paths at the cut.
 
 - Reflect copy bakes a mirrored duplicate of the selection across a vertical or horizontal axis through the selection center. Flip rewrites the same shapes in place. Path commands, clip data, and gradient vectors are reflected. Arc sweep flips so the curve stays on the mirrored side.
+- Outline stroke bakes a stroke, width profile, or brush into a filled VXL path. A shape that already has a fill keeps that fill and drops the stroke. The new outline is a normal path.

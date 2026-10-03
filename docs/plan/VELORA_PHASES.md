@@ -113,3 +113,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 21 — Shear
 - [x] Skew the selection about its center by an angle; horizontal or vertical; rectangles and ellipses bake to VXL paths; Shear copy keeps the source
 
+## Phase 22 — Outline stroke
+- [x] Expand a stroke, width profile, or brush into a filled VXL path; a filled shape keeps its fill and loses the stroke; the outline stays editable
+
