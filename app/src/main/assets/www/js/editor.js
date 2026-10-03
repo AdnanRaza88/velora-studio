@@ -1203,6 +1203,69 @@
     return -1;
   }
 
+
+  function outlineOf(shape) {
+    if (!shape) return "";
+    if (shape.type === "path") return String(shape.d || "");
+    if (typeof VeloraClip !== "undefined") return VeloraClip.outline(shape);
+    return "";
+  }
+
+  function cutAt(doc, x, y, radius) {
+    if (typeof VeloraScissors === "undefined") return null;
+    var best = null;
+    eachShape(doc, function (shape, parent, key, index) {
+      if (!shape || shape.type === "group" || shape.type === "text" || shape.type === "blend") return;
+      var d = outlineOf(shape);
+      if (!d) return;
+      var hit = VeloraScissors.cut(d, x, y, radius);
+      if (!hit) return;
+      var segs = VeloraScissors.subpaths(d);
+      var dist = 1e9;
+      segs.forEach(function (sub) {
+        sub.segs.forEach(function (seg) {
+          var steps = 8;
+          for (var s = 0; s <= steps; s++) {
+            var t = s / steps;
+            var px = seg.a[0] + (seg.b[0] - seg.a[0]) * t;
+            var py = seg.a[1] + (seg.b[1] - seg.a[1]) * t;
+            dist = Math.min(dist, Math.hypot(px - x, py - y));
+          }
+        });
+      });
+      if (!best || dist < best.dist) best = { shape: shape, parent: parent, key: key, index: index, hit: hit, dist: dist };
+    });
+    if (!best) return null;
+    var shape = best.shape;
+    var piece = best.hit.pieces[0];
+    shape.type = "path";
+    shape.d = piece;
+    delete shape.x;
+    delete shape.y;
+    delete shape.w;
+    delete shape.h;
+    delete shape.cx;
+    delete shape.cy;
+    delete shape.r;
+    delete shape.rx;
+    delete shape.ry;
+    delete shape.rot;
+    delete shape.points;
+    delete shape.x1;
+    delete shape.y1;
+    delete shape.x2;
+    delete shape.y2;
+    if (best.hit.pieces.length > 1) {
+      var twin = JSON.parse(JSON.stringify(shape));
+      twin.id = freshId("cut");
+      twin.d = best.hit.pieces[1];
+      var list = best.parent[best.key];
+      list.splice(best.index + 1, 0, twin);
+    }
+    if (doc.meta) doc.meta.updated = new Date().toISOString();
+    return best.hit;
+  }
+
   function applyClip(doc, ids) {
     if (typeof VeloraClip === "undefined") return 0;
     var picked = [];
@@ -1271,6 +1334,7 @@
     paintGradient: paintGradient,
     clearGradient: clearGradient,
     applyClip: applyClip,
+    cutAt: cutAt,
     releaseClip: releaseClip,
     smoothShape: smoothShape,
     setText: setText,

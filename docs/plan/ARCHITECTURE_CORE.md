@@ -53,3 +53,4 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 - Offset path bakes a new VXL path beside the selection. Positive distance expands a closed shape. Open paths shift to the left of their direction. The source shape is left in place.
 
 - Clip stores a closed path on the content shape. The compiler emits a clipPath. The source geometry stays editable. Release deletes the field. Transforms bake the clip with the shape.
+- Scissors bakes a cut into VXL paths. A click on a closed path opens it. A click on an open path splits it into two paths on the same layer. Primitive shapes become paths at the cut.

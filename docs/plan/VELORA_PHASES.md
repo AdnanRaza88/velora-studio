@@ -92,3 +92,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 15 — Clipping mask
 - [x] Front shape becomes the clip path; content keeps its geometry; compiler emits clipPath; Release clears it; move, scale, and rotate bake the clip with the shape
 
+
+## Phase 16 — Scissors
+- [x] Click a path to open a closed shape or split an open path; the cut is baked into normal VXL paths

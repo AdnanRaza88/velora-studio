@@ -121,6 +121,7 @@
       '<label class="ink">Angle<input id="gradAngle" type="number" step="15" value="' + (state.gradAngle || 0) + '" aria-label="Gradient angle"/></label>' +
       '<button type="button" class="ghost" id="paintGradient">Gradient</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
+      '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost" id="clipMask">Clip</button>' +
       '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
@@ -135,7 +136,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -190,6 +191,7 @@
     if (state.tool === "type") return ". Tap to place type. On path follows the selected path. Flip switches side. Outline bakes glyphs.";
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
+    if (state.tool === "scissors") return ". Click a path to open a closed shape or split an open one. A second click splits the opened path.";
     return ". Drag the canvas to move. Unite, Subtract, Intersect, and Exclude bake the selection with the shape behind it.";
   }
 
@@ -479,6 +481,11 @@
     document.getElementById("rotR").onclick = function () {
       var c = centerOf();
       editAround("rotate", VeloraEdit.rotateMatrix(15, c.x, c.y));
+    };
+    var scissorsMode = document.getElementById("scissorsMode");
+    if (scissorsMode) scissorsMode.onclick = function () {
+      state.tool = state.tool === "scissors" ? "select" : "scissors";
+      publishScene(state.doc, state.tool === "scissors" ? "Scissors" : "Selection");
     };
     document.getElementById("penMode").onclick = function () {
       state.tool = state.tool === "pen" ? "select" : "pen";
@@ -773,6 +780,17 @@
         drag = { kind: "pencil", moved: false };
         stage.setPointerCapture(ev.pointerId);
         paintArt();
+        return;
+      }
+      if (state.tool === "scissors") {
+        var cut = VeloraEdit.cutAt(state.doc, pt.x, pt.y, handleRadius(state.doc));
+        drag = null;
+        if (!cut) {
+          publishScene(state.doc, "Click a path");
+          return;
+        }
+        state.sel = "";
+        publishScene(state.doc, cut.opened ? "Opened path" : "Split path");
         return;
       }
       if (state.tool === "curve") {
