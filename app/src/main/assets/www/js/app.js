@@ -122,6 +122,7 @@
       '<button type="button" class="ghost" id="paintGradient">Gradient</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
+      '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
       '<button type="button" class="ghost" id="clipMask">Clip</button>' +
       '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
@@ -136,7 +137,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -192,6 +193,7 @@
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
     if (state.tool === "scissors") return ". Click a path to open a closed shape or split an open one. A second click splits the opened path.";
+    if (state.tool === "shape") return ". Drag across shapes to merge them. Click an overlap to merge that pair. Alt-click deletes the face.";
     return ". Drag the canvas to move. Unite, Subtract, Intersect, and Exclude bake the selection with the shape behind it.";
   }
 
@@ -486,6 +488,11 @@
     if (scissorsMode) scissorsMode.onclick = function () {
       state.tool = state.tool === "scissors" ? "select" : "scissors";
       publishScene(state.doc, state.tool === "scissors" ? "Scissors" : "Selection");
+    };
+    var shapeMode = document.getElementById("shapeMode");
+    if (shapeMode) shapeMode.onclick = function () {
+      state.tool = state.tool === "shape" ? "select" : "shape";
+      publishScene(state.doc, state.tool === "shape" ? "Shape builder" : "Selection");
     };
     document.getElementById("penMode").onclick = function () {
       state.tool = state.tool === "pen" ? "select" : "pen";
@@ -793,6 +800,24 @@
         publishScene(state.doc, cut.opened ? "Opened path" : "Split path");
         return;
       }
+      if (state.tool === "shape") {
+        if (ev.altKey) {
+          var erased = VeloraShape.eraseAt(state.doc, pt.x, pt.y);
+          drag = null;
+          if (!erased) {
+            publishScene(state.doc, "Click a face");
+            return;
+          }
+          state.sel = erased.id || "";
+          publishScene(state.doc, "Face deleted");
+          return;
+        }
+        var hit = VeloraShape.under(state.doc, pt.x, pt.y);
+        var ids = hit.map(function (item) { return item.shape.id; });
+        drag = { kind: "shape", ids: ids, moved: false };
+        stage.setPointerCapture(ev.pointerId);
+        return;
+      }
       if (state.tool === "curve") {
         state.curve = state.curve || [];
         var radius = handleRadius(state.doc) * 1.4;
@@ -871,6 +896,13 @@
       if (!drag) return;
       var pt = pointerPoint(ev);
       if (!pt) return;
+      if (drag.kind === "shape") {
+        VeloraShape.under(state.doc, pt.x, pt.y).forEach(function (item) {
+          if (drag.ids.indexOf(item.shape.id) < 0) drag.ids.push(item.shape.id);
+        });
+        if (drag.ids.length > 1) drag.moved = true;
+        return;
+      }
       if (drag.kind === "pencil") {
         var last = state.pencil[state.pencil.length - 1];
         if (!last || Math.hypot(pt.x - last[0], pt.y - last[1]) > 2) {
@@ -910,8 +942,24 @@
     stage.onpointerup = function () {
       var moved = drag && drag.moved;
       var kind = drag && drag.kind;
+      var shapeIds = kind === "shape" ? (drag.ids || []).slice() : null;
       var stroke = kind === "pencil" ? (state.pencil || []).slice() : null;
       drag = null;
+      if (kind === "shape") {
+        var built = shapeIds.length > 1 ? VeloraShape.mergeIds(state.doc, shapeIds) : VeloraShape.mergeAt(state.doc, shapeIds.length ? 0 : -1, -1);
+        if (!built && shapeIds.length === 1) {
+          var only = VeloraEdit.find(state.doc, shapeIds[0]);
+          var box = only && VeloraEdit.bounds(only);
+          if (box) built = VeloraShape.mergeAt(state.doc, (box.x + box.x2) / 2, (box.y + box.y2) / 2);
+        }
+        if (!built) {
+          publishScene(state.doc, "Cross two shapes");
+          return;
+        }
+        state.sel = built.id;
+        publishScene(state.doc, "Shapes merged");
+        return;
+      }
       if (kind === "pencil") {
         state.pencil = [];
         var vb = (state.doc.canvas && state.doc.canvas.viewBox) || [0, 0, 1024, 1024];

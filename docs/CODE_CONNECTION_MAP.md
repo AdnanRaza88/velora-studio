@@ -31,7 +31,7 @@ Last updated: 2026-10-03 18:20
 
 ## 3. Import / Call Graph
 
-- index.html loads vxl.js, projects.js, skills.js, needle.js, planner.js, attach.js, trace.js, boolean.js, blend.js, pencil.js, curve.js, editor.js, then app.js
+- index.html loads vxl.js, projects.js, skills.js, needle.js, planner.js, attach.js, trace.js, boolean.js, blend.js, pencil.js, curve.js, scissors.js, shape.js, editor.js, then app.js
 - app.js sessionA uses Needle by default. A remote path calls VeloraPlannerClient only when that key is stored
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
@@ -70,3 +70,5 @@ Last updated: 2026-10-03 18:20
 - 2026-10-02 Phase 1: nav, procedural logo/textile, provider key UI, SVG download
 
 - curve.js VeloraCurve.fit builds cubic d through click points; corner flags collapse handles. app.js Curve tool commits via VeloraEdit.placePencil.
+
+| app/src/main/assets/www/js/shape.js | Shape builder faces | VeloraShape.mergeAt, eraseAt, mergeIds | VeloraBoolean | app.js, tools/shape-check.js |

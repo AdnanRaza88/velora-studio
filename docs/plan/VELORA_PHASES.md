@@ -95,3 +95,7 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 
 ## Phase 16 — Scissors
 - [x] Click a path to open a closed shape or split an open path; the cut is baked into normal VXL paths
+
+## Phase 17 — Shape builder
+- [x] Drag or click merges overlapping faces into one VXL path; Alt-click deletes the face under the cursor; leftovers stay editable paths
+
