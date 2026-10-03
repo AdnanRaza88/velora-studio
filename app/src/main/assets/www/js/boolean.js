@@ -356,23 +356,41 @@
       ring.forEach(function (p) { if (pointInRings(p, a)) disjoint = false; });
     });
     if (disjoint) {
-      if (op === "unite") return a.concat(b);
+      if (op === "unite" || op === "exclude") return a.concat(b);
+      if (op === "intersect") return [];
       return a;
     }
-    if (op === "unite" && aInside) return b;
-    if (op === "unite" && bInside) return a;
-    if (op === "subtract" && aInside) return [];
-    if (op === "subtract" && bInside) return a.concat(b.map(function (ring) { return ensureWinding(ring, false); }));
+    if (aInside) {
+      if (op === "unite") return b;
+      if (op === "intersect") return a;
+      if (op === "subtract") return [];
+      if (op === "exclude") return b.concat(a.map(function (ring) { return ensureWinding(ring, false); }));
+    }
+    if (bInside) {
+      if (op === "unite") return a;
+      if (op === "intersect") return b;
+      if (op === "subtract" || op === "exclude") return a.concat(b.map(function (ring) { return ensureWinding(ring, false); }));
+    }
+    if (op === "exclude") {
+      return combine(subject, clip, "subtract").concat(combine(clip, subject, "subtract"));
+    }
     var edges = [];
     splitRing(a[0], b).forEach(function (edge) {
-      if (keepEdge(edge, b, false)) edges.push(edge);
+      var inside = keepEdge(edge, b, true);
+      if ((op === "unite" || op === "subtract") && !inside) edges.push(edge);
+      if (op === "intersect" && inside) edges.push(edge);
     });
     splitRing(b[0], a).forEach(function (edge) {
-      if (op === "unite" && keepEdge(edge, a, false)) edges.push(edge);
-      if (op === "subtract" && keepEdge(edge, a, true)) edges.push([edge[1], edge[0]]);
+      var inside = keepEdge(edge, a, true);
+      if (op === "unite" && !inside) edges.push(edge);
+      if (op === "subtract" && inside) edges.push([edge[1], edge[0]]);
+      if (op === "intersect" && inside) edges.push(edge);
     });
     var rings = stitch(edges);
-    if (!rings.length) return op === "subtract" ? a : a.concat(b);
+    if (!rings.length) {
+      if (op === "intersect") return [];
+      return op === "subtract" ? a : a.concat(b);
+    }
     return rings;
   }
 
@@ -408,11 +426,12 @@
     var neighbor = found.layer.shapes[found.other];
     var front = found.index > found.other ? selected : neighbor;
     var back = found.index > found.other ? neighbor : selected;
-    var subject = op === "subtract" ? back : selected;
-    var clip = op === "subtract" ? front : neighbor;
-    var forward = combine(ringsOf(subject), ringsOf(clip), op === "subtract" ? "subtract" : "unite");
+    var mode = op === "subtract" || op === "intersect" || op === "exclude" ? op : "unite";
+    var subject = mode === "subtract" ? back : selected;
+    var clip = mode === "subtract" ? front : neighbor;
+    var forward = combine(ringsOf(subject), ringsOf(clip), mode);
     var rings = forward;
-    if (op !== "subtract") {
+    if (mode === "unite") {
       var backward = combine(ringsOf(clip), ringsOf(subject), "unite");
       if (backward.length && backward.length < forward.length) rings = backward;
     }

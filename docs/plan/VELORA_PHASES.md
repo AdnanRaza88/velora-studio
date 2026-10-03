@@ -62,6 +62,9 @@ Brief (+ optional attachment)
 ## Phase 7 — Curvature
 - [x] Click-to-curve path builder (smooth points, corner points, close, finish)
 
+## Phase 8 — Pathfinder remainder
+- [x] Intersect and exclude bake the selection with the shape behind it
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 

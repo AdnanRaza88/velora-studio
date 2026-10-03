@@ -109,6 +109,8 @@
       '<button type="button" class="ghost" id="smoothPath">Smooth</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
+      '<button type="button" class="ghost" id="intersect">Intersect</button>' +
+      '<button type="button" class="ghost" id="exclude">Exclude</button>' +
       '<label class="ink">Steps<input id="blendSteps" type="number" min="3" max="24" value="' + (state.blendSteps || 5) + '"/></label>' +
       '<button type="button" class="ghost" id="blend">Blend</button>' +
       '<button type="button" class="ghost" id="expandBlend">Expand blend</button>' +
@@ -170,7 +172,7 @@
     if (state.tool === "type") return ". Tap the canvas to place type. Area width wraps the line. Outline expands glyphs to paths.";
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
-    return ". Drag the canvas to move. Unite and Subtract bake the selection with the shape behind it.";
+    return ". Drag the canvas to move. Unite, Subtract, Intersect, and Exclude bake the selection with the shape behind it.";
   }
 
   function typeControls() {
@@ -508,10 +510,14 @@
     function runBoolean(op) {
       if (!state.sel) return;
       var path = VeloraBoolean.apply(state.doc, state.sel, op);
-      publishScene(state.doc, path ? (op === "unite" ? "United" : "Subtracted") : "Need a shape behind the selection");
+      var labels = { unite: "United", subtract: "Subtracted", intersect: "Intersected", exclude: "Excluded" };
+      var miss = op === "intersect" ? "No overlap" : "Need a shape behind the selection";
+      publishScene(state.doc, path ? (labels[op] || "Boolean") : miss);
     }
     document.getElementById("unite").onclick = function () { runBoolean("unite"); };
     document.getElementById("subtract").onclick = function () { runBoolean("subtract"); };
+    document.getElementById("intersect").onclick = function () { runBoolean("intersect"); };
+    document.getElementById("exclude").onclick = function () { runBoolean("exclude"); };
     var blendSteps = document.getElementById("blendSteps");
     if (blendSteps) {
       blendSteps.oninput = function () { state.blendSteps = Number(blendSteps.value) || 5; };
