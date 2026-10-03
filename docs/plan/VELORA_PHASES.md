@@ -51,7 +51,7 @@ Brief (+ optional attachment)
 
 ## Phase 5 — Advanced geometry
 - [x] Boolean (unite/subtract)
-- [ ] Blend steps
+- [x] Blend steps
 - [ ] Pattern instance controls
 - [ ] Pencil + smooth
 

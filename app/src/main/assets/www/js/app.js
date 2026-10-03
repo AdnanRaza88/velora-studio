@@ -93,6 +93,9 @@
       '<button type="button" class="ghost' + (state.tool === "type" ? " on" : "") + '" id="typeMode">Type</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
+      '<label class="ink">Steps<input id="blendSteps" type="number" min="3" max="24" value="' + (state.blendSteps || 5) + '"/></label>' +
+      '<button type="button" class="ghost" id="blend">Blend</button>' +
+      '<button type="button" class="ghost" id="expandBlend">Expand blend</button>' +
       widthChips() + typeControls() + '</div>' +
       inkControls(checked.document) +
       layerPanel(checked.document) +
@@ -404,6 +407,20 @@
     }
     document.getElementById("unite").onclick = function () { runBoolean("unite"); };
     document.getElementById("subtract").onclick = function () { runBoolean("subtract"); };
+    var blendSteps = document.getElementById("blendSteps");
+    if (blendSteps) {
+      blendSteps.oninput = function () { state.blendSteps = Number(blendSteps.value) || 5; };
+    }
+    document.getElementById("blend").onclick = function () {
+      if (!state.sel) return;
+      var node = VeloraBlend.apply(state.doc, state.sel, state.blendSteps || 5);
+      publishScene(state.doc, node ? "Blend " + node.steps + " steps" : "Need a shape behind the selection");
+    };
+    document.getElementById("expandBlend").onclick = function () {
+      if (!state.sel) return;
+      var group = VeloraBlend.expand(state.doc, state.sel, state.doc.palette);
+      publishScene(state.doc, group ? "Blend expanded" : "Select a blend");
+    };
     var typeText = document.getElementById("typeText");
     if (typeText) {
       function readType() {

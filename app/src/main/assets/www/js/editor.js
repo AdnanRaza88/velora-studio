@@ -262,6 +262,17 @@
       if (!isFinite(bx)) return null;
       return { x: bx, y: by, w: ex - bx, h: ey - by, cx: (bx + ex) / 2, cy: (by + ey) / 2 };
     }
+    if (shape.type === "blend") {
+      var fb = boundsOf(shape.from);
+      var tb = boundsOf(shape.to);
+      if (!fb) return tb;
+      if (!tb) return fb;
+      var x = Math.min(fb.x, tb.x);
+      var y = Math.min(fb.y, tb.y);
+      var r = Math.max(fb.x + fb.w, tb.x + tb.w);
+      var t = Math.max(fb.y + fb.h, tb.y + tb.h);
+      return { x: x, y: y, w: r - x, h: t - y, cx: (x + r) / 2, cy: (y + t) / 2 };
+    }
     if (shape.type === "group") {
       var box = null;
       (shape.children || []).forEach(function (child) {
@@ -320,6 +331,11 @@
     if (!shape) return shape;
     if (shape.type === "group") {
       (shape.children || []).forEach(function (child) { transformShape(child, m, mode); });
+      return shape;
+    }
+    if (shape.type === "blend") {
+      transformShape(shape.from, m, mode);
+      transformShape(shape.to, m, mode);
       return shape;
     }
     if (mode === "move" && shape.type === "circle") {

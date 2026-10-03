@@ -1,5 +1,5 @@
 (function (root) {
-  var TYPES = ["path", "circle", "ellipse", "rect", "line", "polygon", "text", "group"];
+  var TYPES = ["path", "circle", "ellipse", "rect", "line", "polygon", "text", "group", "blend"];
   var REPEATS = ["block", "half-drop", "half-brick", "mirror"];
   var ROLES = ["ground", "figure", "accent"];
   var CATEGORIES = ["logo", "textile", "illustration"];
@@ -225,6 +225,13 @@
         var child = normalizeShape(kids[i], errors, path + ".children[" + i + "]", depth + 1);
         if (child) shape.children.push(child);
       }
+    } else if (type === "blend") {
+      shape.steps = Math.max(3, Math.min(24, Math.round(num(raw.steps, 5))));
+      shape.from = normalizeShape(raw.from, errors, path + ".from", depth + 1);
+      shape.to = normalizeShape(raw.to, errors, path + ".to", depth + 1);
+      if (!shape.from || !shape.to) errors.push(path + " blend needs two shapes");
+      var spine = safePath(raw.spine);
+      if (spine) shape.spine = spine;
     }
     return shape;
   }
@@ -645,6 +652,10 @@
       var text = '<text x="' + shape.x + '" y="' + shape.y + '" text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">" + body + "</text>";
       if (shape.rot) return '<g transform="rotate(' + shape.rot + " " + shape.x + " " + shape.y + ')">' + text + "</g>";
       return text;
+    }
+    if (shape.type === "blend") {
+      var blended = (typeof VeloraBlend !== "undefined") ? VeloraBlend.stepsOf(shape, palette) : [];
+      return "<g>" + blended.map(function (step) { return compileShape(step, palette); }).join("") + "</g>";
     }
     if (shape.type === "group") {
       var inner = shape.children.map(function (c) { return compileShape(c, palette); }).join("");
