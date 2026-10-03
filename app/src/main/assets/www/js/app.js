@@ -169,7 +169,7 @@
   function toolHint() {
     if (state.tool === "pen") return ". Drag an anchor or its Bezier handle. The path is rewritten in VXL.";
     if (state.tool === "width") return ". Pick a profile or drag a width point. The stroke expands on compile.";
-    if (state.tool === "type") return ". Tap the canvas to place type. Area width wraps the line. Outline expands glyphs to paths.";
+    if (state.tool === "type") return ". Tap to place type. On path follows the selected path. Flip switches side. Outline bakes glyphs.";
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
     return ". Drag the canvas to move. Unite, Subtract, Intersect, and Exclude bake the selection with the shape behind it.";
@@ -190,7 +190,8 @@
         return '<option value="' + name + '"' + (anchor === name ? " selected" : "") + ">" + name + "</option>";
       }).join("") + "</select></label></div>" +
       '<label for="typeWidth">Area width</label><input id="typeWidth" type="number" min="0" placeholder="Point type" value="' + area + '" aria-label="Area width"/>' +
-      '<div class="row"><button type="button" class="chip" id="outlineType">Outline to paths</button>';
+      '<div class="row"><button type="button" class="chip" id="typeOnPath">On path</button><button type="button" class="chip" id="typeFlip">Flip side</button><button type="button" class="chip" id="outlineType">Outline to paths</button>' +
+      (live && live.onPath ? '<button type="button" class="chip" id="typeRelease">Release</button>' : "");
   }
 
   function widthChips() {
@@ -581,6 +582,41 @@
       document.getElementById("typeAnchor").onchange = readType;
       document.getElementById("typeWidth").oninput = readType;
     }
+    var typeOnPath = document.getElementById("typeOnPath");
+    if (typeOnPath) {
+      typeOnPath.onclick = function () {
+        var pathShape = VeloraEdit.find(state.doc, state.sel);
+        if (!pathShape || pathShape.type !== "path") pathShape = VeloraEdit.find(state.doc, state.pathId);
+        if (!pathShape || pathShape.type !== "path" || !pathShape.d) {
+          publishScene(state.doc, "Select a path first");
+          return;
+        }
+        var mid = VeloraTypePath.pointAt(pathShape.d, 0.5) || { x: 0, y: 0 };
+        var placed = VeloraEdit.placeText(state.doc, mid.x, mid.y, state.typeText || "Velora", state.typeSize || 64, state.layer);
+        if (!placed) return;
+        placed.anchor = state.typeAnchor || "middle";
+        VeloraEdit.setText(state.doc, placed.id, { onPath: pathShape.d, side: 1 });
+        state.sel = placed.id;
+        state.pathId = pathShape.id;
+        publishScene(state.doc, "Type on path");
+      };
+    }
+    var typeFlip = document.getElementById("typeFlip");
+    if (typeFlip) {
+      typeFlip.onclick = function () {
+        var current = VeloraEdit.find(state.doc, state.sel);
+        if (!current || current.type !== "text" || !current.onPath) return;
+        VeloraEdit.setText(state.doc, state.sel, { side: current.side === -1 ? 1 : -1 });
+        publishScene(state.doc, "Type flipped");
+      };
+    }
+    var typeRelease = document.getElementById("typeRelease");
+    if (typeRelease) {
+      typeRelease.onclick = function () {
+        VeloraEdit.setText(state.doc, state.sel, { onPath: "" });
+        publishScene(state.doc, "Type released");
+      };
+    }
     var outlineType = document.getElementById("outlineType");
     if (outlineType) {
       outlineType.onclick = function () {
@@ -685,6 +721,7 @@
       }
       var hit = VeloraEdit.hitTest(state.doc, pt.x, pt.y);
       state.sel = hit ? hit.id : "";
+      if (hit && hit.type === "path") state.pathId = hit.id;
       if (state.tool === "pen") {
         if (state.sel) VeloraEdit.penReady(VeloraEdit.find(state.doc, state.sel));
         drag = null;

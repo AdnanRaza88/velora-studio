@@ -218,6 +218,9 @@
       if (raw.rot != null) shape.rot = num(raw.rot, 0);
       var area = num(raw.w != null ? raw.w : raw.width, 0);
       if (area > 0) shape.w = area;
+      var spine = safePath(raw.onPath || "");
+      if (spine) shape.onPath = spine;
+      if (raw.side != null) shape.side = num(raw.side, 1) < 0 ? -1 : 1;
     } else if (type === "group") {
       shape.children = [];
       var kids = Array.isArray(raw.children) ? raw.children : Array.isArray(raw.shapes) ? raw.shapes : [];
@@ -633,6 +636,15 @@
       var pts = shape.points.map(function (p) { return p[0] + "," + p[1]; }).join(" ");
       return '<polygon points="' + pts + '"' + attrs + "/>";
     }
+    if (shape.type === "text" && shape.onPath) {
+      var pid = "tp-" + String(shape.id || "t").replace(/[^A-Za-z0-9_-]/g, "");
+      var offset = shape.anchor === "start" ? "0%" : shape.anchor === "end" ? "100%" : "50%";
+      var lift = (shape.side === -1 ? 0.65 : -0.2) * shape.size;
+      var on = '<defs><path id="' + pid + '" d="' + shape.onPath + '"/></defs>';
+      on += '<text text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">";
+      on += '<textPath href="#' + pid + '" xlink:href="#' + pid + '" startOffset="' + offset + '" dy="' + round2(lift) + '">' + esc(shape.text) + "</textPath></text>";
+      return on;
+    }
     if (shape.type === "text") {
       var lines = wrapLines(shape.text, shape.size, shape.w);
       var body = lines.map(function (line, i) {
@@ -712,7 +724,7 @@
 
   function compile(doc) {
     var vb = doc.canvas.viewBox;
-    var parts = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb.join(" ") + '">'];
+    var parts = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="' + vb.join(" ") + '">'];
     parts.push('<rect width="' + vb[2] + '" height="' + vb[3] + '" fill="' + doc.palette.ground + '"/>');
     if (doc.repeat && doc.layers[0]) {
       for (var r = 0; r < doc.repeat.rows; r++) {

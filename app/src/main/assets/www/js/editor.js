@@ -230,6 +230,10 @@
       var y1 = Math.min(shape.y1, shape.y2);
       return { x: x1, y: y1, w: Math.abs(shape.x2 - shape.x1), h: Math.abs(shape.y2 - shape.y1), cx: (shape.x1 + shape.x2) / 2, cy: (shape.y1 + shape.y2) / 2 };
     }
+    if (shape.type === "text" && shape.onPath && typeof VeloraTypePath !== "undefined") {
+      var along = VeloraTypePath.bounds(shape.onPath, shape.size * 0.6);
+      if (along) return along;
+    }
     if (shape.type === "text") return { x: shape.x - shape.size, y: shape.y - shape.size, w: shape.size * 2, h: shape.size, cx: shape.x, cy: shape.y };
     if (shape.type === "polygon") {
       var minX = Infinity;
@@ -336,6 +340,17 @@
     if (shape.type === "blend") {
       transformShape(shape.from, m, mode);
       transformShape(shape.to, m, mode);
+      return shape;
+    }
+    if (shape.type === "text" && shape.onPath) {
+      shape.onPath = writePath(toAbsolute(shape.onPath), m);
+      var mid = typeof VeloraTypePath !== "undefined" ? VeloraTypePath.pointAt(shape.onPath, 0.5) : null;
+      if (mid) {
+        shape.x = round(mid.x);
+        shape.y = round(mid.y);
+      }
+      if (mode === "scale") shape.size = round(Math.max(8, shape.size * Math.abs(m[0])));
+      shape.rot = 0;
       return shape;
     }
     if (mode === "move" && shape.type === "circle") {
@@ -842,6 +857,12 @@
       if (area > 0) shape.w = round(area);
       else delete shape.w;
     }
+    if (patch.onPath != null) {
+      var spine = String(patch.onPath || "");
+      if (spine) shape.onPath = spine.slice(0, 4000);
+      else delete shape.onPath;
+    }
+    if (patch.side != null) shape.side = Number(patch.side) < 0 ? -1 : 1;
     return shape;
   }
 
@@ -876,6 +897,12 @@
     return out.trim();
   }
 
+  function glyphAt(spec, x, y, scale, angle) {
+    var local = scaleGlyph(spec, 0, -(scale * 14), scale);
+    if (typeof VeloraTypePath === "undefined") return local;
+    return VeloraTypePath.placeGlyph(local, x, y, angle);
+  }
+
   function outlineText(doc, id) {
     var shape = find(doc, id);
     if (!shape || shape.type !== "text") return null;
@@ -888,6 +915,49 @@
     if (shape.anchor === "middle") origin -= width / 2;
     if (shape.anchor === "end") origin -= width;
     var children = [];
+    if (shape.onPath && typeof VeloraTypePath !== "undefined") {
+      var len = VeloraTypePath.lengthOf(shape.onPath) || width;
+      var start = 0;
+      if (shape.anchor === "middle") start = 0.5 - width / (2 * len);
+      if (shape.anchor === "end") start = 1 - width / len;
+      var side = shape.side === -1 ? -1 : 1;
+      chars.forEach(function (ch, index) {
+        var spec = GLYPH[ch];
+        if (!spec) return;
+        var t = start + ((index + 0.5) * advance) / len;
+        var p = VeloraTypePath.pointAt(shape.onPath, t);
+        if (!p) return;
+        var rad = p.angle * Math.PI / 180;
+        var ox = p.x + (-Math.sin(rad)) * side * size * 0.15;
+        var oy = p.y + Math.cos(rad) * side * size * 0.15;
+        var d = glyphAt(spec, ox, oy, scale, p.angle);
+        if (!d) return;
+        children.push({
+          id: freshId("glyph"),
+          type: "path",
+          role: shape.role || "figure",
+          fill: "none",
+          stroke: shape.fill && shape.fill !== "none" ? shape.fill : (shape.role || "figure"),
+          strokeWidth: Math.max(1, round(size * 0.08)),
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          d: d
+        });
+      });
+      if (!children.length) return null;
+      var along = {
+        id: shape.id,
+        type: "group",
+        role: shape.role || "figure",
+        opacity: shape.opacity == null ? 1 : shape.opacity,
+        children: children
+      };
+      eachShape(doc, function (current, parent, key, index) {
+        if (current.id !== id) return;
+        parent[key][index] = along;
+      });
+      return along;
+    }
     chars.forEach(function (ch, index) {
       var spec = GLYPH[ch];
       if (!spec) return;

@@ -65,6 +65,9 @@ Brief (+ optional attachment)
 ## Phase 8 — Pathfinder remainder
 - [x] Intersect and exclude bake the selection with the shape behind it
 
+## Phase 9 — Type on path
+- [x] Text follows a selected path spine; flip side; outline bakes glyphs along the path
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 

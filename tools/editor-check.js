@@ -3,6 +3,7 @@ const path = require("path");
 
 global.window = undefined;
 require(path.join(__dirname, "../app/src/main/assets/www/js/vxl.js"));
+require(path.join(__dirname, "../app/src/main/assets/www/js/typepath.js"));
 require(path.join(__dirname, "../app/src/main/assets/www/js/editor.js"));
 
 const V = global.VeloraVxl;
@@ -89,6 +90,26 @@ const svg = V.compile(stroke);
 assert.ok(svg.indexOf("<path") >= 0);
 assert.ok(svg.indexOf("stroke-width") < 0);
 assert.ok(svg.indexOf(" Z") >= 0 || svg.indexOf("Z") >= 0);
+
+const along = V.validate({
+  vxl: 1,
+  meta: { name: "Along", category: "logo" },
+  canvas: { viewBox: [0, 0, 400, 200] },
+  palette: { ground: "#ffffff", figure: "#111111", accent: "#355e57" },
+  layers: [{ id: "l", shapes: [
+    { id: "arc", type: "path", fill: "none", stroke: "figure", d: "M20 120 C120 20 240 20 340 120" },
+    { id: "word", type: "text", x: 180, y: 80, size: 28, text: "VELORA", anchor: "middle", onPath: "M20 120 C120 20 240 20 340 120" }
+  ]}]
+}).document;
+assert.strictEqual(along.layers[0].shapes[1].onPath.indexOf("M20"), 0);
+const alongSvg = V.compile(along);
+assert.ok(alongSvg.indexOf("textPath") >= 0);
+assert.ok(alongSvg.indexOf("VELORA") >= 0);
+E.setText(along, "word", { side: -1 });
+assert.strictEqual(along.layers[0].shapes[1].side, -1);
+const outlined = E.outlineText(along, "word");
+assert.strictEqual(outlined.type, "group");
+assert.ok(outlined.children.length >= 4);
 
 console.log("editor checks ok");
 
