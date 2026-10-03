@@ -33,6 +33,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Knife | Slice filled shapes along a freehand cut | Editor Knife draws a stroke; crossed closed shapes bake into separate closed VXL paths; the stroke is not kept |
 | Reflect | Mirror artwork across an axis | Editor Reflect copy bakes a mirrored VXL duplicate across the selection center; Axis V/H chooses the axis; Flip rewrites the selection in place |
 | Join | Connect open endpoints into one path | Editor Join bakes the nearest open ends into one VXL path; a single open path closes; the extra path is dropped |
+| Shear | Skew artwork along an axis | Editor Shear bakes a horizontal or vertical skew about the selection center; primitives become VXL paths; Shear copy keeps the source |
 
 ## Type
 | Tool | What it produces | Velora mapping |

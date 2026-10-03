@@ -109,3 +109,7 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 
 ## Phase 20 — Join
 - [x] Join the nearest open ends in the selection into one VXL path; a single open path closes; the extra path is dropped
+
+## Phase 21 — Shear
+- [x] Skew the selection about its center by an angle; horizontal or vertical; rectangles and ellipses bake to VXL paths; Shear copy keeps the source
+
