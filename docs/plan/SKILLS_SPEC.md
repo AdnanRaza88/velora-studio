@@ -40,3 +40,5 @@ Named stroke profiles live in `skills/stroke-profiles.json` and the APK asset co
 Calligraphic brushes live in `skills/brushes.json` and the APK asset copy. emit_vxl may set `brush` to round, flat, or oval. The app resolves angle and roundness. Skills do not emit raster brush textures.
 
 Offset path is an editor bake, not an emit_vxl field. Skills do not invent the parallel outline; the app owns that geometry.
+
+A shape may carry `gradient` `{type:linear, x1, y1, x2, y2, stops:[{offset, color}]}`. Color is a job or hex. The app compiles it. Skills should still prefer flat jobs unless the brief asks for a blend of inks.

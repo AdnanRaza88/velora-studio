@@ -1150,6 +1150,33 @@
     return pulled;
   }
 
+
+  function paintGradient(doc, ids, angle, from, to) {
+    if (typeof VeloraGradient === "undefined") return 0;
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (!shape || shape.type === "group" || shape.type === "blend" || shape.type === "text") return;
+      var box = boundsOf(shape);
+      if (!box) return;
+      shape.gradient = VeloraGradient.linear(box, angle, from, to);
+      n++;
+    });
+    return n;
+  }
+
+  function clearGradient(doc, ids) {
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (shape && shape.gradient) {
+        delete shape.gradient;
+        n++;
+      }
+    });
+    return n;
+  }
+
   root.VeloraEdit = {
     bounds: boundsOf,
     find: find,
@@ -1175,6 +1202,8 @@
     placePencil: placePencil,
     offsetShape: offsetShape,
     alignShapes: alignShapes,
+    paintGradient: paintGradient,
+    clearGradient: clearGradient,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,

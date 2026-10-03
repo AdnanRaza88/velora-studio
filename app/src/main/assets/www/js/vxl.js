@@ -168,6 +168,8 @@
       opacity: Math.max(0, Math.min(1, num(raw.opacity, 1)))
     };
     if (raw.fill != null) shape.fill = raw.fill;
+    var gradient = readGradient(raw.gradient);
+    if (gradient) shape.gradient = gradient;
     if (raw.stroke != null) shape.stroke = raw.stroke;
     if (raw.strokeWidth != null) shape.strokeWidth = Math.max(0, num(raw.strokeWidth, 0));
     if (raw.strokeLinecap) shape.strokeLinecap = String(raw.strokeLinecap).slice(0, 16);
@@ -388,6 +390,30 @@
     swell: [0.22, 0.85, 1, 0.45, 0.22],
     point: [0.06, 0.28, 1, 0.28, 0.06]
   };
+
+
+  function readGradient(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    if (raw.type !== "linear") return null;
+    var stops = Array.isArray(raw.stops) ? raw.stops : [];
+    var out = [];
+    for (var i = 0; i < stops.length && i < 8; i++) {
+      var stop = stops[i] || {};
+      var color = stop.color != null ? stop.color : stop.job;
+      if (typeof color !== "string" || looksUnsafe(color) || color.length > 32) continue;
+      if (!isHex(color) && ROLES.indexOf(color) < 0 && INK_KEYS.indexOf(color) < 0) continue;
+      out.push({ offset: Math.max(0, Math.min(1, num(stop.offset, i / Math.max(1, stops.length - 1)))), color: color });
+    }
+    if (out.length < 2) return null;
+    return {
+      type: "linear",
+      x1: num(raw.x1, 0),
+      y1: num(raw.y1, 0),
+      x2: num(raw.x2, 1),
+      y2: num(raw.y2, 0),
+      stops: out
+    };
+  }
 
   function readProfile(raw, baseWidth) {
     var base = baseWidth > 0 ? baseWidth : 8;
@@ -638,8 +664,22 @@
     return lines.slice(0, 8);
   }
 
+  function gradientPaint(shape, palette) {
+    var g = shape.gradient;
+    if (!g || g.type !== "linear" || !g.stops || g.stops.length < 2) return null;
+    var id = "vg_" + String(shape.id || "s").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
+    var stops = g.stops.map(function (stop) {
+      var color = paint(stop.color, palette) || palette.figure;
+      var off = Math.max(0, Math.min(1, num(stop.offset, 0)));
+      return '<stop offset="' + off + '" stop-color="' + color + '"/>';
+    }).join("");
+    var def = '<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + num(g.x1, 0) + '" y1="' + num(g.y1, 0) + '" x2="' + num(g.x2, 1) + '" y2="' + num(g.y2, 0) + '">' + stops + '</linearGradient>';
+    return { id: id, def: def };
+  }
+
   function styleAttrs(shape, palette) {
-    var fill = paint(shape.fill != null ? shape.fill : shape.role, palette);
+    var painted = gradientPaint(shape, palette);
+    var fill = painted ? ("url(#" + painted.id + ")") : paint(shape.fill != null ? shape.fill : shape.role, palette);
     var stroke = paint(shape.stroke, palette);
     var attrs = "";
     if (fill) attrs += ' fill="' + fill + '"';
@@ -656,24 +696,26 @@
   }
 
   function compileShape(shape, palette) {
+    var painted = gradientPaint(shape, palette);
     var attrs = styleAttrs(shape, palette);
+    var wrap = painted ? function (tag) { return "<g><defs>" + painted.def + "</defs>" + tag + "</g>"; } : function (tag) { return tag; };
     if (shape.type === "path" && ((shape.widthProfile && shape.widthProfile.length >= 2) || shape.brush)) {
       var ribbon = outlinePath(shape);
       if (ribbon) {
         var ink = paint(shape.stroke, palette) || paint(shape.fill != null ? shape.fill : shape.role, palette) || palette.figure;
         var ribbonAttrs = ' fill="' + ink + '"';
         if (shape.opacity != null && shape.opacity < 1) ribbonAttrs += ' opacity="' + shape.opacity + '"';
-        return '<path d="' + ribbon + '"' + ribbonAttrs + "/>";
+        return wrap('<path d="' + ribbon + '"' + ribbonAttrs + "/>");
       }
     }
-    if (shape.type === "path") return '<path d="' + shape.d + '"' + attrs + "/>";
-    if (shape.type === "circle") return '<circle cx="' + shape.cx + '" cy="' + shape.cy + '" r="' + shape.r + '"' + attrs + "/>";
-    if (shape.type === "ellipse") return '<ellipse cx="' + shape.cx + '" cy="' + shape.cy + '" rx="' + shape.rx + '" ry="' + shape.ry + '"' + attrs + "/>";
+    if (shape.type === "path") return wrap('<path d="' + shape.d + '"' + attrs + "/>");
+    if (shape.type === "circle") return wrap('<circle cx="' + shape.cx + '" cy="' + shape.cy + '" r="' + shape.r + '"' + attrs + "/>");
+    if (shape.type === "ellipse") return wrap('<ellipse cx="' + shape.cx + '" cy="' + shape.cy + '" rx="' + shape.rx + '" ry="' + shape.ry + '"' + attrs + "/>");
     if (shape.type === "rect") {
       var body = '<rect x="' + (-shape.w / 2) + '" y="' + (-shape.h / 2) + '" width="' + shape.w + '" height="' + shape.h + '" rx="' + (shape.rx || 0) + '"' + attrs + "/>";
       var t = "translate(" + (shape.x + shape.w / 2) + " " + (shape.y + shape.h / 2) + ")";
       if (shape.rot) t += " rotate(" + shape.rot + ")";
-      return '<g transform="' + t + '">' + body + "</g>";
+      return wrap('<g transform="' + t + '">' + body + "</g>");
     }
     if (shape.type === "line") {
       var lineAttrs = attrs.replace(' fill="' + palette.figure + '"', ' fill="none"');
@@ -682,7 +724,7 @@
     }
     if (shape.type === "polygon") {
       var pts = shape.points.map(function (p) { return p[0] + "," + p[1]; }).join(" ");
-      return '<polygon points="' + pts + '"' + attrs + "/>";
+      return wrap('<polygon points="' + pts + '"' + attrs + "/>");
     }
     if (shape.type === "text" && shape.onPath) {
       var pid = "tp-" + String(shape.id || "t").replace(/[^A-Za-z0-9_-]/g, "");

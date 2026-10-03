@@ -26,6 +26,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Compound path | Holes (counterforms in letters, logos) | path fill-rule evenodd |
 | Offset path | Parallel outline at a distance | Editor Offset path bakes a new VXL path; miter joins bevel past the limit; source stays |
 | Align / distribute | Edge and center alignment; even gaps | Shift-click set; one shape aligns to the artboard; several align to the selection; Distribute H/V spaces gaps; move matrix bakes geometry |
+| Gradient | Linear fill across a shape | VXL `gradient` linear stops (job or hex); compiler emits userSpaceOnUse linearGradient; editor paints figure to accent; Flat fill clears it |
 
 ## Type
 | Tool | What it produces | Velora mapping |

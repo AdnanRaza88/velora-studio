@@ -80,6 +80,9 @@ Brief (+ optional attachment)
 ## Phase 13 — Align / distribute
 - [x] Align selection to the artboard (one shape) or to the selection bounds (shift-click set); distribute horizontal and vertical gaps; geometry is baked with the move matrix
 
+## Phase 14 — Gradient fill
+- [x] Linear gradient across the selection, figure to accent, userSpaceOnUse vector; Flat fill clears it. Stops stay ink jobs or hex. No raster.
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 

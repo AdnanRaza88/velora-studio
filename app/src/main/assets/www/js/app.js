@@ -118,6 +118,9 @@
       '<button type="button" class="ghost" data-align="bottom">Align bottom</button>' +
       '<button type="button" class="ghost" data-align="hgap">Distribute H</button>' +
       '<button type="button" class="ghost" data-align="vgap">Distribute V</button>' +
+      '<label class="ink">Angle<input id="gradAngle" type="number" step="15" value="' + (state.gradAngle || 0) + '" aria-label="Gradient angle"/></label>' +
+      '<button type="button" class="ghost" id="paintGradient">Gradient</button>' +
+      '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
       '<button type="button" class="ghost" id="intersect">Intersect</button>' +
@@ -130,7 +133,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -556,6 +559,25 @@
         publishScene(state.doc, moves.length ? (labels[mode] || "Aligned") : miss);
       };
     });
+    var gradAngle = document.getElementById("gradAngle");
+    if (gradAngle) gradAngle.onchange = function () { state.gradAngle = Number(gradAngle.value) || 0; };
+    var paintGradient = document.getElementById("paintGradient");
+    if (paintGradient) paintGradient.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length) return;
+      var angle = Number((document.getElementById("gradAngle") || {}).value);
+      if (!isFinite(angle)) angle = state.gradAngle || 0;
+      state.gradAngle = angle;
+      var n = VeloraEdit.paintGradient(state.doc, ids, angle, "figure", "accent");
+      publishScene(state.doc, n ? "Gradient " + angle + "°" : "Select a shape");
+    };
+    var flatFill = document.getElementById("flatFill");
+    if (flatFill) flatFill.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length) return;
+      var n = VeloraEdit.clearGradient(state.doc, ids);
+      publishScene(state.doc, n ? "Flat fill" : "No gradient");
+    };
     var offsetPath = document.getElementById("offsetPath");
     if (offsetPath) offsetPath.onclick = function () {
       if (!state.sel) return;
