@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-03 08:20
+Last updated: 2026-10-03 15:20
 
 ## 1. Entry Points
 
@@ -56,6 +56,7 @@ Last updated: 2026-10-03 08:20
 
 ## 6. Recent Changes Log
 
+- 2026-10-03 Phase 11 brushes: round/flat/oval nibs; emit_vxl brush; compiler projects outline; centerline stays editable
 - 2026-10-03 Phase 6 optional planners: OpenAI, Anthropic, Gemini, OpenRouter emit_vxl; Needle remains default
 - 2026-10-03 Phase 4 width profile: named taper/swell/point plus sample drag; compiler expands stroke to filled outline
 - 2026-10-03 Phase 4 pen anchors: handles and moveHandle rewrite path d

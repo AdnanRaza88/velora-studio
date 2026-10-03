@@ -674,6 +674,36 @@
     return shape;
   }
 
+  function applyBrush(doc, id, name, angle) {
+    var shape = find(doc, id);
+    if (!shape || (shape.type !== "path" && shape.type !== "line")) return null;
+    var specs = (typeof VeloraVxl !== "undefined" && VeloraVxl.brushSpecs) || {
+      round: { angle: 0, roundness: 1 },
+      flat: { angle: 30, roundness: 0.18 },
+      oval: { angle: -40, roundness: 0.42 }
+    };
+    if (!specs[name]) return shape;
+    var size = shape.strokeWidth > 0 ? shape.strokeWidth : (shape.brush && shape.brush.size) || 16;
+    shape.strokeWidth = size;
+    shape.brush = {
+      name: name,
+      angle: angle == null ? specs[name].angle : Math.max(-180, Math.min(180, Number(angle) || 0)),
+      roundness: specs[name].roundness,
+      size: size
+    };
+    if (!shape.stroke || shape.stroke === "none") shape.stroke = shape.role || "figure";
+    if (shape.fill == null || shape.fill === shape.role) shape.fill = "none";
+    shape.strokeLinecap = "round";
+    return shape;
+  }
+
+  function setBrushAngle(doc, id, angle) {
+    var shape = find(doc, id);
+    if (!shape || !shape.brush) return null;
+    shape.brush.angle = Math.max(-180, Math.min(180, Math.round(Number(angle) || 0)));
+    return shape;
+  }
+
   function setWidthSample(doc, id, index, width) {
     var shape = find(doc, id);
     if (!shape || !shape.widthProfile || index < 0 || index >= shape.widthProfile.length) return null;
@@ -1087,6 +1117,8 @@
     moveHandle: moveHandle,
     penReady: penReady,
     applyWidth: applyWidth,
+    applyBrush: applyBrush,
+    setBrushAngle: setBrushAngle,
     setWidthSample: setWidthSample,
     widthHandles: widthHandles,
     hitWidth: hitWidth,

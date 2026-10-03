@@ -100,6 +100,7 @@
       '<button type="button" class="ghost" id="rotR">Rotate right</button>' +
       '<button type="button" class="ghost' + (state.tool === "pen" ? " on" : "") + '" id="penMode">Anchors</button>' +
       '<button type="button" class="ghost' + (state.tool === "width" ? " on" : "") + '" id="widthMode">Width</button>' +
+      '<button type="button" class="ghost' + (state.tool === "brush" ? " on" : "") + '" id="brushMode">Brush</button>' +
       '<button type="button" class="ghost' + (state.tool === "type" ? " on" : "") + '" id="typeMode">Type</button>' +
       '<button type="button" class="ghost' + (state.tool === "pencil" ? " on" : "") + '" id="pencilMode">Pencil</button>' +
       '<button type="button" class="ghost' + (state.tool === "curve" ? " on" : "") + '" id="curveMode">Curve</button>' +
@@ -114,7 +115,7 @@
       '<label class="ink">Steps<input id="blendSteps" type="number" min="3" max="24" value="' + (state.blendSteps || 5) + '"/></label>' +
       '<button type="button" class="ghost" id="blend">Blend</button>' +
       '<button type="button" class="ghost" id="expandBlend">Expand blend</button>' +
-      widthChips() + typeControls() + '</div>' +
+      widthChips() + brushChips() + typeControls() + '</div>' +
       inkControls(checked.document) +
       patternPanel(checked.document) +
       layerPanel(checked.document) +
@@ -169,6 +170,7 @@
   function toolHint() {
     if (state.tool === "pen") return ". Drag an anchor or its Bezier handle. The path is rewritten in VXL.";
     if (state.tool === "width") return ". Pick a profile or drag a width point. The stroke expands on compile.";
+    if (state.tool === "brush") return ". Pick a nib. Angle sets the calligraphic edge. The centerline stays editable.";
     if (state.tool === "type") return ". Tap to place type. On path follows the selected path. Flip switches side. Outline bakes glyphs.";
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
@@ -192,6 +194,17 @@
       '<label for="typeWidth">Area width</label><input id="typeWidth" type="number" min="0" placeholder="Point type" value="' + area + '" aria-label="Area width"/>' +
       '<div class="row"><button type="button" class="chip" id="typeOnPath">On path</button><button type="button" class="chip" id="typeFlip">Flip side</button><button type="button" class="chip" id="outlineType">Outline to paths</button>' +
       (live && live.onPath ? '<button type="button" class="chip" id="typeRelease">Release</button>' : "");
+  }
+
+  function brushChips() {
+    if (state.tool !== "brush") return "";
+    var selected = state.sel ? VeloraEdit.find(state.doc, state.sel) : null;
+    var live = selected && selected.brush ? selected.brush : null;
+    var angle = live ? live.angle : 30;
+    return ["round", "flat", "oval"].map(function (name) {
+      var on = live && live.name === name ? " on" : "";
+      return '<button type="button" class="chip' + on + '" data-brush="' + name + '">' + name + "</button>";
+    }).join("") + '<label class="ink">Angle<input id="brushAngle" type="number" min="-180" max="180" value="' + angle + '" aria-label="Brush angle"/></label>';
   }
 
   function widthChips() {
@@ -455,6 +468,11 @@
       state.tool = state.tool === "width" ? "select" : "width";
       publishScene(state.doc, state.tool === "width" ? "Width profile" : "Selection");
     };
+    var brushMode = document.getElementById("brushMode");
+    if (brushMode) brushMode.onclick = function () {
+      state.tool = state.tool === "brush" ? "select" : "brush";
+      publishScene(state.doc, state.tool === "brush" ? "Brush" : "Selection");
+    };
     document.getElementById("typeMode").onclick = function () {
       state.tool = state.tool === "type" ? "select" : "type";
       publishScene(state.doc, state.tool === "type" ? "Type" : "Selection");
@@ -633,6 +651,26 @@
         if (!state.sel) return;
         VeloraEdit.applyWidth(state.doc, state.sel, this.getAttribute("data-profile"));
         publishScene(state.doc, "Width " + this.getAttribute("data-profile"));
+      };
+    }
+    var brushChips = document.querySelectorAll("[data-brush]");
+    for (var b = 0; b < brushChips.length; b++) {
+      brushChips[b].onclick = function () {
+        if (!state.sel) return;
+        var angleInput = document.getElementById("brushAngle");
+        var angle = angleInput ? Number(angleInput.value) : null;
+        VeloraEdit.applyBrush(state.doc, state.sel, this.getAttribute("data-brush"), angle);
+        publishScene(state.doc, "Brush " + this.getAttribute("data-brush"));
+      };
+    }
+    var brushAngle = document.getElementById("brushAngle");
+    if (brushAngle) {
+      brushAngle.onchange = function () {
+        if (!state.sel) return;
+        var shape = VeloraEdit.find(state.doc, state.sel);
+        if (!shape || !shape.brush) return;
+        VeloraEdit.setBrushAngle(state.doc, state.sel, brushAngle.value);
+        publishScene(state.doc, "Brush angle");
       };
     }
     var stage = document.getElementById("stage");

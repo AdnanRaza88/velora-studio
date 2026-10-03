@@ -1,0 +1,22 @@
+{
+  "id": "brushes",
+  "title": "Calligraphic brushes",
+  "note": "Named nibs. emit_vxl sets brush to round, flat, or oval. The app resolves angle and roundness. Centerline d stays editable. No raster texture.",
+  "brushes": {
+    "round": {
+      "angle": 0,
+      "roundness": 1,
+      "use": "Disk nib, even width"
+    },
+    "flat": {
+      "angle": 30,
+      "roundness": 0.18,
+      "use": "Broad-edge calligraphy"
+    },
+    "oval": {
+      "angle": -40,
+      "roundness": 0.42,
+      "use": "Soft oval nib"
+    }
+  }
+}

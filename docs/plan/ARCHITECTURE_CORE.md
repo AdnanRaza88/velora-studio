@@ -47,3 +47,5 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 - Undo and redo keep up to 40 document snapshots. A step is recorded only when geometry, layers, or palette change. Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z walk that stack.
 - Layers are the VXL `layers[]` stack. Later layers paint in front. Each layer has a name, opacity, visible, and locked flag. Hide and lock skip hit testing. Merge folds a layer into the one behind it. New type lands on the active unlocked layer.
 - Blend steps store a VXL `blend` node (from, to, steps, optional spine). The compiler morphs sampled contours and inks. Expand bakes those steps into a group of paths.
+
+- A brush instance stores a named nib (`round`, `flat`, `oval`) with angle, roundness, and size. The compiler projects the nib along the centerline into a filled outline. The path `d` stays the editable spine.

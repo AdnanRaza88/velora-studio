@@ -38,3 +38,18 @@ if (!named) throw new Error("named profile");
 var rejected = ctx.VeloraSkills.lockArgs({ category: "logo", name: "X", viewBox: [0, 0, 1, 1], palette: { ground: "#111111", figure: "#222222", accent: "#333333" }, strokeProfile: "blob" });
 if (rejected.ok) throw new Error("profile lock");
 console.log("stroke profiles ok");
+
+var brushed = ctx.VeloraSkills.compose("flat calligraphy mark", "logo", "");
+if (!brushed.ok || brushed.arguments.brush !== "flat") throw new Error("brush args");
+var nib = false;
+brushed.document.layers.forEach(function (layer) {
+  layer.shapes.forEach(function (shape) {
+    if (shape.brush && shape.brush.name === "flat") nib = true;
+  });
+});
+if (!nib) throw new Error("brush stamp");
+var svg = ctx.VeloraVxl.compile(brushed.document);
+if (svg.indexOf("<path") < 0) throw new Error("brush compile");
+var locked = ctx.VeloraSkills.lockArgs({ category: "logo", name: "X", viewBox: [0, 0, 1, 1], palette: { ground: "#111111", figure: "#222222", accent: "#333333" }, brush: "ink" });
+if (locked.ok) throw new Error("brush lock");
+console.log("brushes ok");

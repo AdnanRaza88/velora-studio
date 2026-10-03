@@ -181,6 +181,8 @@
       shape.widthProfile = profile.samples;
       if (profile.name) shape.profile = profile.name;
     }
+    var brush = readBrush(raw.brush, num(raw.strokeWidth, profile ? profile.samples[0] : 12));
+    if (brush) shape.brush = brush;
 
     if (type === "path") {
       shape.d = safePath(raw.d);
@@ -375,6 +377,11 @@
   }
 
 
+  var BRUSHES = {
+    round: { angle: 0, roundness: 1 },
+    flat: { angle: 30, roundness: 0.18 },
+    oval: { angle: -40, roundness: 0.42 }
+  };
   var PROFILE_NAMES = ["taper", "swell", "point"];
   var PROFILE_UNITS = {
     taper: [0.12, 0.55, 1, 0.4, 0.08],
@@ -398,6 +405,30 @@
       return Math.max(0, num(n, 0));
     });
     return { name: "", samples: samples };
+  }
+
+  function readBrush(raw, baseWidth) {
+    if (raw == null || raw === "") return null;
+    var name = "";
+    var angle = null;
+    var roundness = null;
+    var size = null;
+    if (typeof raw === "string") name = raw.toLowerCase();
+    else if (typeof raw === "object") {
+      name = String(raw.name || "").toLowerCase();
+      if (raw.angle != null) angle = num(raw.angle, 0);
+      if (raw.roundness != null) roundness = num(raw.roundness, 1);
+      if (raw.size != null) size = num(raw.size, 0);
+    }
+    var spec = BRUSHES[name];
+    if (!spec) return null;
+    var base = baseWidth > 0 ? baseWidth : 12;
+    return {
+      name: name,
+      angle: Math.max(-180, Math.min(180, angle == null ? spec.angle : angle)),
+      roundness: Math.max(0.05, Math.min(1, roundness == null ? spec.roundness : roundness)),
+      size: size > 0 ? size : base
+    };
   }
 
   function profileWidth(shape, t) {
@@ -530,14 +561,31 @@
     return withNormals(pts, closed);
   }
 
+  function strokeHalf(shape, p) {
+    var along = profileWidth(shape, p.t);
+    if (!shape.brush) return along / 2;
+    var size = shape.brush.size > 0 ? shape.brush.size : along;
+    if (shape.widthProfile && shape.widthProfile.length >= 2) {
+      var base = num(shape.strokeWidth, size) || size;
+      size = size * (along / base);
+    }
+    var a = size / 2;
+    var b = a * shape.brush.roundness;
+    var phi = Math.atan2(p.ny, p.nx) - shape.brush.angle * Math.PI / 180;
+    var cs = Math.cos(phi);
+    var sn = Math.sin(phi);
+    return Math.sqrt(a * a * cs * cs + b * b * sn * sn);
+  }
+
   function outlinePath(shape) {
     var line = centerline(shape);
-    if (line.length < 2 || !shape.widthProfile || shape.widthProfile.length < 2) return "";
+    var hasProfile = shape.widthProfile && shape.widthProfile.length >= 2;
+    if (line.length < 2 || (!hasProfile && !shape.brush)) return "";
     var closed = /[Zz]/.test(shape.d || "");
     var left = [];
     var right = [];
     line.forEach(function (p) {
-      var half = profileWidth(shape, p.t) / 2;
+      var half = strokeHalf(shape, p);
       left.push([p.x + p.nx * half, p.y + p.ny * half]);
       right.push([p.x - p.nx * half, p.y - p.ny * half]);
     });
@@ -547,8 +595,8 @@
     if (!closed) {
       var end = line[line.length - 1];
       var start = line[0];
-      var er = profileWidth(shape, end.t) / 2;
-      var sr = profileWidth(shape, start.t) / 2;
+      var er = strokeHalf(shape, end);
+      var sr = strokeHalf(shape, start);
       for (var a = 1; a <= 4; a++) {
         var ang = Math.PI * a / 4;
         var cs = Math.cos(ang);
@@ -559,7 +607,7 @@
     for (var r = right.length - 1; r >= 0; r--) d += " L" + fmt(right[r]);
     if (!closed) {
       var st = line[0];
-      var rad = profileWidth(shape, st.t) / 2;
+      var rad = strokeHalf(shape, st);
       for (var b = 1; b <= 4; b++) {
         var ang2 = Math.PI * b / 4;
         var cs2 = Math.cos(ang2);
@@ -609,7 +657,7 @@
 
   function compileShape(shape, palette) {
     var attrs = styleAttrs(shape, palette);
-    if (shape.type === "path" && shape.widthProfile && shape.widthProfile.length >= 2) {
+    if (shape.type === "path" && ((shape.widthProfile && shape.widthProfile.length >= 2) || shape.brush)) {
       var ribbon = outlinePath(shape);
       if (ribbon) {
         var ink = paint(shape.stroke, palette) || paint(shape.fill != null ? shape.fill : shape.role, palette) || palette.figure;
@@ -829,6 +877,8 @@
     centerline: centerline,
     profileWidth: profileWidth,
     profiles: PROFILE_NAMES.slice(),
-    profileUnits: PROFILE_UNITS
+    profileUnits: PROFILE_UNITS,
+    brushes: Object.keys(BRUSHES),
+    brushSpecs: BRUSHES
   };
 })(typeof window !== "undefined" ? window : globalThis);

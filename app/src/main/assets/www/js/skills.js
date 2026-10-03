@@ -5,22 +5,22 @@
     logo: {
       id: "logo",
       title: "Logo",
-      system: "You are the Velora logo skill. Call emit_vxl once. category must be logo. Use 1 to 3 inks (ground, figure, accent). Prefer a strong silhouette: emblem, geometric mark, or wordmark. Few shapes. No raster. viewBox 0 0 1024 1024. Name the mark from the brief. style is geometric, wordmark, emblem, or organic. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
+      system: "You are the Velora logo skill. Call emit_vxl once. category must be logo. Use 1 to 3 inks (ground, figure, accent). Prefer a strong silhouette: emblem, geometric mark, or wordmark. Few shapes. No raster. viewBox 0 0 1024 1024. Name the mark from the brief. style is geometric, wordmark, emblem, or organic. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples. Calligraphic marks set brush to round, flat, or oval. The app resolves the nib. Do not emit a raster brush."
     },
     textile: {
       id: "textile",
       title: "Textile",
-      system: "You are the Velora textile skill. Call emit_vxl once. category must be textile. Emit a motif plus repeat. Repeat type is block, half-drop, half-brick, or mirror. Motif is drawn around the tile origin so seams close. Limit inks to ground, figure, accent. Do not explode the motif into noise. Tile size is usually 240. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
+      system: "You are the Velora textile skill. Call emit_vxl once. category must be textile. Emit a motif plus repeat. Repeat type is block, half-drop, half-brick, or mirror. Motif is drawn around the tile origin so seams close. Limit inks to ground, figure, accent. Do not explode the motif into noise. Tile size is usually 240. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples. Calligraphic marks set brush to round, flat, or oval. The app resolves the nib. Do not emit a raster brush."
     },
     character: {
       id: "character",
       title: "Character",
-      system: "You are the Velora character skill. Call emit_vxl once. category must be character. Group parts by name: head, body, limbs. Simple fills first. Do not emit thousands of micro-paths. Palette jobs are figure, ground, accent. viewBox 0 0 1024 1024. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
+      system: "You are the Velora character skill. Call emit_vxl once. category must be character. Group parts by name: head, body, limbs. Simple fills first. Do not emit thousands of micro-paths. Palette jobs are figure, ground, accent. viewBox 0 0 1024 1024. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples. Calligraphic marks set brush to round, flat, or oval. The app resolves the nib. Do not emit a raster brush."
     },
     icon: {
       id: "icon",
       title: "Icon",
-      system: "You are the Velora icon skill. Call emit_vxl once. category must be icon. Square viewBox matching grid 24, 32, or 48. One or two inks. Paths must read at small size. No text unless the brief is a glyph. No raster. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
+      system: "You are the Velora icon skill. Call emit_vxl once. category must be icon. Square viewBox matching grid 24, 32, or 48. One or two inks. Paths must read at small size. No text unless the brief is a glyph. No raster. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples. Calligraphic marks set brush to round, flat, or oval. The app resolves the nib. Do not emit a raster brush."
     }
   };
 
@@ -97,13 +97,23 @@
     var profile = profileOf(brief);
     if (!profile && args.style === "organic") profile = "taper";
     if (profile) args.strokeProfile = profile;
+    var brush = brushOf(brief);
+    if (brush) args.brush = brush;
     return args;
+  }
+
+  function brushOf(brief) {
+    var t = String(brief || "").toLowerCase();
+    if (/\boval\b/.test(t) && /\bbrush|nib|calligraph/.test(t)) return "oval";
+    if (/\bround brush\b/.test(t)) return "round";
+    if (/\bflat|calligraph|nib|brush\b/.test(t)) return "flat";
+    return "";
   }
 
   function profileOf(brief) {
     var t = String(brief || "").toLowerCase();
     if (/\bpoint(ed)?\b/.test(t)) return "point";
-    if (/\bswell|brush\b/.test(t)) return "swell";
+    if (/\bswell\b/.test(t)) return "swell";
     if (/\btaper|stroke|calligraph|line art\b/.test(t)) return "taper";
     return "";
   }
@@ -125,6 +135,7 @@
     doc.meta.skill = skill;
     if (args.palette && args.palette.figure) doc.palette = args.palette;
     if (args.strokeProfile) stampProfile(doc, args.strokeProfile);
+    if (args.brush) stampBrush(doc, args.brush);
     var checked = VeloraVxl.validate(doc);
     if (!checked.ok) return checked;
     return { ok: true, document: checked.document, errors: [], warnings: checked.warnings || [] };
@@ -163,6 +174,41 @@
       strokeLinecap: "round",
       widthProfile: name,
       d: "M" + Math.round(x0) + " " + Math.round(y) + " C" + Math.round(mid) + " " + Math.round(y - lift) + " " + Math.round(mid) + " " + Math.round(y - lift) + " " + Math.round(x1) + " " + Math.round(y)
+    });
+  }
+
+  function stampBrush(doc, name) {
+    var stamped = false;
+    (doc.layers || []).forEach(function (layer) {
+      (layer.shapes || []).forEach(function (shape) {
+        if (stamped || shape.type !== "path") return;
+        if (shape.fill && shape.fill !== "none" && !shape.widthProfile) return;
+        shape.brush = name;
+        shape.strokeLinecap = "round";
+        if (!shape.stroke || shape.stroke === "none") shape.stroke = shape.role || "accent";
+        if (shape.fill == null) shape.fill = "none";
+        if (!shape.strokeWidth) shape.strokeWidth = 14;
+        stamped = true;
+      });
+    });
+    if (stamped) return;
+    var box = doc.canvas && doc.canvas.viewBox ? doc.canvas.viewBox : [0, 0, 1024, 1024];
+    var x0 = box[0] + box[2] * 0.2;
+    var x1 = box[0] + box[2] * 0.8;
+    var y0 = box[1] + box[3] * 0.7;
+    var y1 = box[1] + box[3] * 0.34;
+    var layer = doc.layers && doc.layers[0];
+    if (!layer) return;
+    layer.shapes.push({
+      id: "brush-line",
+      type: "path",
+      role: "accent",
+      fill: "none",
+      stroke: "accent",
+      strokeWidth: Math.max(2, Math.round(box[2] * 0.02)),
+      strokeLinecap: "round",
+      brush: name,
+      d: "M" + Math.round(x0) + " " + Math.round(y0) + " C" + Math.round(x0 + box[2] * 0.2) + " " + Math.round(y1) + " " + Math.round(x1 - box[2] * 0.15) + " " + Math.round(y0) + " " + Math.round(x1) + " " + Math.round(y1)
     });
   }
 
@@ -230,7 +276,8 @@
   var REPEATS = ["block", "half-drop", "half-brick", "mirror"];
   var GRIDS = [24, 32, 48];
   var PROFILES = ["taper", "swell", "point"];
-  var ARG_KEYS = ["category", "name", "brief", "viewBox", "palette", "style", "motif", "repeat", "grid", "parts", "inkCount", "strokeProfile"];
+  var BRUSHES = ["round", "flat", "oval"];
+  var ARG_KEYS = ["category", "name", "brief", "viewBox", "palette", "style", "motif", "repeat", "grid", "parts", "inkCount", "strokeProfile", "brush"];
 
   function toolSpec() {
     return {
@@ -270,7 +317,8 @@
           },
           grid: { type: "integer", enum: GRIDS },
           parts: { type: "array", items: { type: "string" }, maxItems: 8 },
-          strokeProfile: { type: "string", enum: PROFILES }
+          strokeProfile: { type: "string", enum: PROFILES },
+          brush: { type: "string", enum: BRUSHES }
         }
       }
     };
@@ -340,6 +388,10 @@
     if (raw.strokeProfile != null) {
       if (PROFILES.indexOf(raw.strokeProfile) < 0) errors.push("strokeProfile");
       else cleaned.strokeProfile = raw.strokeProfile;
+    }
+    if (raw.brush != null) {
+      if (BRUSHES.indexOf(raw.brush) < 0) errors.push("brush");
+      else cleaned.brush = raw.brush;
     }
     if (raw.parts != null) {
       if (!Array.isArray(raw.parts) || raw.parts.length > 8 || raw.parts.some(function (part) { return typeof part !== "string" || !part || part.length > 40; })) {

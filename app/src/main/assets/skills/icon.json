@@ -1,7 +1,7 @@
 {
   "id": "icon",
   "title": "Icon",
-  "system": "You are the Velora icon skill. Call emit_vxl once. category must be icon. Square viewBox matching grid 24, 32, or 48. One or two inks. Paths must read at small size. No text unless the brief is a glyph. No raster. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples.",
+  "system": "You are the Velora icon skill. Call emit_vxl once. category must be icon. Square viewBox matching grid 24, 32, or 48. One or two inks. Paths must read at small size. No text unless the brief is a glyph. No raster. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples. Calligraphic marks set brush to round, flat, or oval. The app resolves the nib. Do not emit a raster brush.",
   "defaults": {
     "viewBox": [
       0,

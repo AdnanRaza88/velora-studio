@@ -15,7 +15,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 |------|------------------|----------------|
 | Width | Variable stroke thickness along one path (taper, swell) | VXL `stroke.widthProfile` |
 | Stroke profiles | Reusable taper shapes | Named profiles taper / swell / point in skills/stroke-profiles.json; emit_vxl strokeProfile |
-| Brushes | Textured / calligraphic strokes | Phase later: brush instances |
+| Brushes | Calligraphic nib along a stroke | Named brushes round / flat / oval in skills/brushes.json; emit_vxl brush; compiler projects the nib; centerline d stays editable |
 
 ## Build complex form
 | Tool | What it produces | Velora mapping |

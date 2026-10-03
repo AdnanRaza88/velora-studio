@@ -71,6 +71,9 @@ Brief (+ optional attachment)
 ## Phase 10 — Named stroke profiles
 - [x] Skill pack names taper, swell, point; emit_vxl strokeProfile resolves to widthProfile
 
+## Phase 11 — Brush instances
+- [x] Named calligraphic nibs round, flat, oval; emit_vxl brush resolves to a nib; compiler expands the outline; centerline stays editable
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 
