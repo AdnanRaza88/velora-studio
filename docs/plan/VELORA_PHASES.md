@@ -56,7 +56,7 @@ Brief (+ optional attachment)
 - [x] Pencil + smooth
 
 ## Phase 6 — Optional remote assist
-- [ ] OpenAI / Anthropic / Gemini / OpenRouter as optional planners
+- [x] OpenAI / Anthropic / Gemini / OpenRouter as optional planners
 - [ ] Same skill packs; same VXL validator
 
 ## Acceptance

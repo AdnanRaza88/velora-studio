@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-03 06:20
+Last updated: 2026-10-03 08:20
 
 ## 1. Entry Points
 
@@ -15,6 +15,8 @@ Last updated: 2026-10-03 06:20
 | app/src/main/java/app/velora/studio/NeedleBridge.kt | Needle asset status and emit_vxl | NeedleBridge.status, complete | assets/needle | MainActivity, needle.js |
 | app/src/main/assets/needle/needle-android-arm64 | Needle 2 arm64 binary | none | none | NeedleBridge |
 | app/src/main/assets/www/js/needle.js | JS status client | VeloraNeedleClient.status, complete | VeloraNeedle | app.js |
+| app/src/main/assets/www/js/planner.js | Optional remote emit_vxl | VeloraPlannerClient.build, send, extract | VeloraSkills | app.js |
+| app/src/main/java/app/velora/studio/PlannerBridge.kt | HTTPS post to allowlisted hosts | PlannerBridge.post | WebView | MainActivity, planner.js |
 | app/src/main/assets/www/index.html | Workshop shell | routes | js/vxl.js, js/projects.js, js/skills.js, js/needle.js, js/app.js | WebView |
 | app/src/main/assets/www/js/vxl.js | Schema, validate, compile, procedural builders | VeloraVxl.validate, compile, buildLogo, buildTextile | none | app.js, tools/vxl-golden.js |
 | app/src/main/assets/www/js/projects.js | Device project store | VeloraProjects | localStorage | app.js |
@@ -29,8 +31,8 @@ Last updated: 2026-10-03 06:20
 
 ## 3. Import / Call Graph
 
-- index.html loads vxl.js, projects.js, skills.js, needle.js, attach.js, trace.js, editor.js, then app.js
-- app.js sessionA calls VeloraNeedleClient.complete, then VeloraSkills.expand. It does not read provider keys
+- index.html loads vxl.js, projects.js, skills.js, needle.js, planner.js, attach.js, trace.js, boolean.js, blend.js, pencil.js, editor.js, then app.js
+- app.js sessionA uses Needle by default. A remote path calls VeloraPlannerClient only when that key is stored
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
 - MainActivity exposes VeloraNeedle.status and complete via addJavascriptInterface. Storage is WebView DOM storage (domStorageEnabled)
@@ -54,6 +56,7 @@ Last updated: 2026-10-03 06:20
 
 ## 6. Recent Changes Log
 
+- 2026-10-03 Phase 6 optional planners: OpenAI, Anthropic, Gemini, OpenRouter emit_vxl; Needle remains default
 - 2026-10-03 Phase 4 width profile: named taper/swell/point plus sample drag; compiler expands stroke to filled outline
 - 2026-10-03 Phase 4 pen anchors: handles and moveHandle rewrite path d
 - 2026-10-02 Phase 4 select/move/scale/rotate: VeloraEdit bakes geometry, canvas hit-test

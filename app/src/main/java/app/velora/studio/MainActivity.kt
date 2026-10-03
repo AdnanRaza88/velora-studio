@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.addJavascriptInterface(NeedleBridge(this), "VeloraNeedle")
+        webView.addJavascriptInterface(PlannerBridge { webView }, "VeloraPlanner")
         webView.addJavascriptInterface(attachments, "VeloraAttach")
         webView.loadUrl("file:///android_asset/www/index.html")
 

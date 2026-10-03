@@ -37,9 +37,19 @@
     var p = providers();
     var active = pathName(p.active);
     if (REMOTE[active]) {
-      return { kind: "needle", name: "Needle 2", keyRequired: false, stored: active };
+      var key = p.keys && p.keys[active];
+      if (key) return { kind: "remote", name: active, keyRequired: true, stored: active };
+      return { kind: "needle", name: "Needle 2", keyRequired: false, stored: active, missingKey: active };
     }
     return { kind: "needle", name: "Needle 2", keyRequired: false, stored: "needle" };
+  }
+
+  function plannerLabel(id) {
+    if (id === "openai") return "OpenAI";
+    if (id === "anthropic") return "Anthropic";
+    if (id === "gemini") return "Gemini";
+    if (id === "openrouter") return "OpenRouter";
+    return "Needle 2";
   }
 
   function download(text, name, mime) {
@@ -817,7 +827,13 @@
   }
 
   function renderCompose() {
-    $.innerHTML = '<h1>Compose</h1><p class="muted">Skill pack: ' + VeloraVxl.esc(state.type) + '. Needle emit_vxl, then the app compiles. No API key.</p>' +
+    var path = activeProvider();
+    var pathNote = path.kind === "remote"
+      ? "Optional planner: " + plannerLabel(path.name) + ". Brief is sent only on compose. Images stay on device."
+      : (path.missingKey
+        ? plannerLabel(path.missingKey) + " has no key. Compose stays on Needle."
+        : "Skill pack: " + state.type + ". Needle emit_vxl, then the app compiles. No API key.");
+    $.innerHTML = '<h1>Compose</h1><p class="muted">' + VeloraVxl.esc(pathNote) + "</p>" +
       '<div class="grid"><button type="button" class="chip' + (state.type === "logo" ? " on" : "") + '" data-type="logo">Logo</button>' +
       '<button type="button" class="chip' + (state.type === "textile" ? " on" : "") + '" data-type="textile">Textile</button>' +
       '<button type="button" class="chip' + (state.type === "character" ? " on" : "") + '" data-type="character">Character</button>' +
@@ -848,16 +864,20 @@
     for (var j = 0; j < reps.length; j++) reps[j].onclick = function () { state.repeat = this.getAttribute("data-rep"); renderCompose(); };
     document.getElementById("composeBtn").onclick = function () {
       var brief = (document.getElementById("brief").value || "").trim() || (state.type === "logo" ? "Mark for Velora" : "Floral for summer cloth");
-      var made = sessionA(brief);
-      if (!made.ok) {
-        document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(made.errors.join("; ")) + "</div>";
-        return;
-      }
-      state.history = [];
-      state.future = [];
-      state.layer = "";
-      document.getElementById("out").innerHTML = showScene(made.document, made.note);
-      bindScene();
+      var btn = this;
+      btn.disabled = true;
+      sessionA(brief, function (made) {
+        btn.disabled = false;
+        if (!made.ok) {
+          document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc((made.errors || [made.error || "compose failed"]).join("; ")) + "</div>";
+          return;
+        }
+        state.history = [];
+        state.future = [];
+        state.layer = "";
+        document.getElementById("out").innerHTML = showScene(made.document, made.note);
+        bindScene();
+      });
     };
     document.getElementById("pickRef").onclick = function () { VeloraReference.pick(); };
     document.getElementById("clearRef").onclick = function () { VeloraReference.clear(); };
@@ -948,7 +968,7 @@
     img.src = ref.preview;
   }
 
-  function sessionA(brief) {
+  function sessionNeedle(brief) {
     var skill = VeloraSkills.route(brief, state.type);
     var call = VeloraNeedleClient.complete({ brief: brief, skill: skill, repeat: state.repeat });
     var args = mergeArgs(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat), call.arguments);
@@ -965,6 +985,40 @@
     expanded.note = note + " / no key" + (call.error ? " (" + call.error + ")" : "");
     expanded.reference = ref;
     return expanded;
+  }
+
+  function sessionA(brief, done) {
+    var path = activeProvider();
+    if (path.kind !== "remote") {
+      done(sessionNeedle(brief));
+      return;
+    }
+    var stored = providers();
+    var skill = VeloraSkills.route(brief, state.type);
+    var built = VeloraPlannerClient.build(path.name, stored.keys[path.name], brief, skill, state.repeat);
+    VeloraPlannerClient.send(built, function (call) {
+      if (!call.ok) {
+        var local = sessionNeedle(brief);
+        if (local.ok) local.note += " / remote fallback (" + (call.error || "planner") + ")";
+        done(local);
+        return;
+      }
+      var args = mergeArgs(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat), call.arguments);
+      var expanded = VeloraSkills.expand(args);
+      if (!expanded.ok) {
+        var repair = sessionNeedle(brief);
+        if (repair.ok) repair.note += " / remote repair";
+        done(repair);
+        return;
+      }
+      VeloraReference.bindDocument(expanded.document);
+      var ref = VeloraReference.summary();
+      var note = plannerLabel(path.name) + " emit_vxl / " + skill + " / opt-in";
+      if (ref.attached) note += " / reference " + ref.name;
+      expanded.note = note;
+      expanded.reference = ref;
+      done(expanded);
+    });
   }
 
   function importText(text) {
@@ -1013,21 +1067,21 @@
     p.keys = p.keys || {};
     var active = pathName(p.active);
     if (active !== "needle" && !REMOTE[active]) active = "needle";
-    $.innerHTML = '<h1>Providers</h1><p class="muted">Default path is Needle 2 on this device. Remote keys are optional and unused.</p>' +
+    $.innerHTML = '<h1>Providers</h1><p class="muted">Default path is Needle 2 on this device. Remote planners are opt-in.</p>' +
       '<div class="card"><h2>Active path</h2><select id="active">' +
       '<option value="needle"' + (active === "needle" ? " selected" : "") + ">Needle 2 (default, no key)</option>" +
-      '<option value="openai"' + (active === "openai" ? " selected" : "") + ">OpenAI (stored, unused)</option>" +
-      '<option value="anthropic"' + (active === "anthropic" ? " selected" : "") + ">Anthropic (stored, unused)</option>" +
-      '<option value="gemini"' + (active === "gemini" ? " selected" : "") + ">Gemini (stored, unused)</option>" +
-      '<option value="openrouter"' + (active === "openrouter" ? " selected" : "") + ">OpenRouter (stored, unused)</option></select>" +
-      '<p class="muted">Choosing a remote name does not send the brief. Compose still uses Needle.</p></div>' +
+      '<option value="openai"' + (active === "openai" ? " selected" : "") + ">OpenAI (optional planner)</option>" +
+      '<option value="anthropic"' + (active === "anthropic" ? " selected" : "") + ">Anthropic (optional planner)</option>" +
+      '<option value="gemini"' + (active === "gemini" ? " selected" : "") + ">Gemini (optional planner)</option>" +
+      '<option value="openrouter"' + (active === "openrouter" ? " selected" : "") + ">OpenRouter (optional planner)</option></select>" +
+      '<p class="muted">A remote planner runs only after you save its key and compose. The brief is sent. Reference images are not.</p></div>' +
       '<div class="card"><h2>Remote API keys</h2>' +
       '<label>OpenAI</label><input id="k_openai" type="password" placeholder="optional" value="' + VeloraVxl.esc(p.keys.openai || "") + '"/>' +
       '<label>Anthropic</label><input id="k_anthropic" type="password" placeholder="optional" value="' + VeloraVxl.esc(p.keys.anthropic || "") + '"/>' +
       '<label>Gemini</label><input id="k_gemini" type="password" placeholder="optional" value="' + VeloraVxl.esc(p.keys.gemini || "") + '"/>' +
       '<label>OpenRouter</label><input id="k_openrouter" type="password" placeholder="optional" value="' + VeloraVxl.esc(p.keys.openrouter || "") + '"/>' +
       '<div class="row"><button type="button" class="btn" id="saveKeys">Save keys</button></div>' +
-      '<p class="muted">Keys stay on this device. They are not read by Session A and are not written into projects.</p></div>' +
+      '<p class="muted">Keys stay on this device. They are not written into projects. Needle never reads them.</p></div>' +
       '<div class="card"><h2>On-device agent</h2><p class="muted">Asset path needle/needle-android-arm64. No API key.</p>' +
       '<div id="localStatus" class="status muted">Checking bundle\u2026</div></div>';
     document.getElementById("saveKeys").onclick = function () {
@@ -1041,7 +1095,7 @@
       saveProviders(cur);
       var st = document.createElement("p");
       st.className = "ok";
-      st.textContent = "Saved on device. Compose still does not use these keys.";
+      st.textContent = "Saved on device. A remote planner runs only if it is the active path.";
       document.getElementById("saveKeys").parentNode.appendChild(st);
     };
     document.getElementById("active").onchange = function () {
@@ -1066,7 +1120,7 @@
   function renderSettings() {
     $.innerHTML = '<h1>Workshop</h1><div class="card"><h2>Theme</h2><button type="button" class="btn" id="themeBtn">' +
       (theme() === "dark" ? "Dark ink" : "Light paper") + "</button></div>" +
-      '<div class="card"><h2>Privacy</h2><p>Projects stay on this device. The default path does not read or send an API key. Saved projects never include keys. Reference images stay in app files and are not uploaded.</p></div>' +
+      '<div class="card"><h2>Privacy</h2><p>Projects stay on this device. The default path does not read or send an API key. Saved projects never include keys. Reference images stay in app files and are not uploaded. An optional planner sends the brief only.</p></div>' +
       '<div class="card"><h2>Device store</h2><p class="muted">' + VeloraProjects.list().length + ' projects in local storage.</p>' +
       '<button type="button" class="ghost" id="wipe">Clear saved projects</button></div>' +
       '<div class="card"><h2>About</h2><p class="muted">Velora Studio. VXL 1 is the source of truth. The compiler is deterministic: same document, same SVG.</p></div>';

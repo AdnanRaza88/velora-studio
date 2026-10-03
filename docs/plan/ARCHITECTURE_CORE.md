@@ -35,8 +35,10 @@ Attachment path (when image present):
 - Skills = tool definitions + system instructions that force VXL-shaped output.
 - No API key, no network required for Session A baseline.
 
-Remote providers (optional later) can replace or assist Session A for richer briefs.
+Remote providers can assist Session A for richer briefs.
 They are not required for the core loop.
+
+Remote planners (OpenAI, Anthropic, Gemini, OpenRouter) are opt-in. Session A uses one only when that provider is active and a key is stored on device. The call asks for emit_vxl. The app still expands with the skill pack and validates. Reference pixels are not uploaded. If the planner fails, compose falls back to Needle.
 
 ## VXL is the contract
 AI never draws pixels. AI emits VXL. The app always owns geometry.
