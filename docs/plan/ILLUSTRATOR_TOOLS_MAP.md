@@ -6,7 +6,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Tool | What it produces | Velora mapping |
 |------|------------------|----------------|
 | Pen | Anchor points + Bezier handles; closed/open paths | VXL `path` with `d` or anchors[] |
-| Pencil | Freehand path, then simplified | VXL path + smooth |
+| Pencil | Freehand path, then simplified | VXL path from pencil stroke; Smooth refits cubics |
 | Curvature | Click-to-curve paths | Path builder UI |
 | Shape tools | Rect, ellipse, polygon, star | VXL primitive shapes |
 

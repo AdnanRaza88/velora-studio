@@ -755,6 +755,53 @@
     (doc.layers || []).forEach(function (layer) { walk(layer.shapes, layer, "shapes"); });
   }
 
+
+  function writableLayer(doc, layerId) {
+    var layers = (doc && doc.layers) || [];
+    var layer = null;
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].id === layerId && layers[i].visible !== false && !layers[i].locked) layer = layers[i];
+    }
+    if (!layer) {
+      for (var j = layers.length - 1; j >= 0; j--) {
+        if (layers[j].visible !== false && !layers[j].locked) { layer = layers[j]; break; }
+      }
+    }
+    if (!layer) layer = layers[0];
+    if (!layer) return null;
+    if (!Array.isArray(layer.shapes)) layer.shapes = [];
+    return layer;
+  }
+
+  function placePencil(doc, d, layerId, strokeWidth) {
+    if (!d) return null;
+    var layer = writableLayer(doc, layerId);
+    if (!layer) return null;
+    var closed = String(d).indexOf("Z") >= 0;
+    var shape = {
+      id: freshId("pencil"),
+      type: "path",
+      role: "figure",
+      fill: closed ? "figure" : "none",
+      stroke: "figure",
+      strokeWidth: Math.max(1, round(strokeWidth || 8)),
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      d: d
+    };
+    layer.shapes.push(shape);
+    return shape;
+  }
+
+  function smoothShape(doc, id, strength) {
+    var shape = penReady(find(doc, id));
+    if (!shape || !shape.d || !root.VeloraPencil) return null;
+    var next = root.VeloraPencil.smooth(shape.d, strength);
+    if (!next) return null;
+    shape.d = next;
+    return shape;
+  }
+
   function placeText(doc, x, y, content, size, layerId) {
     var layers = (doc && doc.layers) || [];
     var layer = null;
@@ -974,6 +1021,8 @@
     widthHandles: widthHandles,
     hitWidth: hitWidth,
     placeText: placeText,
+    placePencil: placePencil,
+    smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,
     addLayer: addLayer,

@@ -91,6 +91,8 @@
       '<button type="button" class="ghost' + (state.tool === "pen" ? " on" : "") + '" id="penMode">Anchors</button>' +
       '<button type="button" class="ghost' + (state.tool === "width" ? " on" : "") + '" id="widthMode">Width</button>' +
       '<button type="button" class="ghost' + (state.tool === "type" ? " on" : "") + '" id="typeMode">Type</button>' +
+      '<button type="button" class="ghost' + (state.tool === "pencil" ? " on" : "") + '" id="pencilMode">Pencil</button>' +
+      '<button type="button" class="ghost" id="smoothPath">Smooth</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
       '<label class="ink">Steps<input id="blendSteps" type="number" min="3" max="24" value="' + (state.blendSteps || 5) + '"/></label>' +
@@ -152,6 +154,7 @@
     if (state.tool === "pen") return ". Drag an anchor or its Bezier handle. The path is rewritten in VXL.";
     if (state.tool === "width") return ". Pick a profile or drag a width point. The stroke expands on compile.";
     if (state.tool === "type") return ". Tap the canvas to place type. Area width wraps the line. Outline expands glyphs to paths.";
+    if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     return ". Drag the canvas to move. Unite and Subtract bake the selection with the shape behind it.";
   }
 
@@ -184,6 +187,11 @@
   function overlayMarks(doc) {
     var box = state.sel ? VeloraEdit.bounds(VeloraEdit.find(doc, state.sel)) : null;
     var marks = box ? '<rect x="' + box.x + '" y="' + box.y + '" width="' + Math.max(box.w, 1) + '" height="' + Math.max(box.h, 1) + '"/>' : "";
+    if (state.tool === "pencil" && state.pencil && state.pencil.length) {
+      var live = state.pencil;
+      marks += '<polyline fill="none" points="' + live.map(function (p) { return p[0] + "," + p[1]; }).join(" ") + '"/>';
+      return marks;
+    }
     if (!state.sel || (state.tool !== "pen" && state.tool !== "width")) return marks;
     var shape = VeloraEdit.find(doc, state.sel);
     if (state.tool === "width") {
@@ -425,6 +433,19 @@
       state.tool = state.tool === "type" ? "select" : "type";
       publishScene(state.doc, state.tool === "type" ? "Type" : "Selection");
     };
+    var pencilMode = document.getElementById("pencilMode");
+    if (pencilMode) pencilMode.onclick = function () {
+      state.tool = state.tool === "pencil" ? "select" : "pencil";
+      state.pencil = [];
+      publishScene(state.doc, state.tool === "pencil" ? "Pencil" : "Selection");
+    };
+    var smoothPath = document.getElementById("smoothPath");
+    if (smoothPath) smoothPath.onclick = function () {
+      if (!state.sel) return;
+      var smoothed = VeloraEdit.smoothShape(state.doc, state.sel, 0.5);
+      if (!smoothed) return;
+      publishScene(state.doc, "Smoothed");
+    };
     function runBoolean(op) {
       if (!state.sel) return;
       var path = VeloraBoolean.apply(state.doc, state.sel, op);
@@ -529,6 +550,13 @@
       if (ev.target.closest("button,select,input,textarea")) return;
       var pt = pointerPoint(ev);
       if (!pt) return;
+      if (state.tool === "pencil") {
+        state.pencil = [[pt.x, pt.y]];
+        drag = { kind: "pencil", moved: false };
+        stage.setPointerCapture(ev.pointerId);
+        paintArt();
+        return;
+      }
       if (state.tool === "type") {
         var existing = VeloraEdit.hitTest(state.doc, pt.x, pt.y);
         if (existing && existing.type === "text") {
@@ -586,6 +614,15 @@
       if (!drag) return;
       var pt = pointerPoint(ev);
       if (!pt) return;
+      if (drag.kind === "pencil") {
+        var last = state.pencil[state.pencil.length - 1];
+        if (!last || Math.hypot(pt.x - last[0], pt.y - last[1]) > 2) {
+          state.pencil.push([pt.x, pt.y]);
+          drag.moved = true;
+          paintArt();
+        }
+        return;
+      }
       if (drag.kind === "handle") {
         VeloraEdit.moveHandle(state.doc, drag.id, drag.i, drag.role, pt.x, pt.y);
         drag.moved = true;
@@ -616,7 +653,23 @@
     stage.onpointerup = function () {
       var moved = drag && drag.moved;
       var kind = drag && drag.kind;
+      var stroke = kind === "pencil" ? (state.pencil || []).slice() : null;
       drag = null;
+      if (kind === "pencil") {
+        state.pencil = [];
+        var vb = (state.doc.canvas && state.doc.canvas.viewBox) || [0, 0, 1024, 1024];
+        var span = Math.max(vb[2] || 1024, vb[3] || 1024);
+        var fit = VeloraPencil.stroke(stroke, Math.max(4, span / 90), Math.max(18, span / 28));
+        if (!fit) {
+          publishScene(state.doc, "Pencil stroke too short");
+          return;
+        }
+        var placed = VeloraEdit.placePencil(state.doc, fit.d, state.layer, Math.max(4, span / 80));
+        if (!placed) return;
+        state.sel = placed.id;
+        publishScene(state.doc, fit.closed ? "Pencil closed" : "Pencil path");
+        return;
+      }
       if (moved) publishScene(state.doc, kind === "handle" ? "Anchor edited" : kind === "width" ? "Width edited" : "Moved");
       else publishScene(state.doc, state.sel ? "Selected" : "Selection cleared");
     };

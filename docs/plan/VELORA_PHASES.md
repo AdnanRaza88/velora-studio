@@ -53,7 +53,7 @@ Brief (+ optional attachment)
 - [x] Boolean (unite/subtract)
 - [x] Blend steps
 - [x] Pattern instance controls
-- [ ] Pencil + smooth
+- [x] Pencil + smooth
 
 ## Phase 6 — Optional remote assist
 - [ ] OpenAI / Anthropic / Gemini / OpenRouter as optional planners
