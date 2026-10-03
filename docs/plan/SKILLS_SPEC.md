@@ -32,3 +32,5 @@ Needle fills arguments; app validates and compiles.
 
 ## Pack files
 Machine packs live in `app/src/main/assets/skills/`. Tool schema is `emit_vxl.schema.json`. Runtime router is `www/js/skills.js`.
+
+Remote planners use the same four packs and `VeloraSkills.toolSpec` (the emit_vxl schema). `lockArgs` rejects unknown fields. `accept` expands, then runs `VeloraVxl.validate`. A rejected call falls back to Needle or skill expand. The brief is the only payload; reference images stay on device.

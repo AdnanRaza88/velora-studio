@@ -13,36 +13,8 @@
   };
 
   function schema() {
-    return {
-      name: "emit_vxl",
-      description: "Emit Velora VXL fields. The app expands and validates. Do not emit SVG or raster.",
-      parameters: {
-        type: "object",
-        additionalProperties: false,
-        required: ["category", "name", "viewBox", "palette"],
-        properties: {
-          category: { type: "string", enum: ["logo", "textile", "character", "icon"] },
-          name: { type: "string" },
-          brief: { type: "string" },
-          viewBox: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4 },
-          palette: {
-            type: "object",
-            required: ["ground", "figure", "accent"],
-            properties: {
-              ground: { type: "string" },
-              figure: { type: "string" },
-              accent: { type: "string" }
-            }
-          },
-          style: { type: "string" },
-          motif: { type: "string" },
-          repeat: { type: "object" },
-          grid: { type: "integer" },
-          parts: { type: "array", items: { type: "string" } },
-          inkCount: { type: "integer" }
-        }
-      }
-    };
+    if (!root.VeloraSkills || !root.VeloraSkills.toolSpec) return null;
+    return root.VeloraSkills.toolSpec();
   }
 
   function tool() {
@@ -72,9 +44,10 @@
   function build(provider, key, brief, skill, repeat) {
     var id = HOSTS[provider] ? provider : "";
     var pack = root.VeloraSkills && root.VeloraSkills.packs[skill];
-    var system = (pack && pack.system) || "Call emit_vxl once. Output fields only.";
+    var spec = schema();
+    var system = (pack && pack.system) || "";
     var secret = String(key || "");
-    if (!id || !secret) return { ok: false, error: "planner unavailable" };
+    if (!id || !secret || !pack || !spec) return { ok: false, error: "planner unavailable" };
     var user = userText(brief, skill, repeat);
     var body;
     var headers = { "Content-Type": "application/json" };
@@ -170,11 +143,12 @@
         return;
       }
       var args = extract(packet.body);
-      if (!args) {
-        done({ ok: false, provider: built.provider, error: "no emit_vxl call" });
+      var locked = root.VeloraSkills && root.VeloraSkills.lockArgs(args);
+      if (!locked || !locked.ok) {
+        done({ ok: false, provider: built.provider, error: "emit_vxl rejected" });
         return;
       }
-      done({ ok: true, provider: built.provider, arguments: args });
+      done({ ok: true, provider: built.provider, arguments: locked.arguments });
     };
     try {
       root.VeloraPlanner.post(JSON.stringify({

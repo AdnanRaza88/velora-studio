@@ -971,11 +971,15 @@
   function sessionNeedle(brief) {
     var skill = VeloraSkills.route(brief, state.type);
     var call = VeloraNeedleClient.complete({ brief: brief, skill: skill, repeat: state.repeat });
-    var args = mergeArgs(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat), call.arguments);
-    var expanded = VeloraSkills.expand(args);
-    var note = call.ok ? "Needle emit_vxl / " + skill : "Skill expand / " + skill;
-    if (!expanded.ok) {
+    var locked = call.ok ? VeloraSkills.lockArgs(call.arguments) : { ok: false };
+    var args = mergeArgs(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat), locked.ok ? locked.arguments : null);
+    var accepted = VeloraSkills.accept(args);
+    var expanded = accepted.ok ? accepted : VeloraSkills.expand(args);
+    var note = call.ok && locked.ok ? "Needle emit_vxl / " + skill : "Skill expand / " + skill;
+    if (!accepted.ok) {
       expanded = VeloraSkills.expand(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat));
+      var repaired = expanded.ok ? VeloraVxl.validate(expanded.document) : expanded;
+      if (repaired.ok) expanded = { ok: true, document: repaired.document, errors: [], warnings: repaired.warnings || [] };
       note = "Skill repair / " + skill;
     }
     if (!expanded.ok) return expanded;
@@ -1003,17 +1007,17 @@
         done(local);
         return;
       }
-      var args = mergeArgs(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat), call.arguments);
-      var expanded = VeloraSkills.expand(args);
-      if (!expanded.ok) {
+      var accepted = VeloraSkills.accept(mergeArgs(VeloraSkills.argumentsFromBrief(brief, skill, state.repeat), call.arguments));
+      if (!accepted.ok) {
         var repair = sessionNeedle(brief);
         if (repair.ok) repair.note += " / remote repair";
         done(repair);
         return;
       }
+      var expanded = accepted;
       VeloraReference.bindDocument(expanded.document);
       var ref = VeloraReference.summary();
-      var note = plannerLabel(path.name) + " emit_vxl / " + skill + " / opt-in";
+      var note = plannerLabel(path.name) + " emit_vxl / " + skill + " / validator / opt-in";
       if (ref.attached) note += " / reference " + ref.name;
       expanded.note = note;
       expanded.reference = ref;

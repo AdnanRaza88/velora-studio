@@ -57,7 +57,7 @@ Brief (+ optional attachment)
 
 ## Phase 6 — Optional remote assist
 - [x] OpenAI / Anthropic / Gemini / OpenRouter as optional planners
-- [ ] Same skill packs; same VXL validator
+- [x] Same skill packs; same VXL validator
 
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.

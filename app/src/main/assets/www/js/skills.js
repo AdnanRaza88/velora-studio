@@ -176,6 +176,160 @@
     return doc;
   }
 
+  var HEX = /^#[0-9A-Fa-f]{6}$/;
+  var STYLES = ["geometric", "wordmark", "emblem", "organic"];
+  var MOTIFS = ["floral", "leaf", "geometric", "paisley"];
+  var REPEATS = ["block", "half-drop", "half-brick", "mirror"];
+  var GRIDS = [24, 32, 48];
+  var ARG_KEYS = ["category", "name", "brief", "viewBox", "palette", "style", "motif", "repeat", "grid", "parts", "inkCount"];
+
+  function toolSpec() {
+    return {
+      name: TOOL_NAME,
+      description: "Emit a Velora VXL 1 design. The app compiles geometry. Do not emit SVG, pixels, or base64.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        required: ["category", "name", "viewBox", "palette"],
+        properties: {
+          category: { type: "string", enum: ["logo", "textile", "character", "icon"] },
+          name: { type: "string", maxLength: 80 },
+          brief: { type: "string", maxLength: 500 },
+          viewBox: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4 },
+          palette: {
+            type: "object",
+            required: ["ground", "figure", "accent"],
+            properties: {
+              ground: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+              figure: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+              accent: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
+              ink2: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" }
+            }
+          },
+          style: { type: "string", enum: STYLES },
+          inkCount: { type: "integer", minimum: 1, maximum: 4 },
+          motif: { type: "string", enum: MOTIFS },
+          repeat: {
+            type: "object",
+            required: ["type", "tile"],
+            properties: {
+              type: { type: "string", enum: REPEATS },
+              tile: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+              cols: { type: "integer", minimum: 1, maximum: 8 },
+              rows: { type: "integer", minimum: 1, maximum: 8 }
+            }
+          },
+          grid: { type: "integer", enum: GRIDS },
+          parts: { type: "array", items: { type: "string" }, maxItems: 8 }
+        }
+      }
+    };
+  }
+
+  function hexInk(value) {
+    var ink = String(value || "").trim();
+    return HEX.test(ink) ? ink.toLowerCase() : "";
+  }
+
+  function lockArgs(raw) {
+    var errors = [];
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return { ok: false, arguments: null, errors: ["emit_vxl arguments missing"] };
+    }
+    Object.keys(raw).forEach(function (key) {
+      if (ARG_KEYS.indexOf(key) < 0) errors.push("unknown field " + key);
+    });
+    if (!PACKS[raw.category]) errors.push("category");
+    var name = String(raw.name || "").replace(/\s+/g, " ").trim();
+    if (!name || name.length > 80) errors.push("name");
+    var brief = raw.brief == null ? "" : String(raw.brief);
+    if (brief.length > 500) errors.push("brief");
+    var box = raw.viewBox;
+    if (!Array.isArray(box) || box.length !== 4 || box.some(function (n) { return typeof n !== "number" || !isFinite(n); })) {
+      errors.push("viewBox");
+    }
+    var palette = raw.palette;
+    var inks = {};
+    if (!palette || typeof palette !== "object") errors.push("palette");
+    else {
+      ["ground", "figure", "accent"].forEach(function (job) {
+        var ink = hexInk(palette[job]);
+        if (!ink) errors.push("palette." + job);
+        else inks[job] = ink;
+      });
+      if (palette.ink2 != null) {
+        var extra = hexInk(palette.ink2);
+        if (!extra) errors.push("palette.ink2");
+        else inks.ink2 = extra;
+      }
+    }
+    var cleaned = {
+      category: PACKS[raw.category] ? raw.category : "",
+      name: name.slice(0, 80),
+      brief: brief.slice(0, 500),
+      viewBox: Array.isArray(box) ? box.slice(0, 4) : [],
+      palette: inks
+    };
+    if (raw.style != null) {
+      if (STYLES.indexOf(raw.style) < 0) errors.push("style");
+      else cleaned.style = raw.style;
+    }
+    if (raw.motif != null) {
+      if (MOTIFS.indexOf(raw.motif) < 0) errors.push("motif");
+      else cleaned.motif = raw.motif;
+    }
+    if (raw.inkCount != null) {
+      var count = raw.inkCount;
+      if (typeof count !== "number" || count !== Math.floor(count) || count < 1 || count > 4) errors.push("inkCount");
+      else cleaned.inkCount = count;
+    }
+    if (raw.grid != null) {
+      if (GRIDS.indexOf(raw.grid) < 0) errors.push("grid");
+      else cleaned.grid = raw.grid;
+    }
+    if (raw.parts != null) {
+      if (!Array.isArray(raw.parts) || raw.parts.length > 8 || raw.parts.some(function (part) { return typeof part !== "string" || !part || part.length > 40; })) {
+        errors.push("parts");
+      } else cleaned.parts = raw.parts.slice(0, 8);
+    }
+    if (raw.repeat != null) {
+      var repeat = raw.repeat;
+      var tile = repeat && repeat.tile;
+      var type = repeat && repeat.type;
+      if (!repeat || REPEATS.indexOf(type) < 0 || !Array.isArray(tile) || tile.length !== 2 || tile.some(function (n) { return typeof n !== "number" || !isFinite(n) || n <= 0; })) {
+        errors.push("repeat");
+      } else {
+        cleaned.repeat = { type: type, tile: tile.slice(0, 2) };
+        ["cols", "rows"].forEach(function (axis) {
+          if (repeat[axis] == null) return;
+          var span = repeat[axis];
+          if (typeof span !== "number" || span !== Math.floor(span) || span < 1 || span > 8) errors.push("repeat." + axis);
+          else cleaned.repeat[axis] = span;
+        });
+      }
+    }
+    if (cleaned.category === "textile" && !cleaned.repeat) errors.push("repeat");
+    if (cleaned.category === "icon" && cleaned.grid == null) errors.push("grid");
+    if (errors.length) return { ok: false, arguments: null, errors: errors };
+    return { ok: true, arguments: cleaned, errors: [] };
+  }
+
+  function accept(raw) {
+    var locked = lockArgs(raw);
+    if (!locked.ok) return locked;
+    var expanded = expand(locked.arguments);
+    if (!expanded.ok) return { ok: false, arguments: locked.arguments, errors: expanded.errors || ["expand"] };
+    var checked = root.VeloraVxl.validate(expanded.document);
+    if (!checked.ok) return { ok: false, arguments: locked.arguments, errors: checked.errors || ["vxl"] };
+    return {
+      ok: true,
+      arguments: locked.arguments,
+      document: checked.document,
+      errors: [],
+      warnings: checked.warnings || expanded.warnings || []
+    };
+  }
+
   function compose(brief, hint, repeatType) {
     var skill = route(brief, hint);
     var args = argumentsFromBrief(brief, skill, repeatType);
@@ -197,6 +351,9 @@
     packs: PACKS,
     route: route,
     argumentsFromBrief: argumentsFromBrief,
+    toolSpec: toolSpec,
+    lockArgs: lockArgs,
+    accept: accept,
     expand: expand,
     compose: compose
   };
