@@ -31,7 +31,7 @@ Last updated: 2026-10-03 18:20
 
 ## 3. Import / Call Graph
 
-- index.html loads vxl.js, projects.js, skills.js, needle.js, planner.js, attach.js, trace.js, boolean.js, blend.js, pencil.js, curve.js, scissors.js, shape.js, editor.js, then app.js
+- index.html loads vxl.js, projects.js, skills.js, needle.js, planner.js, attach.js, trace.js, boolean.js, blend.js, pencil.js, curve.js, scissors.js, shape.js, knife.js, editor.js, then app.js
 - app.js sessionA uses Needle by default. A remote path calls VeloraPlannerClient only when that key is stored
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
@@ -56,6 +56,7 @@ Last updated: 2026-10-03 18:20
 
 ## 6. Recent Changes Log
 
+- 2026-10-03 Phase 18 knife: freehand cut bakes crossed closed shapes into separate VXL paths; stroke is not kept
 - 2026-10-03 Phase 11 brushes: round/flat/oval nibs; emit_vxl brush; compiler projects outline; centerline stays editable
 - 2026-10-03 Phase 6 optional planners: OpenAI, Anthropic, Gemini, OpenRouter emit_vxl; Needle remains default
 - 2026-10-03 Phase 4 width profile: named taper/swell/point plus sample drag; compiler expands stroke to filled outline

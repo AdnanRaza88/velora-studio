@@ -123,6 +123,7 @@
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
+      '<button type="button" class="ghost' + (state.tool === "knife" ? " on" : "") + '" id="knifeMode">Knife</button>' +
       '<button type="button" class="ghost" id="clipMask">Clip</button>' +
       '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
@@ -137,7 +138,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -193,6 +194,7 @@
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
     if (state.tool === "scissors") return ". Click a path to open a closed shape or split an open one. A second click splits the opened path.";
+    if (state.tool === "knife") return ". Draw across closed shapes. Each crossed shape bakes into separate closed paths. The stroke is not kept.";
     if (state.tool === "shape") return ". Drag across shapes to merge them. Click an overlap to merge that pair. Alt-click deletes the face.";
     return ". Drag the canvas to move. Unite, Subtract, Intersect, and Exclude bake the selection with the shape behind it.";
   }
@@ -246,6 +248,11 @@
     if (state.tool === "pencil" && state.pencil && state.pencil.length) {
       var live = state.pencil;
       marks += '<polyline fill="none" points="' + live.map(function (p) { return p[0] + "," + p[1]; }).join(" ") + '"/>';
+      return marks;
+    }
+    if (state.tool === "knife" && state.knife && state.knife.length) {
+      var cut = state.knife;
+      marks += '<polyline fill="none" points="' + cut.map(function (p) { return p[0] + "," + p[1]; }).join(" ") + '"/>';
       return marks;
     }
     if (state.tool === "curve" && state.curve && state.curve.length) {
@@ -493,6 +500,12 @@
     if (shapeMode) shapeMode.onclick = function () {
       state.tool = state.tool === "shape" ? "select" : "shape";
       publishScene(state.doc, state.tool === "shape" ? "Shape builder" : "Selection");
+    };
+    var knifeMode = document.getElementById("knifeMode");
+    if (knifeMode) knifeMode.onclick = function () {
+      state.tool = state.tool === "knife" ? "select" : "knife";
+      state.knife = [];
+      publishScene(state.doc, state.tool === "knife" ? "Knife" : "Selection");
     };
     document.getElementById("penMode").onclick = function () {
       state.tool = state.tool === "pen" ? "select" : "pen";
@@ -789,6 +802,13 @@
         paintArt();
         return;
       }
+      if (state.tool === "knife") {
+        state.knife = [[pt.x, pt.y]];
+        drag = { kind: "knife", moved: false };
+        stage.setPointerCapture(ev.pointerId);
+        paintArt();
+        return;
+      }
       if (state.tool === "scissors") {
         var cut = VeloraEdit.cutAt(state.doc, pt.x, pt.y, handleRadius(state.doc));
         drag = null;
@@ -912,6 +932,15 @@
         }
         return;
       }
+      if (drag.kind === "knife") {
+        var prev = state.knife[state.knife.length - 1];
+        if (!prev || Math.hypot(pt.x - prev[0], pt.y - prev[1]) > 2) {
+          state.knife.push([pt.x, pt.y]);
+          drag.moved = true;
+          paintArt();
+        }
+        return;
+      }
       if (drag.kind === "handle") {
         VeloraEdit.moveHandle(state.doc, drag.id, drag.i, drag.role, pt.x, pt.y);
         drag.moved = true;
@@ -944,6 +973,7 @@
       var kind = drag && drag.kind;
       var shapeIds = kind === "shape" ? (drag.ids || []).slice() : null;
       var stroke = kind === "pencil" ? (state.pencil || []).slice() : null;
+      var knife = kind === "knife" ? (state.knife || []).slice() : null;
       drag = null;
       if (kind === "shape") {
         var built = shapeIds.length > 1 ? VeloraShape.mergeIds(state.doc, shapeIds) : VeloraShape.mergeAt(state.doc, shapeIds.length ? 0 : -1, -1);
@@ -973,6 +1003,17 @@
         if (!placed) return;
         state.sel = placed.id;
         publishScene(state.doc, fit.closed ? "Pencil closed" : "Pencil path");
+        return;
+      }
+      if (kind === "knife") {
+        state.knife = [];
+        var cutIds = VeloraKnife.cut(state.doc, knife);
+        if (!cutIds) {
+          publishScene(state.doc, "Draw across a shape");
+          return;
+        }
+        state.sel = cutIds[0];
+        publishScene(state.doc, "Knife cut");
         return;
       }
       if (moved) publishScene(state.doc, kind === "handle" ? "Anchor edited" : kind === "width" ? "Width edited" : "Moved");
