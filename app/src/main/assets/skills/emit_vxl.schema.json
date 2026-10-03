@@ -1,6 +1,6 @@
 {
   "name": "emit_vxl",
-  "description": "Emit a Velora VXL 1 design. The app compiles geometry. Do not emit SVG, pixels, or base64.",
+  "description": "Emit a Velora VXL 1 design. The app compiles geometry. Do not emit SVG, pixels, or base64. strokeProfile names are taper, swell, and point.",
   "parameters": {
     "type": "object",
     "additionalProperties": false,
@@ -135,6 +135,14 @@
           "type": "string"
         },
         "maxItems": 8
+      },
+      "strokeProfile": {
+        "type": "string",
+        "enum": [
+          "taper",
+          "swell",
+          "point"
+        ]
       }
     }
   }

@@ -34,3 +34,5 @@ Needle fills arguments; app validates and compiles.
 Machine packs live in `app/src/main/assets/skills/`. Tool schema is `emit_vxl.schema.json`. Runtime router is `www/js/skills.js`.
 
 Remote planners use the same four packs and `VeloraSkills.toolSpec` (the emit_vxl schema). `lockArgs` rejects unknown fields. `accept` expands, then runs `VeloraVxl.validate`. A rejected call falls back to Needle or skill expand. The brief is the only payload; reference images stay on device.
+
+Named stroke profiles live in `skills/stroke-profiles.json` and the APK asset copy. emit_vxl may set `strokeProfile` to taper, swell, or point. The app resolves the name. Skills do not emit raw width samples.

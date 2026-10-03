@@ -68,6 +68,9 @@ Brief (+ optional attachment)
 ## Phase 9 — Type on path
 - [x] Text follows a selected path spine; flip side; outline bakes glyphs along the path
 
+## Phase 10 — Named stroke profiles
+- [x] Skill pack names taper, swell, point; emit_vxl strokeProfile resolves to widthProfile
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 

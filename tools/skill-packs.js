@@ -25,3 +25,16 @@ if (schema.name !== "emit_vxl") throw new Error("tool name");
 var routed = ctx.VeloraSkills.route("half-drop floral cloth", "");
 if (routed !== "textile") throw new Error("route textile");
 console.log("skill packs ok");
+
+var tapered = ctx.VeloraSkills.compose("taper line mark", "logo", "");
+if (!tapered.ok || tapered.arguments.strokeProfile !== "taper") throw new Error("taper args");
+var named = false;
+tapered.document.layers.forEach(function (layer) {
+  layer.shapes.forEach(function (shape) {
+    if (shape.profile === "taper" && shape.widthProfile && shape.widthProfile.length >= 2) named = true;
+  });
+});
+if (!named) throw new Error("named profile");
+var rejected = ctx.VeloraSkills.lockArgs({ category: "logo", name: "X", viewBox: [0, 0, 1, 1], palette: { ground: "#111111", figure: "#222222", accent: "#333333" }, strokeProfile: "blob" });
+if (rejected.ok) throw new Error("profile lock");
+console.log("stroke profiles ok");

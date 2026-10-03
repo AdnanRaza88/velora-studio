@@ -10,6 +10,7 @@ Session A loads one pack, then calls `emit_vxl`. The app validates and compiles.
 | icon | `app/src/main/assets/skills/icon.json` | `skills/icon.md` |
 
 Shared tool schema: `app/src/main/assets/skills/emit_vxl.schema.json`.
+Named stroke profiles: `skills/stroke-profiles.json` (taper, swell, point).
 
 Runtime mirror: `app/src/main/assets/www/js/skills.js` (`VeloraSkills.compose`). Keep pack `system` strings identical to the JSON assets. Check with `node tools/skill-packs.js`.
 

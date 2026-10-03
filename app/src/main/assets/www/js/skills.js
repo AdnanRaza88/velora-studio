@@ -5,22 +5,22 @@
     logo: {
       id: "logo",
       title: "Logo",
-      system: "You are the Velora logo skill. Call emit_vxl once. category must be logo. Use 1 to 3 inks (ground, figure, accent). Prefer a strong silhouette: emblem, geometric mark, or wordmark. Few shapes. No raster. viewBox 0 0 1024 1024. Name the mark from the brief. style is geometric, wordmark, emblem, or organic."
+      system: "You are the Velora logo skill. Call emit_vxl once. category must be logo. Use 1 to 3 inks (ground, figure, accent). Prefer a strong silhouette: emblem, geometric mark, or wordmark. Few shapes. No raster. viewBox 0 0 1024 1024. Name the mark from the brief. style is geometric, wordmark, emblem, or organic. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
     },
     textile: {
       id: "textile",
       title: "Textile",
-      system: "You are the Velora textile skill. Call emit_vxl once. category must be textile. Emit a motif plus repeat. Repeat type is block, half-drop, half-brick, or mirror. Motif is drawn around the tile origin so seams close. Limit inks to ground, figure, accent. Do not explode the motif into noise. Tile size is usually 240."
+      system: "You are the Velora textile skill. Call emit_vxl once. category must be textile. Emit a motif plus repeat. Repeat type is block, half-drop, half-brick, or mirror. Motif is drawn around the tile origin so seams close. Limit inks to ground, figure, accent. Do not explode the motif into noise. Tile size is usually 240. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
     },
     character: {
       id: "character",
       title: "Character",
-      system: "You are the Velora character skill. Call emit_vxl once. category must be character. Group parts by name: head, body, limbs. Simple fills first. Do not emit thousands of micro-paths. Palette jobs are figure, ground, accent. viewBox 0 0 1024 1024."
+      system: "You are the Velora character skill. Call emit_vxl once. category must be character. Group parts by name: head, body, limbs. Simple fills first. Do not emit thousands of micro-paths. Palette jobs are figure, ground, accent. viewBox 0 0 1024 1024. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
     },
     icon: {
       id: "icon",
       title: "Icon",
-      system: "You are the Velora icon skill. Call emit_vxl once. category must be icon. Square viewBox matching grid 24, 32, or 48. One or two inks. Paths must read at small size. No text unless the brief is a glyph. No raster."
+      system: "You are the Velora icon skill. Call emit_vxl once. category must be icon. Square viewBox matching grid 24, 32, or 48. One or two inks. Paths must read at small size. No text unless the brief is a glyph. No raster. Line art sets strokeProfile to taper, swell, or point. The app resolves the named profile. Do not emit raw width samples."
     }
   };
 
@@ -94,7 +94,18 @@
     }
     if (skill === "character") args.parts = ["head", "body", "limbs"];
     if (skill === "icon") args.grid = 48;
+    var profile = profileOf(brief);
+    if (!profile && args.style === "organic") profile = "taper";
+    if (profile) args.strokeProfile = profile;
     return args;
+  }
+
+  function profileOf(brief) {
+    var t = String(brief || "").toLowerCase();
+    if (/\bpoint(ed)?\b/.test(t)) return "point";
+    if (/\bswell|brush\b/.test(t)) return "swell";
+    if (/\btaper|stroke|calligraph|line art\b/.test(t)) return "taper";
+    return "";
   }
 
   function expand(args) {
@@ -113,9 +124,46 @@
     doc.meta.brief = args.brief || doc.meta.brief;
     doc.meta.skill = skill;
     if (args.palette && args.palette.figure) doc.palette = args.palette;
+    if (args.strokeProfile) stampProfile(doc, args.strokeProfile);
     var checked = VeloraVxl.validate(doc);
     if (!checked.ok) return checked;
     return { ok: true, document: checked.document, errors: [], warnings: checked.warnings || [] };
+  }
+
+
+  function stampProfile(doc, name) {
+    var stamped = false;
+    (doc.layers || []).forEach(function (layer) {
+      (layer.shapes || []).forEach(function (shape) {
+        if (stamped || shape.type !== "path") return;
+        if (shape.fill && shape.fill !== "none") return;
+        if (!shape.stroke || shape.stroke === "none") return;
+        shape.widthProfile = name;
+        shape.strokeLinecap = "round";
+        if (!shape.strokeWidth) shape.strokeWidth = 10;
+        stamped = true;
+      });
+    });
+    if (stamped) return;
+    var box = doc.canvas && doc.canvas.viewBox ? doc.canvas.viewBox : [0, 0, 1024, 1024];
+    var x0 = box[0] + box[2] * 0.22;
+    var x1 = box[0] + box[2] * 0.78;
+    var y = box[1] + box[3] * 0.62;
+    var mid = (x0 + x1) / 2;
+    var lift = box[3] * 0.12;
+    var layer = doc.layers && doc.layers[0];
+    if (!layer) return;
+    layer.shapes.push({
+      id: "profile-line",
+      type: "path",
+      role: "accent",
+      fill: "none",
+      stroke: "accent",
+      strokeWidth: Math.max(2, Math.round(box[2] * 0.012)),
+      strokeLinecap: "round",
+      widthProfile: name,
+      d: "M" + Math.round(x0) + " " + Math.round(y) + " C" + Math.round(mid) + " " + Math.round(y - lift) + " " + Math.round(mid) + " " + Math.round(y - lift) + " " + Math.round(x1) + " " + Math.round(y)
+    });
   }
 
   function characterDoc(args) {
@@ -181,7 +229,8 @@
   var MOTIFS = ["floral", "leaf", "geometric", "paisley"];
   var REPEATS = ["block", "half-drop", "half-brick", "mirror"];
   var GRIDS = [24, 32, 48];
-  var ARG_KEYS = ["category", "name", "brief", "viewBox", "palette", "style", "motif", "repeat", "grid", "parts", "inkCount"];
+  var PROFILES = ["taper", "swell", "point"];
+  var ARG_KEYS = ["category", "name", "brief", "viewBox", "palette", "style", "motif", "repeat", "grid", "parts", "inkCount", "strokeProfile"];
 
   function toolSpec() {
     return {
@@ -220,7 +269,8 @@
             }
           },
           grid: { type: "integer", enum: GRIDS },
-          parts: { type: "array", items: { type: "string" }, maxItems: 8 }
+          parts: { type: "array", items: { type: "string" }, maxItems: 8 },
+          strokeProfile: { type: "string", enum: PROFILES }
         }
       }
     };
@@ -286,6 +336,10 @@
     if (raw.grid != null) {
       if (GRIDS.indexOf(raw.grid) < 0) errors.push("grid");
       else cleaned.grid = raw.grid;
+    }
+    if (raw.strokeProfile != null) {
+      if (PROFILES.indexOf(raw.strokeProfile) < 0) errors.push("strokeProfile");
+      else cleaned.strokeProfile = raw.strokeProfile;
     }
     if (raw.parts != null) {
       if (!Array.isArray(raw.parts) || raw.parts.length > 8 || raw.parts.some(function (part) { return typeof part !== "string" || !part || part.length > 40; })) {
