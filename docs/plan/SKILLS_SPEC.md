@@ -38,3 +38,5 @@ Remote planners use the same four packs and `VeloraSkills.toolSpec` (the emit_vx
 Named stroke profiles live in `skills/stroke-profiles.json` and the APK asset copy. emit_vxl may set `strokeProfile` to taper, swell, or point. The app resolves the name. Skills do not emit raw width samples.
 
 Calligraphic brushes live in `skills/brushes.json` and the APK asset copy. emit_vxl may set `brush` to round, flat, or oval. The app resolves angle and roundness. Skills do not emit raster brush textures.
+
+Offset path is an editor bake, not an emit_vxl field. Skills do not invent the parallel outline; the app owns that geometry.

@@ -818,6 +818,34 @@
     return layer;
   }
 
+
+  function offsetShape(doc, id, distance, miterLimit) {
+    if (!root.VeloraOffset) return null;
+    var dist = Number(distance);
+    if (!isFinite(dist) || dist === 0) return null;
+    var placed = null;
+    eachShape(doc, function (shape, parent, key, index) {
+      if (placed || !shape || shape.id !== id) return;
+      if (parent && parent.locked) return;
+      var d = root.VeloraOffset.ofShape(shape, dist, miterLimit);
+      if (!d) return;
+      var next = {
+        id: freshId("offset"),
+        type: "path",
+        role: shape.role || "figure",
+        fill: shape.fill || "none",
+        stroke: shape.stroke || "figure",
+        strokeWidth: shape.strokeWidth || 0,
+        d: d
+      };
+      if (shape.strokeLinecap) next.strokeLinecap = shape.strokeLinecap;
+      if (shape.strokeLinejoin) next.strokeLinejoin = shape.strokeLinejoin;
+      parent[key].splice(index + 1, 0, next);
+      placed = next;
+    });
+    return placed;
+  }
+
   function placePencil(doc, d, layerId, strokeWidth) {
     if (!d) return null;
     var layer = writableLayer(doc, layerId);
@@ -1124,6 +1152,7 @@
     hitWidth: hitWidth,
     placeText: placeText,
     placePencil: placePencil,
+    offsetShape: offsetShape,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,

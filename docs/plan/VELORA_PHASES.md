@@ -74,6 +74,9 @@ Brief (+ optional attachment)
 ## Phase 11 — Brush instances
 - [x] Named calligraphic nibs round, flat, oval; emit_vxl brush resolves to a nib; compiler expands the outline; centerline stays editable
 
+## Phase 12 — Offset path
+- [x] Offset a selected path or primitive by a distance; miter joins bevel past the limit; original stays; the new path is normal VXL
+
 ## Acceptance
 User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
 

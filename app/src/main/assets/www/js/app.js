@@ -108,6 +108,8 @@
       '<button type="button" class="ghost" id="curveClose">Close curve</button>' +
       '<button type="button" class="ghost" id="curveFinish">Finish curve</button>' +
       '<button type="button" class="ghost" id="smoothPath">Smooth</button>' +
+      '<label class="ink">Offset<input id="offsetDist" type="number" step="1" value="' + (state.offsetDist || 16) + '" aria-label="Offset distance"/></label>' +
+      '<button type="button" class="ghost" id="offsetPath">Offset path</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
       '<button type="button" class="ghost" id="intersect">Intersect</button>' +
@@ -525,6 +527,18 @@
       var smoothed = VeloraEdit.smoothShape(state.doc, state.sel, 0.5);
       if (!smoothed) return;
       publishScene(state.doc, "Smoothed");
+    };
+    var offsetDist = document.getElementById("offsetDist");
+    if (offsetDist) offsetDist.onchange = function () { state.offsetDist = Number(offsetDist.value) || 16; };
+    var offsetPath = document.getElementById("offsetPath");
+    if (offsetPath) offsetPath.onclick = function () {
+      if (!state.sel) return;
+      var dist = Number((document.getElementById("offsetDist") || {}).value);
+      if (!isFinite(dist) || dist === 0) dist = state.offsetDist || 16;
+      state.offsetDist = dist;
+      var made = VeloraEdit.offsetShape(state.doc, state.sel, dist, 4);
+      if (made) state.sel = made.id;
+      publishScene(state.doc, made ? "Offset " + dist : "Select a path or shape");
     };
     function runBoolean(op) {
       if (!state.sel) return;

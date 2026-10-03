@@ -49,3 +49,5 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 - Blend steps store a VXL `blend` node (from, to, steps, optional spine). The compiler morphs sampled contours and inks. Expand bakes those steps into a group of paths.
 
 - A brush instance stores a named nib (`round`, `flat`, `oval`) with angle, roundness, and size. The compiler projects the nib along the centerline into a filled outline. The path `d` stays the editable spine.
+
+- Offset path bakes a new VXL path beside the selection. Positive distance expands a closed shape. Open paths shift to the left of their direction. The source shape is left in place.
