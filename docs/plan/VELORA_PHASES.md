@@ -105,3 +105,7 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 
 ## Phase 19 — Reflect
 - [x] Mirror the selection across a vertical or horizontal axis through its center; Reflect copy keeps the source and bakes the mirror as new VXL; Flip rewrites the selection in place
+
+
+## Phase 20 — Join
+- [x] Join the nearest open ends in the selection into one VXL path; a single open path closes; the extra path is dropped

@@ -32,6 +32,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Shape Builder | Merge or delete faces of overlapping shapes | Editor Shape builder drag or click unites faces into one VXL path; Alt-click deletes the overlap face; leftovers stay editable |
 | Knife | Slice filled shapes along a freehand cut | Editor Knife draws a stroke; crossed closed shapes bake into separate closed VXL paths; the stroke is not kept |
 | Reflect | Mirror artwork across an axis | Editor Reflect copy bakes a mirrored VXL duplicate across the selection center; Axis V/H chooses the axis; Flip rewrites the selection in place |
+| Join | Connect open endpoints into one path | Editor Join bakes the nearest open ends into one VXL path; a single open path closes; the extra path is dropped |
 
 ## Type
 | Tool | What it produces | Velora mapping |

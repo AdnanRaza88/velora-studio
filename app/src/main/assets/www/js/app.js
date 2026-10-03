@@ -127,6 +127,7 @@
       '<button type="button" class="ghost' + (state.reflectAxis === "h" ? " on" : "") + '" id="reflectAxis">' + (state.reflectAxis === "h" ? "Axis H" : "Axis V") + '</button>' +
       '<button type="button" class="ghost" id="reflectCopy">Reflect copy</button>' +
       '<button type="button" class="ghost" id="reflectFlip">Flip</button>' +
+      '<button type="button" class="ghost" id="joinPaths">Join</button>' +
       '<button type="button" class="ghost" id="clipMask">Clip</button>' +
       '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
@@ -141,7 +142,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -644,6 +645,17 @@
     if (reflectCopy) reflectCopy.onclick = function () { reflectSelection("copy"); };
     var reflectFlip = document.getElementById("reflectFlip");
     if (reflectFlip) reflectFlip.onclick = function () { reflectSelection("flip"); };
+    var joinPaths = document.getElementById("joinPaths");
+    if (joinPaths) joinPaths.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length || !window.VeloraJoin) return;
+      var made = VeloraJoin.apply(state.doc, ids);
+      if (made) {
+        state.sel = made.id;
+        state.also = (state.also || []).filter(function (id) { return VeloraEdit.find(state.doc, id); });
+      }
+      publishScene(state.doc, made ? "Joined" : "Select an open path");
+    };
     var offsetPath = document.getElementById("offsetPath");
     if (offsetPath) offsetPath.onclick = function () {
       if (!state.sel) return;

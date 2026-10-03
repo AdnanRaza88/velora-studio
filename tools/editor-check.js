@@ -5,6 +5,7 @@ global.window = undefined;
 require(path.join(__dirname, "../app/src/main/assets/www/js/vxl.js"));
 require(path.join(__dirname, "../app/src/main/assets/www/js/typepath.js"));
 require(path.join(__dirname, "../app/src/main/assets/www/js/editor.js"));
+require(path.join(__dirname, "../app/src/main/assets/www/js/join.js"));
 
 const V = global.VeloraVxl;
 const E = global.VeloraEdit;
@@ -110,6 +111,22 @@ assert.strictEqual(along.layers[0].shapes[1].side, -1);
 const outlined = E.outlineText(along, "word");
 assert.strictEqual(outlined.type, "group");
 assert.ok(outlined.children.length >= 4);
+
+const joined = VeloraJoin.apply({
+  meta: {},
+  layers: [{ id: "l", shapes: [
+    { id: "a", type: "path", d: "M0 0 L40 0" },
+    { id: "b", type: "path", d: "M40 0 L40 30" }
+  ]}]
+}, ["a", "b"]);
+assert.strictEqual(joined.id, "a");
+assert.ok(joined.d.indexOf("L40 30") >= 0);
+assert.strictEqual(joined.d.indexOf("Z"), -1);
+const closed = VeloraJoin.apply({
+  meta: {},
+  layers: [{ id: "l", shapes: [{ id: "c", type: "path", d: "M0 0 L20 0 L20 20" }] }]
+}, ["c"]);
+assert.ok(closed.d.endsWith("Z"));
 
 console.log("editor checks ok");
 
