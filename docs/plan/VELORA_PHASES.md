@@ -102,3 +102,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 18 — Knife
 - [x] Draw a cut across closed shapes; each crossed shape bakes into separate closed VXL paths; the knife stroke is not kept
 
+
+## Phase 19 — Reflect
+- [x] Mirror the selection across a vertical or horizontal axis through its center; Reflect copy keeps the source and bakes the mirror as new VXL; Flip rewrites the selection in place

@@ -124,6 +124,9 @@
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
       '<button type="button" class="ghost' + (state.tool === "knife" ? " on" : "") + '" id="knifeMode">Knife</button>' +
+      '<button type="button" class="ghost' + (state.reflectAxis === "h" ? " on" : "") + '" id="reflectAxis">' + (state.reflectAxis === "h" ? "Axis H" : "Axis V") + '</button>' +
+      '<button type="button" class="ghost" id="reflectCopy">Reflect copy</button>' +
+      '<button type="button" class="ghost" id="reflectFlip">Flip</button>' +
       '<button type="button" class="ghost" id="clipMask">Clip</button>' +
       '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
@@ -138,7 +141,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -622,6 +625,25 @@
       var n = VeloraEdit.releaseClip(state.doc, ids);
       publishScene(state.doc, n ? "Clip released" : "No clip");
     };
+    var reflectAxis = document.getElementById("reflectAxis");
+    if (reflectAxis) reflectAxis.onclick = function () {
+      state.reflectAxis = state.reflectAxis === "h" ? "v" : "h";
+      publishScene(state.doc, state.reflectAxis === "h" ? "Horizontal axis" : "Vertical axis");
+    };
+    function reflectSelection(mode) {
+      var ids = selectionIds();
+      if (!ids.length || !window.VeloraReflect) return;
+      var made = VeloraReflect.apply(state.doc, ids, state.reflectAxis === "h" ? "h" : "v", mode);
+      if (mode === "copy" && made.length) {
+        state.sel = made[0];
+        state.also = made.slice(1);
+      }
+      publishScene(state.doc, made.length ? (mode === "flip" ? "Flipped" : "Reflected copy") : "Select a shape");
+    }
+    var reflectCopy = document.getElementById("reflectCopy");
+    if (reflectCopy) reflectCopy.onclick = function () { reflectSelection("copy"); };
+    var reflectFlip = document.getElementById("reflectFlip");
+    if (reflectFlip) reflectFlip.onclick = function () { reflectSelection("flip"); };
     var offsetPath = document.getElementById("offsetPath");
     if (offsetPath) offsetPath.onclick = function () {
       if (!state.sel) return;

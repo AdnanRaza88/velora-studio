@@ -31,6 +31,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Scissors | Cut a path at a point | Editor Scissors opens a closed path at the click, or splits an open path into two VXL paths; a second click splits the opened path |
 | Shape Builder | Merge or delete faces of overlapping shapes | Editor Shape builder drag or click unites faces into one VXL path; Alt-click deletes the overlap face; leftovers stay editable |
 | Knife | Slice filled shapes along a freehand cut | Editor Knife draws a stroke; crossed closed shapes bake into separate closed VXL paths; the stroke is not kept |
+| Reflect | Mirror artwork across an axis | Editor Reflect copy bakes a mirrored VXL duplicate across the selection center; Axis V/H chooses the axis; Flip rewrites the selection in place |
 
 ## Type
 | Tool | What it produces | Velora mapping |

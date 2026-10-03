@@ -54,3 +54,5 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 
 - Clip stores a closed path on the content shape. The compiler emits a clipPath. The source geometry stays editable. Release deletes the field. Transforms bake the clip with the shape.
 - Scissors bakes a cut into VXL paths. A click on a closed path opens it. A click on an open path splits it into two paths on the same layer. Primitive shapes become paths at the cut.
+
+- Reflect copy bakes a mirrored duplicate of the selection across a vertical or horizontal axis through the selection center. Flip rewrites the same shapes in place. Path commands, clip data, and gradient vectors are reflected. Arc sweep flips so the curve stays on the mirrored side.
