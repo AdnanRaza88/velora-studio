@@ -88,3 +88,7 @@ User installs APK (Needle included) → types brief → gets VXL + vector previe
 
 ## Privacy
 Needle runs on device. Projects stay on device. Remote is opt-in only. The default path never reads or sends an API key. Reference images stay in app files (`files/attachments`) and are not uploaded.
+
+## Phase 15 — Clipping mask
+- [x] Front shape becomes the clip path; content keeps its geometry; compiler emits clipPath; Release clears it; move, scale, and rotate bake the clip with the shape
+

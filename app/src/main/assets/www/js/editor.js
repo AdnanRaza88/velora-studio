@@ -333,6 +333,7 @@
 
   function transformShape(shape, m, mode) {
     if (!shape) return shape;
+    if (shape.clip) shape.clip = writePath(toAbsolute(shape.clip), m);
     if (shape.type === "group") {
       (shape.children || []).forEach(function (child) { transformShape(child, m, mode); });
       return shape;
@@ -1177,6 +1178,71 @@
     return n;
   }
 
+  function dropShape(doc, id) {
+    var layers = (doc && doc.layers) || [];
+    for (var i = 0; i < layers.length; i++) {
+      var shapes = layers[i].shapes || [];
+      for (var j = 0; j < shapes.length; j++) {
+        if (shapes[j].id === id) {
+          shapes.splice(j, 1);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function stackRank(doc, id) {
+    var layers = (doc && doc.layers) || [];
+    for (var i = 0; i < layers.length; i++) {
+      var shapes = layers[i].shapes || [];
+      for (var j = 0; j < shapes.length; j++) {
+        if (shapes[j].id === id) return i * 1000 + j;
+      }
+    }
+    return -1;
+  }
+
+  function applyClip(doc, ids) {
+    if (typeof VeloraClip === "undefined") return 0;
+    var picked = [];
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (shape) picked.push(shape);
+    });
+    if (!picked.length) return 0;
+    picked.sort(function (a, b) { return stackRank(doc, a.id) - stackRank(doc, b.id); });
+    var mask = picked[picked.length - 1];
+    var targets = picked.slice(0, -1);
+    if (!targets.length) {
+      var host = hostLayer(doc, mask.id);
+      var list = (host && host.shapes) || [];
+      var at = -1;
+      for (var i = 0; i < list.length; i++) if (list[i].id === mask.id) at = i;
+      if (at > 0) targets = [list[at - 1]];
+    }
+    if (!targets.length) return 0;
+    var d = VeloraClip.outline(mask);
+    if (!d || d.length > 4000) return 0;
+    targets.forEach(function (shape) { shape.clip = d; });
+    dropShape(doc, mask.id);
+    if (doc.meta) doc.meta.updated = new Date().toISOString();
+    return targets.length;
+  }
+
+  function releaseClip(doc, ids) {
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (shape && shape.clip) {
+        delete shape.clip;
+        n++;
+      }
+    });
+    if (n && doc.meta) doc.meta.updated = new Date().toISOString();
+    return n;
+  }
+
   root.VeloraEdit = {
     bounds: boundsOf,
     find: find,
@@ -1204,6 +1270,8 @@
     alignShapes: alignShapes,
     paintGradient: paintGradient,
     clearGradient: clearGradient,
+    applyClip: applyClip,
+    releaseClip: releaseClip,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,

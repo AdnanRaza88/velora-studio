@@ -121,6 +121,8 @@
       '<label class="ink">Angle<input id="gradAngle" type="number" step="15" value="' + (state.gradAngle || 0) + '" aria-label="Gradient angle"/></label>' +
       '<button type="button" class="ghost" id="paintGradient">Gradient</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
+      '<button type="button" class="ghost" id="clipMask">Clip</button>' +
+      '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
       '<button type="button" class="ghost" id="subtract">Subtract</button>' +
       '<button type="button" class="ghost" id="intersect">Intersect</button>' +
@@ -133,7 +135,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -577,6 +579,21 @@
       if (!ids.length) return;
       var n = VeloraEdit.clearGradient(state.doc, ids);
       publishScene(state.doc, n ? "Flat fill" : "No gradient");
+    };
+    var clipMask = document.getElementById("clipMask");
+    if (clipMask) clipMask.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length) return;
+      var n = VeloraEdit.applyClip(state.doc, ids);
+      if (n) state.also = [];
+      publishScene(state.doc, n ? "Clipped " + n : "Need a closed shape in front");
+    };
+    var releaseClip = document.getElementById("releaseClip");
+    if (releaseClip) releaseClip.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length) return;
+      var n = VeloraEdit.releaseClip(state.doc, ids);
+      publishScene(state.doc, n ? "Clip released" : "No clip");
     };
     var offsetPath = document.getElementById("offsetPath");
     if (offsetPath) offsetPath.onclick = function () {

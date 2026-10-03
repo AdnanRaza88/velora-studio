@@ -51,3 +51,5 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 - A brush instance stores a named nib (`round`, `flat`, `oval`) with angle, roundness, and size. The compiler projects the nib along the centerline into a filled outline. The path `d` stays the editable spine.
 
 - Offset path bakes a new VXL path beside the selection. Positive distance expands a closed shape. Open paths shift to the left of their direction. The source shape is left in place.
+
+- Clip stores a closed path on the content shape. The compiler emits a clipPath. The source geometry stays editable. Release deletes the field. Transforms bake the clip with the shape.

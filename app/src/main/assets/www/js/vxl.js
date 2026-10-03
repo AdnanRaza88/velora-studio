@@ -170,6 +170,8 @@
     if (raw.fill != null) shape.fill = raw.fill;
     var gradient = readGradient(raw.gradient);
     if (gradient) shape.gradient = gradient;
+    var clip = safePath(raw.clip || "");
+    if (clip) shape.clip = clip.slice(0, 4000);
     if (raw.stroke != null) shape.stroke = raw.stroke;
     if (raw.strokeWidth != null) shape.strokeWidth = Math.max(0, num(raw.strokeWidth, 0));
     if (raw.strokeLinecap) shape.strokeLinecap = String(raw.strokeLinecap).slice(0, 16);
@@ -664,6 +666,13 @@
     return lines.slice(0, 8);
   }
 
+  function clipPaint(shape) {
+    var d = safePath(shape.clip || "");
+    if (!d) return null;
+    var id = "vc_" + String(shape.id || "s").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+    return { id: id, def: '<clipPath id="' + id + '"><path d="' + d + '"/></clipPath>' };
+  }
+
   function gradientPaint(shape, palette) {
     var g = shape.gradient;
     if (!g || g.type !== "linear" || !g.stops || g.stops.length < 2) return null;
@@ -697,8 +706,13 @@
 
   function compileShape(shape, palette) {
     var painted = gradientPaint(shape, palette);
+    var clipped = clipPaint(shape);
+    var defs = (painted ? painted.def : "") + (clipped ? clipped.def : "");
     var attrs = styleAttrs(shape, palette);
-    var wrap = painted ? function (tag) { return "<g><defs>" + painted.def + "</defs>" + tag + "</g>"; } : function (tag) { return tag; };
+    var wrap = function (tag) {
+      var body = clipped ? '<g clip-path="url(#' + clipped.id + ')">' + tag + "</g>" : tag;
+      return defs ? "<g><defs>" + defs + "</defs>" + body + "</g>" : body;
+    };
     if (shape.type === "path" && ((shape.widthProfile && shape.widthProfile.length >= 2) || shape.brush)) {
       var ribbon = outlinePath(shape);
       if (ribbon) {
@@ -720,7 +734,7 @@
     if (shape.type === "line") {
       var lineAttrs = attrs.replace(' fill="' + palette.figure + '"', ' fill="none"');
       if (lineAttrs.indexOf("stroke=") < 0) lineAttrs += ' stroke="' + palette.figure + '" stroke-width="' + num(shape.strokeWidth, 2) + '"';
-      return '<line x1="' + shape.x1 + '" y1="' + shape.y1 + '" x2="' + shape.x2 + '" y2="' + shape.y2 + '"' + lineAttrs + "/>";
+      return wrap('<line x1="' + shape.x1 + '" y1="' + shape.y1 + '" x2="' + shape.x2 + '" y2="' + shape.y2 + '"' + lineAttrs + "/>");
     }
     if (shape.type === "polygon") {
       var pts = shape.points.map(function (p) { return p[0] + "," + p[1]; }).join(" ");
@@ -733,7 +747,7 @@
       var on = '<defs><path id="' + pid + '" d="' + shape.onPath + '"/></defs>';
       on += '<text text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">";
       on += '<textPath href="#' + pid + '" xlink:href="#' + pid + '" startOffset="' + offset + '" dy="' + round2(lift) + '">' + esc(shape.text) + "</textPath></text>";
-      return on;
+      return wrap(on);
     }
     if (shape.type === "text") {
       var lines = wrapLines(shape.text, shape.size, shape.w);
@@ -742,19 +756,19 @@
         return '<tspan x="' + shape.x + '" dy="' + round2(shape.size * 1.2) + '">' + esc(line) + "</tspan>";
       }).join("");
       var text = '<text x="' + shape.x + '" y="' + shape.y + '" text-anchor="' + shape.anchor + '" font-size="' + shape.size + '" font-family="Georgia,serif"' + attrs + ">" + body + "</text>";
-      if (shape.rot) return '<g transform="rotate(' + shape.rot + " " + shape.x + " " + shape.y + ')">' + text + "</g>";
-      return text;
+      if (shape.rot) return wrap('<g transform="rotate(' + shape.rot + " " + shape.x + " " + shape.y + ')">' + text + "</g>");
+      return wrap(text);
     }
     if (shape.type === "blend") {
       var blended = (typeof VeloraBlend !== "undefined") ? VeloraBlend.stepsOf(shape, palette) : [];
-      return "<g>" + blended.map(function (step) { return compileShape(step, palette); }).join("") + "</g>";
+      return wrap("<g>" + blended.map(function (step) { return compileShape(step, palette); }).join("") + "</g>");
     }
     if (shape.type === "group") {
       var inner = shape.children.map(function (c) { return compileShape(c, palette); }).join("");
       var g = "<g";
       if (shape.transform) g += ' transform="' + esc(shape.transform) + '"';
       if (shape.opacity < 1) g += ' opacity="' + shape.opacity + '"';
-      return g + ">" + inner + "</g>";
+      return wrap(g + ">" + inner + "</g>");
     }
     return "";
   }

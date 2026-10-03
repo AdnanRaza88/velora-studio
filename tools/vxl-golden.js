@@ -105,5 +105,19 @@ assert.strictEqual(V.compile(logoDoc), V.compile(V.validate(logoDoc).document));
 assert.strictEqual(V.compile(textileDoc), V.compile(V.validate(textileDoc).document));
 assert.ok(stable(logoChecked.document).meta.skill);
 
+const clipped = V.validate({
+  vxl: 1,
+  meta: { name: "Clip", category: "logo" },
+  canvas: { viewBox: [0, 0, 200, 200] },
+  palette: { ground: "#f6f1e8", figure: "#1b3358", accent: "#355e57" },
+  layers: [{ id: "l", shapes: [{ id: "mark", type: "rect", x: 20, y: 20, w: 140, h: 80, role: "figure", clip: "M40 40 L160 40 L100 150 Z" }] }]
+});
+assert.strictEqual(clipped.ok, true, clipped.errors.join("; "));
+assert.strictEqual(clipped.document.layers[0].shapes[0].clip, "M40 40 L160 40 L100 150 Z");
+const clippedSvg = V.compile(clipped.document);
+assert.ok(clippedSvg.indexOf("<clipPath") >= 0);
+assert.ok(clippedSvg.indexOf('clip-path="url(#vc_mark)"') >= 0);
+assert.strictEqual(V.compile(V.validate(clipped.document).document), clippedSvg);
+
 console.log("vxl golden ok");
 console.log(logoSvg.length, textileSvg.length, iconSvg.length);
