@@ -154,3 +154,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 35 — Rise warp
 - [x] Pin the start edge and lift both sides the same way toward the far edge; bend sets the lift, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path
 
+## Phase 36 — Fisheye warp
+- [x] Push samples away from the selection center and pin the corners; bend sets the bulge, waves sets the rings; horizontal stretches wider, vertical stretches taller; rectangles and ellipses bake to an editable VXL path
+
