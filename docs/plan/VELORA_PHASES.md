@@ -122,3 +122,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 24 — Radial gradient
 - [x] Radial fill from the selection center, figure to accent, userSpaceOnUse; Flat fill clears it. Stops stay ink jobs or hex. No raster.
 
+## Phase 25 — Live corners
+- [x] Round sharp corners of the selection by a radius; rectangles and polygons bake to a VXL path; the fillet is a cubic and stays editable
+

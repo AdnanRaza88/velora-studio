@@ -1342,6 +1342,26 @@
     return targets.length;
   }
 
+
+  function roundCorners(doc, ids, radius) {
+    if (typeof VeloraCorners === "undefined") return 0;
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (!shape || shape.type === "text" || shape.type === "group" || shape.type === "blend") return;
+      var d = VeloraCorners.roundShape(shape, radius);
+      if (!d) return;
+      shape.type = "path";
+      shape.d = d;
+      ["x", "y", "w", "h", "cx", "cy", "r", "rx", "ry", "x1", "y1", "x2", "y2", "points"].forEach(function (key) {
+        delete shape[key];
+      });
+      n++;
+    });
+    if (n && doc.meta) doc.meta.updated = new Date().toISOString();
+    return n;
+  }
+
   function releaseClip(doc, ids) {
     var n = 0;
     (ids || []).forEach(function (id) {
@@ -1387,6 +1407,7 @@
     cutAt: cutAt,
     anchorAt: anchorAt,
     releaseClip: releaseClip,
+    roundCorners: roundCorners,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,
