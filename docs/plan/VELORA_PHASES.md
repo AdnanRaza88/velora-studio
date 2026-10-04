@@ -157,3 +157,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 36 — Fisheye warp
 - [x] Push samples away from the selection center and pin the corners; bend sets the bulge, waves sets the rings; horizontal stretches wider, vertical stretches taller; rectangles and ellipses bake to an editable VXL path
 
+
+## Phase 37 — Inflate warp
+- [x] Bow the edges of the selection outward and pin the corners; bend sets the swell, waves sets the lobes; horizontal swells wider, vertical swells taller; rectangles and ellipses bake to an editable VXL path

@@ -48,6 +48,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Fish | Bend opposite sides into a fish body, pinned at the head | Editor Fish bakes a shear that grows from the head toward the tail; opposite edges move in opposite directions; bend sets the swing, waves sets the count; Axis H/V chooses the travel; rectangles and ellipses bake to an editable VXL path |
 | Rise | Lift artwork from a pinned start edge, both sides rising together | Editor Rise bakes a lift that grows from the start edge toward the far edge; both sides move the same way; bend sets the lift, waves sets the count; Axis H/V chooses the travel; rectangles and ellipses bake to an editable VXL path |
 | Fisheye | Bulge artwork as if seen through a fisheye lens | Editor Fisheye bakes a radial push from the selection center; corners stay pinned; bend sets the bulge, waves sets the rings; Axis H stretches wider, Axis V stretches taller; rectangles and ellipses bake to an editable VXL path |
+| Inflate | Bow edges outward like a filled balloon | Editor Inflate bakes an edge bow and pins the corners; bend sets the swell, waves sets the lobes; Axis H swells wider, Axis V swells taller; rectangles and ellipses bake to an editable VXL path |
 
 ## Type
 | Tool | What it produces | Velora mapping |
