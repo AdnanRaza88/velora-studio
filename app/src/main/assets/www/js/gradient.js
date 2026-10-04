@@ -23,5 +23,21 @@
     };
   }
 
-  root.VeloraGradient = { linear: linear };
+  function radial(box, from, to) {
+    var cx = box.x + box.w / 2;
+    var cy = box.y + box.h / 2;
+    var r = Math.sqrt(box.w * box.w + box.h * box.h) / 2 || 1;
+    return {
+      type: "radial",
+      cx: round(cx),
+      cy: round(cy),
+      r: round(r),
+      stops: [
+        { offset: 0, color: from || "figure" },
+        { offset: 1, color: to || "accent" }
+      ]
+    };
+  }
+
+  root.VeloraGradient = { linear: linear, radial: radial };
 })(typeof window !== "undefined" ? window : globalThis);

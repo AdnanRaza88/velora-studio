@@ -57,3 +57,6 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 
 - Reflect copy bakes a mirrored duplicate of the selection across a vertical or horizontal axis through the selection center. Flip rewrites the same shapes in place. Path commands, clip data, and gradient vectors are reflected. Arc sweep flips so the curve stays on the mirrored side.
 - Outline stroke bakes a stroke, width profile, or brush into a filled VXL path. A shape that already has a fill keeps that fill and drops the stroke. The new outline is a normal path.
+
+Radial gradient is the same ink jobs as linear, compiled as userSpaceOnUse radialGradient from the shape center. The app owns the vector. Skills do not invent raster meshes.
+

@@ -26,7 +26,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Compound path | Holes (counterforms in letters, logos) | path fill-rule evenodd |
 | Offset path | Parallel outline at a distance | Editor Offset path bakes a new VXL path; miter joins bevel past the limit; source stays |
 | Align / distribute | Edge and center alignment; even gaps | Shift-click set; one shape aligns to the artboard; several align to the selection; Distribute H/V spaces gaps; move matrix bakes geometry |
-| Gradient | Linear fill across a shape | VXL `gradient` linear stops (job or hex); compiler emits userSpaceOnUse linearGradient; editor paints figure to accent; Flat fill clears it |
+| Gradient | Linear or radial fill across a shape | VXL `gradient` linear or radial stops (job or hex); compiler emits userSpaceOnUse linearGradient or radialGradient; editor paints figure to accent; Radial uses the selection center; Flat fill clears it |
 | Clipping mask | Hide artwork outside a closed path | Editor Clip stores the front shape as `clip` path data on the content; compiler emits clipPath; Release clears it; the content path stays editable |
 | Scissors | Cut a path at a point | Editor Scissors opens a closed path at the click, or splits an open path into two VXL paths; a second click splits the opened path |
 | Shape Builder | Merge or delete faces of overlapping shapes | Editor Shape builder drag or click unites faces into one VXL path; Alt-click deletes the overlap face; leftovers stay editable |

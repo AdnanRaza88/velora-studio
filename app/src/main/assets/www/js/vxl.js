@@ -394,10 +394,8 @@
   };
 
 
-  function readGradient(raw) {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    if (raw.type !== "linear") return null;
-    var stops = Array.isArray(raw.stops) ? raw.stops : [];
+  function readStops(raw) {
+    var stops = Array.isArray(raw && raw.stops) ? raw.stops : [];
     var out = [];
     for (var i = 0; i < stops.length && i < 8; i++) {
       var stop = stops[i] || {};
@@ -406,14 +404,30 @@
       if (!isHex(color) && ROLES.indexOf(color) < 0 && INK_KEYS.indexOf(color) < 0) continue;
       out.push({ offset: Math.max(0, Math.min(1, num(stop.offset, i / Math.max(1, stops.length - 1)))), color: color });
     }
-    if (out.length < 2) return null;
+    return out.length >= 2 ? out : null;
+  }
+
+  function readGradient(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    var stops = readStops(raw);
+    if (!stops) return null;
+    if (raw.type === "radial") {
+      return {
+        type: "radial",
+        cx: num(raw.cx, 0),
+        cy: num(raw.cy, 0),
+        r: Math.max(0, num(raw.r, 1)),
+        stops: stops
+      };
+    }
+    if (raw.type !== "linear") return null;
     return {
       type: "linear",
       x1: num(raw.x1, 0),
       y1: num(raw.y1, 0),
       x2: num(raw.x2, 1),
       y2: num(raw.y2, 0),
-      stops: out
+      stops: stops
     };
   }
 
@@ -675,14 +689,20 @@
 
   function gradientPaint(shape, palette) {
     var g = shape.gradient;
-    if (!g || g.type !== "linear" || !g.stops || g.stops.length < 2) return null;
+    if (!g || !g.stops || g.stops.length < 2) return null;
+    if (g.type !== "linear" && g.type !== "radial") return null;
     var id = "vg_" + String(shape.id || "s").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
     var stops = g.stops.map(function (stop) {
       var color = paint(stop.color, palette) || palette.figure;
       var off = Math.max(0, Math.min(1, num(stop.offset, 0)));
       return '<stop offset="' + off + '" stop-color="' + color + '"/>';
     }).join("");
-    var def = '<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + num(g.x1, 0) + '" y1="' + num(g.y1, 0) + '" x2="' + num(g.x2, 1) + '" y2="' + num(g.y2, 0) + '">' + stops + '</linearGradient>';
+    var def;
+    if (g.type === "radial") {
+      def = '<radialGradient id="' + id + '" gradientUnits="userSpaceOnUse" cx="' + num(g.cx, 0) + '" cy="' + num(g.cy, 0) + '" r="' + num(g.r, 1) + '">' + stops + '</radialGradient>';
+    } else {
+      def = '<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + num(g.x1, 0) + '" y1="' + num(g.y1, 0) + '" x2="' + num(g.x2, 1) + '" y2="' + num(g.y2, 0) + '">' + stops + '</linearGradient>';
+    }
     return { id: id, def: def };
   }
 

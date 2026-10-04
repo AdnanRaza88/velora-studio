@@ -41,6 +41,6 @@ Calligraphic brushes live in `skills/brushes.json` and the APK asset copy. emit_
 
 Offset path is an editor bake, not an emit_vxl field. Skills do not invent the parallel outline; the app owns that geometry.
 
-A shape may carry `gradient` `{type:linear, x1, y1, x2, y2, stops:[{offset, color}]}`. Color is a job or hex. The app compiles it. Skills should still prefer flat jobs unless the brief asks for a blend of inks.
+A shape may carry `gradient` `{type:linear, x1, y1, x2, y2, stops:[{offset, color}]}` or `{type:radial, cx, cy, r, stops}`. Color is a job or hex. The app compiles it. Skills should still prefer flat jobs unless the brief asks for a blend of inks.
 
 Clipping is an editor bake. A shape may carry `clip` as path data. Skills do not invent the mask; the app copies it from the front shape and compiles a clipPath.

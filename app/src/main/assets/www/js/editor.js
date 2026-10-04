@@ -1166,6 +1166,20 @@
     return n;
   }
 
+  function paintRadial(doc, ids, from, to) {
+    if (typeof VeloraGradient === "undefined") return 0;
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (!shape || shape.type === "group" || shape.type === "blend" || shape.type === "text") return;
+      var box = boundsOf(shape);
+      if (!box) return;
+      shape.gradient = VeloraGradient.radial(box, from, to);
+      n++;
+    });
+    return n;
+  }
+
   function clearGradient(doc, ids) {
     var n = 0;
     (ids || []).forEach(function (id) {
@@ -1367,6 +1381,7 @@
     offsetShape: offsetShape,
     alignShapes: alignShapes,
     paintGradient: paintGradient,
+    paintRadial: paintRadial,
     clearGradient: clearGradient,
     applyClip: applyClip,
     cutAt: cutAt,
