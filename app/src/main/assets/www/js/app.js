@@ -127,6 +127,10 @@
       '<label class="ink">Size<input id="zigSize" type="number" min="1" max="240" step="1" value="' + (state.zigSize || 18) + '" aria-label="Zig zag size"/></label>' +
       '<label class="ink">Ridges<input id="zigRidges" type="number" min="1" max="48" step="1" value="' + (state.zigRidges || 6) + '" aria-label="Zig zag ridges"/></label>' +
       '<button type="button" class="ghost" id="zigzagPath">Zig zag</button>' +
+      '<label class="ink">Size<input id="roughSize" type="number" min="1" max="240" step="1" value="' + (state.roughSize || 8) + '" aria-label="Roughen size"/></label>' +
+      '<label class="ink">Detail<input id="roughDetail" type="number" min="1" max="24" step="1" value="' + (state.roughDetail || 4) + '" aria-label="Roughen detail"/></label>' +
+      '<button type="button" class="ghost' + (state.roughPoints === "smooth" ? " on" : "") + '" id="roughPoints">' + (state.roughPoints === "smooth" ? "Smooth points" : "Corner points") + '</button>' +
+      '<button type="button" class="ghost" id="roughenPath">Roughen</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
@@ -156,7 +160,7 @@
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Divide bakes the selection and the shape behind it into non-overlapping paths; the overlap keeps the front ink.</p>' +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Zig zag bakes ridges along the selection; rectangles and ellipses become a VXL path.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Zig zag bakes ridges along the selection; rectangles and ellipses become a VXL path. Roughen jitters samples by size and detail; corner points stay segments, smooth points become cubics. Open ends stay put.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -667,6 +671,30 @@
       state.zigRidges = ridges;
       var n = VeloraEdit.zigzag(state.doc, ids, size, ridges);
       publishScene(state.doc, n ? "Zig zag " + ridges : "Select a path");
+    };
+
+    var roughSize = document.getElementById("roughSize");
+    if (roughSize) roughSize.onchange = function () { state.roughSize = Number(roughSize.value) || 8; };
+    var roughDetail = document.getElementById("roughDetail");
+    if (roughDetail) roughDetail.onchange = function () { state.roughDetail = Number(roughDetail.value) || 4; };
+    var roughPoints = document.getElementById("roughPoints");
+    if (roughPoints) roughPoints.onclick = function () {
+      state.roughPoints = state.roughPoints === "smooth" ? "corner" : "smooth";
+      publishScene(state.doc, state.roughPoints === "smooth" ? "Smooth points" : "Corner points");
+    };
+    var roughenPath = document.getElementById("roughenPath");
+    if (roughenPath) roughenPath.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length) return;
+      var size = Number((document.getElementById("roughSize") || {}).value);
+      var detail = Number((document.getElementById("roughDetail") || {}).value);
+      if (!isFinite(size) || size === 0) size = state.roughSize || 8;
+      if (!isFinite(detail) || detail < 1) detail = state.roughDetail || 4;
+      state.roughSize = size;
+      state.roughDetail = detail;
+      var points = state.roughPoints === "smooth" ? "smooth" : "corner";
+      var n = VeloraEdit.roughen(state.doc, ids, size, detail, points);
+      publishScene(state.doc, n ? "Roughen " + detail : "Select a path");
     };
     var flatFill = document.getElementById("flatFill");
     if (flatFill) flatFill.onclick = function () {

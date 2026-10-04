@@ -39,6 +39,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Live corners | Round a corner by a radius | Editor Round corners fillets sharp corners; radius is limited by the adjacent edges; rectangles and polygons bake to a VXL path |
 | Divide | Split overlapping shapes into separate faces | Editor Divide bakes the selection and the shape behind it into non-overlapping VXL paths; the overlap keeps the front ink; leftovers stay editable |
 | Zig zag | Peaks and valleys along a path | Editor Zig zag bakes ridges along the selection; size is the offset; ridges close on a loop; primitives bake to a VXL path |
+| Roughen | Irregular points along a path | Editor Roughen bakes jittered samples; size is the offset; detail sets density; corner points stay segments; smooth points become cubics; open ends stay put; primitives bake to a VXL path |
 
 ## Type
 | Tool | What it produces | Velora mapping |

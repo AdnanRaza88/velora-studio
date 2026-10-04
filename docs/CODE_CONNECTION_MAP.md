@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-10-04 05:20
+Last updated: 2026-10-04 09:20
 
 ## 1. Entry Points
 
@@ -31,7 +31,7 @@ Last updated: 2026-10-04 05:20
 
 ## 3. Import / Call Graph
 
-- index.html loads vxl.js, projects.js, skills.js, needle.js, planner.js, attach.js, trace.js, boolean.js, blend.js, pencil.js, curve.js, scissors.js, shape.js, knife.js, outline.js, anchors.js, editor.js, then app.js
+- index.html loads vxl.js, projects.js, skills.js, needle.js, planner.js, attach.js, trace.js, boolean.js, blend.js, pencil.js, curve.js, scissors.js, shape.js, knife.js, outline.js, anchors.js, zigzag.js, roughen.js, editor.js, then app.js
 - app.js sessionA uses Needle by default. A remote path calls VeloraPlannerClient only when that key is stored
 - skills.js calls VeloraVxl.buildLogo, buildTextile, validate
 - app.js calls VeloraProjects.list, get, save, remove, clear
@@ -55,6 +55,8 @@ Last updated: 2026-10-04 05:20
 - android.yml artifact name stays `velora-debug-apk`
 
 ## 6. Recent Changes Log
+
+- 2026-10-04 Phase 28 roughen: VeloraRoughen bakes jittered samples; corner or smooth points; open ends stay; editor.js roughen; tools/roughen-check.js
 
 - 2026-10-03 Phase 18 knife: freehand cut bakes crossed closed shapes into separate VXL paths; stroke is not kept
 - 2026-10-03 Phase 11 brushes: round/flat/oval nibs; emit_vxl brush; compiler projects outline; centerline stays editable
