@@ -133,6 +133,7 @@
       '<button type="button" class="ghost" id="shearApply">Shear</button>' +
       '<button type="button" class="ghost" id="shearCopy">Shear copy</button>' +
       '<button type="button" class="ghost" id="outlineStroke">Outline stroke</button>' +
+      '<button type="button" class="ghost' + (state.tool === "anchor" ? " on" : "") + '" id="anchorMode">Anchors</button>' +
       '<button type="button" class="ghost" id="clipMask">Clip</button>' +
       '<button type="button" class="ghost" id="releaseClip">Release clip</button>' +
       '<button type="button" class="ghost" id="unite">Unite</button>' +
@@ -147,7 +148,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -203,6 +204,7 @@
     if (state.tool === "pencil") return ". Draw freehand. The stroke simplifies to cubic anchors. A closed loop fills.";
     if (state.tool === "curve") return ". Click to place a curve point. Corner makes a cusp. Close or double-click to finish.";
     if (state.tool === "scissors") return ". Click a path to open a closed shape or split an open one. A second click splits the opened path.";
+    if (state.tool === "anchor") return ". Click a segment to add an anchor. Click an anchor to delete it. The path stays editable VXL.";
     if (state.tool === "knife") return ". Draw across closed shapes. Each crossed shape bakes into separate closed paths. The stroke is not kept.";
     if (state.tool === "shape") return ". Drag across shapes to merge them. Click an overlap to merge that pair. Alt-click deletes the face.";
     return ". Drag the canvas to move. Unite, Subtract, Intersect, and Exclude bake the selection with the shape behind it.";
@@ -504,6 +506,11 @@
     if (scissorsMode) scissorsMode.onclick = function () {
       state.tool = state.tool === "scissors" ? "select" : "scissors";
       publishScene(state.doc, state.tool === "scissors" ? "Scissors" : "Selection");
+    };
+    var anchorMode = document.getElementById("anchorMode");
+    if (anchorMode) anchorMode.onclick = function () {
+      state.tool = state.tool === "anchor" ? "select" : "anchor";
+      publishScene(state.doc, state.tool === "anchor" ? "Anchors" : "Selection");
     };
     var shapeMode = document.getElementById("shapeMode");
     if (shapeMode) shapeMode.onclick = function () {
@@ -892,6 +899,17 @@
         }
         state.sel = "";
         publishScene(state.doc, cut.opened ? "Opened path" : "Split path");
+        return;
+      }
+      if (state.tool === "anchor") {
+        var edited = VeloraEdit.anchorAt(state.doc, pt.x, pt.y, handleRadius(state.doc));
+        drag = null;
+        if (!edited) {
+          publishScene(state.doc, "Click a segment or anchor");
+          return;
+        }
+        state.sel = edited.id;
+        publishScene(state.doc, edited.action === "delete" ? "Anchor deleted" : "Anchor added");
         return;
       }
       if (state.tool === "shape") {

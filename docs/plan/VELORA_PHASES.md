@@ -116,3 +116,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 22 — Outline stroke
 - [x] Expand a stroke, width profile, or brush into a filled VXL path; a filled shape keeps its fill and loses the stroke; the outline stays editable
 
+## Phase 23 — Add / delete anchor
+- [x] Click a segment to insert an anchor; click an anchor to delete it; the path is rewritten as normal VXL
+

@@ -1211,6 +1211,41 @@
     return "";
   }
 
+
+  function anchorAt(doc, x, y, radius) {
+    if (typeof VeloraAnchors === "undefined") return null;
+    var best = null;
+    eachShape(doc, function (shape) {
+      if (!shape || shape.type === "group" || shape.type === "text" || shape.type === "blend") return;
+      var d = outlineOf(shape);
+      if (!d) return;
+      var hit = VeloraAnchors.edit(d, x, y, radius);
+      if (!hit) return;
+      if (!best || hit.dist < best.dist) best = { shape: shape, hit: hit };
+    });
+    if (!best) return null;
+    var shape = best.shape;
+    shape.type = "path";
+    shape.d = best.hit.d;
+    delete shape.x;
+    delete shape.y;
+    delete shape.w;
+    delete shape.h;
+    delete shape.cx;
+    delete shape.cy;
+    delete shape.r;
+    delete shape.rx;
+    delete shape.ry;
+    delete shape.rot;
+    delete shape.points;
+    delete shape.x1;
+    delete shape.y1;
+    delete shape.x2;
+    delete shape.y2;
+    if (doc.meta) doc.meta.updated = new Date().toISOString();
+    return { id: shape.id, action: best.hit.action };
+  }
+
   function cutAt(doc, x, y, radius) {
     if (typeof VeloraScissors === "undefined") return null;
     var best = null;
@@ -1335,6 +1370,7 @@
     clearGradient: clearGradient,
     applyClip: applyClip,
     cutAt: cutAt,
+    anchorAt: anchorAt,
     releaseClip: releaseClip,
     smoothShape: smoothShape,
     setText: setText,

@@ -35,6 +35,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Join | Connect open endpoints into one path | Editor Join bakes the nearest open ends into one VXL path; a single open path closes; the extra path is dropped |
 | Shear | Skew artwork along an axis | Editor Shear bakes a horizontal or vertical skew about the selection center; primitives become VXL paths; Shear copy keeps the source |
 | Outline stroke | Expand a stroke into a filled shape | Editor Outline stroke bakes stroke, width profile, or brush into a filled VXL path; fill stays and loses its stroke |
+| Add / delete anchor | Insert a point on a segment, or remove an anchor and rejoin | Editor Anchors bakes the click into the path d; a segment click splits the cubic or line; an anchor click deletes it and joins the neighbors |
 
 ## Type
 | Tool | What it produces | Velora mapping |
