@@ -50,6 +50,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Fisheye | Bulge artwork as if seen through a fisheye lens | Editor Fisheye bakes a radial push from the selection center; corners stay pinned; bend sets the bulge, waves sets the rings; Axis H stretches wider, Axis V stretches taller; rectangles and ellipses bake to an editable VXL path |
 | Inflate | Bow edges outward like a filled balloon | Editor Inflate bakes an edge bow and pins the corners; bend sets the swell, waves sets the lobes; Axis H swells wider, Axis V swells taller; rectangles and ellipses bake to an editable VXL path |
 | Squeeze | Curve the edges inward toward the center | Editor Squeeze bakes an inward pinch and pins the corners; bend sets the pinch, waves sets the lobes; Axis H squeezes narrower, Axis V squeezes shorter; rectangles and ellipses bake to an editable VXL path |
+| Twist | Spin artwork about the center, stronger toward the edge | Editor Twist bakes a rotation about the selection center; the angle grows with distance so corners move; bend sets the turn, waves sets the turns; Axis H twists the sides, Axis V twists the ends; rectangles and ellipses bake to an editable VXL path |
 
 ## Type
 | Tool | What it produces | Velora mapping |

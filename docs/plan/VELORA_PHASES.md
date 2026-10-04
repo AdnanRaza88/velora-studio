@@ -164,3 +164,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 38 — Squeeze warp
 - [x] Pinch the edges of the selection inward and pin the corners; bend sets the pinch, waves sets the lobes; horizontal squeezes narrower, vertical squeezes shorter; rectangles and ellipses bake to an editable VXL path
 
+## Phase 39 — Twist warp
+- [x] Spin samples about the selection center; rotation grows toward the edge so corners move; bend sets the turn, waves sets the turns; horizontal twists the sides, vertical twists the ends; rectangles and ellipses bake to an editable VXL path
+

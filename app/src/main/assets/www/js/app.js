@@ -166,6 +166,10 @@
       '<label class="ink">Waves<input id="squeezeCount" type="number" min="1" max="4" step="1" value="' + (state.squeezeCount || 1) + '" aria-label="Squeeze waves"/></label>' +
       '<button type="button" class="ghost' + (state.squeezeAxis === "v" ? " on" : "") + '" id="squeezeAxis">' + (state.squeezeAxis === "v" ? "Squeeze V" : "Squeeze H") + '</button>' +
       '<button type="button" class="ghost" id="squeezePath">Squeeze</button>' +
+      '<label class="ink">Bend<input id="twistBend" type="number" min="-100" max="100" step="1" value="' + (state.twistBend || 40) + '" aria-label="Twist bend"/></label>' +
+      '<label class="ink">Waves<input id="twistCount" type="number" min="1" max="4" step="1" value="' + (state.twistCount || 1) + '" aria-label="Twist waves"/></label>' +
+      '<button type="button" class="ghost' + (state.twistAxis === "v" ? " on" : "") + '" id="twistAxis">' + (state.twistAxis === "v" ? "Twist V" : "Twist H") + '</button>' +
+      '<button type="button" class="ghost" id="twistPath">Twist</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
@@ -921,6 +925,30 @@
       var n = VeloraEdit.squeeze(state.doc, ids, bend, waves, axis);
       publishScene(state.doc, n ? "Squeeze " + bend : "Select a path");
     };
+
+    var twistBend = document.getElementById("twistBend");
+    if (twistBend) twistBend.onchange = function () { state.twistBend = Number(twistBend.value) || 40; };
+    var twistCount = document.getElementById("twistCount");
+    if (twistCount) twistCount.onchange = function () { state.twistCount = Number(twistCount.value) || 1; };
+    var twistAxis = document.getElementById("twistAxis");
+    if (twistAxis) twistAxis.onclick = function () {
+      state.twistAxis = state.twistAxis === "v" ? "h" : "v";
+      publishScene(state.doc, state.twistAxis === "v" ? "Vertical twist" : "Horizontal twist");
+    };
+    var twistPath = document.getElementById("twistPath");
+    if (twistPath) twistPath.onclick = function () {
+      var ids = selectedIds();
+      var bend = Number((document.getElementById("twistBend") || {}).value);
+      var waves = Number((document.getElementById("twistCount") || {}).value);
+      if (!isFinite(bend) || bend === 0) bend = state.twistBend || 40;
+      if (!isFinite(waves) || waves < 1) waves = state.twistCount || 1;
+      state.twistBend = bend;
+      state.twistCount = waves;
+      var axis = state.twistAxis === "v" ? "v" : "h";
+      var n = VeloraEdit.twist(state.doc, ids, bend, waves, axis);
+      publishScene(state.doc, n ? "Twist " + bend : "Select a path");
+    };
+
     var roughenPath = document.getElementById("roughenPath");
     if (roughenPath) roughenPath.onclick = function () {
       var ids = selectionIds();
