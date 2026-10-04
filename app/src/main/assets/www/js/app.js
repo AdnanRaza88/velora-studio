@@ -650,6 +650,7 @@
       var n = VeloraEdit.divideShapes(state.doc, ids[ids.length - 1]);
       if (n) state.also = [];
       publishScene(state.doc, n ? "Divided " + n : "Need an overlap behind");
+    };
     var zigSize = document.getElementById("zigSize");
     if (zigSize) zigSize.onchange = function () { state.zigSize = Number(zigSize.value) || 18; };
     var zigRidges = document.getElementById("zigRidges");
