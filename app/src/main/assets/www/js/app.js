@@ -124,6 +124,9 @@
       '<label class="ink">Radius<input id="cornerRadius" type="number" min="1" max="240" step="1" value="' + (state.cornerRadius || 24) + '" aria-label="Corner radius"/></label>' +
       '<button type="button" class="ghost" id="roundCorners">Round corners</button>' +
       '<button type="button" class="ghost" id="divideShapes">Divide</button>' +
+      '<label class="ink">Size<input id="zigSize" type="number" min="1" max="240" step="1" value="' + (state.zigSize || 18) + '" aria-label="Zig zag size"/></label>' +
+      '<label class="ink">Ridges<input id="zigRidges" type="number" min="1" max="48" step="1" value="' + (state.zigRidges || 6) + '" aria-label="Zig zag ridges"/></label>' +
+      '<button type="button" class="ghost" id="zigzagPath">Zig zag</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
@@ -153,6 +156,7 @@
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Divide bakes the selection and the shape behind it into non-overlapping paths; the overlap keeps the front ink.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Zig zag bakes ridges along the selection; rectangles and ellipses become a VXL path.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -646,6 +650,22 @@
       var n = VeloraEdit.divideShapes(state.doc, ids[ids.length - 1]);
       if (n) state.also = [];
       publishScene(state.doc, n ? "Divided " + n : "Need an overlap behind");
+    var zigSize = document.getElementById("zigSize");
+    if (zigSize) zigSize.onchange = function () { state.zigSize = Number(zigSize.value) || 18; };
+    var zigRidges = document.getElementById("zigRidges");
+    if (zigRidges) zigRidges.onchange = function () { state.zigRidges = Number(zigRidges.value) || 6; };
+    var zigzagPath = document.getElementById("zigzagPath");
+    if (zigzagPath) zigzagPath.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length) return;
+      var size = Number((document.getElementById("zigSize") || {}).value);
+      var ridges = Number((document.getElementById("zigRidges") || {}).value);
+      if (!isFinite(size) || size === 0) size = state.zigSize || 18;
+      if (!isFinite(ridges) || ridges < 1) ridges = state.zigRidges || 6;
+      state.zigSize = size;
+      state.zigRidges = ridges;
+      var n = VeloraEdit.zigzag(state.doc, ids, size, ridges);
+      publishScene(state.doc, n ? "Zig zag " + ridges : "Select a path");
     };
     var flatFill = document.getElementById("flatFill");
     if (flatFill) flatFill.onclick = function () {

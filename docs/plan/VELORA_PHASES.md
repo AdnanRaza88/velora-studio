@@ -127,4 +127,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 
 ## Phase 26 — Pathfinder divide
 - [x] Divide bakes the selection and the shape behind it into non-overlapping VXL paths; overlap keeps the front ink; leftovers stay editable
+## Phase 27 — Zig zag
+- [x] Offset ridges along the selection by a size; integer ridges close on a loop; rectangles and ellipses bake to a VXL path; the wave stays editable
 

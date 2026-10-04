@@ -1346,6 +1346,23 @@
   function divideShapes(doc, id) {
     if (typeof VeloraDivide === "undefined") return 0;
     return VeloraDivide.divide(doc, id);
+  function zigzag(doc, ids, size, ridges) {
+    if (typeof VeloraZigzag === "undefined") return 0;
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (!shape || shape.type === "text" || shape.type === "group" || shape.type === "blend") return;
+      var d = VeloraZigzag.waveShape(shape, size, ridges);
+      if (!d) return;
+      shape.type = "path";
+      shape.d = d;
+      ["x", "y", "w", "h", "cx", "cy", "r", "rx", "ry", "x1", "y1", "x2", "y2", "points"].forEach(function (key) {
+        delete shape[key];
+      });
+      n++;
+    });
+    if (n && doc.meta) doc.meta.updated = new Date().toISOString();
+    return n;
   }
 
   function roundCorners(doc, ids, radius) {
@@ -1414,6 +1431,7 @@
     releaseClip: releaseClip,
     roundCorners: roundCorners,
     divideShapes: divideShapes,
+    zigzag: zigzag,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,
