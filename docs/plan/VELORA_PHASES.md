@@ -138,3 +138,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 
 ## Phase 30 — Twirl
 - [x] Rotate samples about the selection center; angle falls off toward the edge so the silhouette stays pinned; rectangles and ellipses bake to an editable VXL path
+
+## Phase 31 — Arc warp
+- [x] Bend the selection onto a circular arc; horizontal or vertical; positive arches up or left, negative arches down or right; rectangles and ellipses bake to an editable VXL path
