@@ -1346,6 +1346,8 @@
   function divideShapes(doc, id) {
     if (typeof VeloraDivide === "undefined") return 0;
     return VeloraDivide.divide(doc, id);
+  }
+
   function zigzag(doc, ids, size, ridges) {
     if (typeof VeloraZigzag === "undefined") return 0;
     var n = 0;
