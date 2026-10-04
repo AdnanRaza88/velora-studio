@@ -1465,6 +1465,26 @@
     return n;
   }
 
+
+  function flag(doc, ids, bend, waves, axis) {
+    if (typeof VeloraFlag === "undefined") return 0;
+    var n = 0;
+    (ids || []).forEach(function (id) {
+      var shape = find(doc, id);
+      if (!shape || shape.type === "text" || shape.type === "group" || shape.type === "blend") return;
+      var d = VeloraFlag.flagShape(shape, bend, waves, axis);
+      if (!d) return;
+      shape.type = "path";
+      shape.d = d;
+      ["x", "y", "w", "h", "cx", "cy", "r", "rx", "ry", "x1", "y1", "x2", "y2", "points"].forEach(function (key) {
+        delete shape[key];
+      });
+      n++;
+    });
+    if (n && doc.meta) doc.meta.updated = new Date().toISOString();
+    return n;
+  }
+
   function roundCorners(doc, ids, radius) {
     if (typeof VeloraCorners === "undefined") return 0;
     var n = 0;
@@ -1537,6 +1557,7 @@
     twirl: twirl,
     arc: arc,
     wave: wave,
+    flag: flag,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,
