@@ -148,3 +148,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 33 — Flag warp
 - [x] Pin the hoist edge and grow a sine toward the fly; bend sets the lift, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path
 
+## Phase 34 — Fish warp
+- [x] Pin the head and shear opposite sides toward the tail; bend sets the swing, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path
+
