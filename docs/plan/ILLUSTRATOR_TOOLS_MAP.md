@@ -41,6 +41,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Zig zag | Peaks and valleys along a path | Editor Zig zag bakes ridges along the selection; size is the offset; ridges close on a loop; primitives bake to a VXL path |
 | Roughen | Irregular points along a path | Editor Roughen bakes jittered samples; size is the offset; detail sets density; corner points stay segments; smooth points become cubics; open ends stay put; primitives bake to a VXL path |
 | Pucker & Bloat | Pull anchors in or push them out from the center | Editor Pucker / Bloat bakes samples about the selection center; a negative amount puckers edges inward; a positive amount bloats them outward; primitives bake to an editable VXL path |
+| Twirl | Spin points around a center, stronger near the middle | Editor Twirl bakes a rotation about the selection center; the angle falls off toward the edge so the silhouette stays pinned; rectangles and ellipses bake to an editable VXL path |
 
 ## Type
 | Tool | What it produces | Velora mapping |

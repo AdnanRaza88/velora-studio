@@ -136,3 +136,5 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 29 — Pucker and bloat
 - [x] Pull or push samples about the selection center; negative amount puckers, positive amount bloats; rectangles and ellipses bake to a VXL path; the curve stays editable
 
+## Phase 30 — Twirl
+- [x] Rotate samples about the selection center; angle falls off toward the edge so the silhouette stays pinned; rectangles and ellipses bake to an editable VXL path
