@@ -150,6 +150,10 @@
       '<label class="ink">Waves<input id="fishCount" type="number" min="1" max="4" step="1" value="' + (state.fishCount || 1) + '" aria-label="Fish waves"/></label>' +
       '<button type="button" class="ghost' + (state.fishAxis === "v" ? " on" : "") + '" id="fishAxis">' + (state.fishAxis === "v" ? "Fish V" : "Fish H") + '</button>' +
       '<button type="button" class="ghost" id="fishPath">Fish</button>' +
+      '<label class="ink">Bend<input id="riseBend" type="number" min="-100" max="100" step="1" value="' + (state.riseBend || 46) + '" aria-label="Rise bend"/></label>' +
+      '<label class="ink">Waves<input id="riseCount" type="number" min="1" max="4" step="1" value="' + (state.riseCount || 1) + '" aria-label="Rise waves"/></label>' +
+      '<button type="button" class="ghost' + (state.riseAxis === "v" ? " on" : "") + '" id="riseAxis">' + (state.riseAxis === "v" ? "Rise V" : "Rise H") + '</button>' +
+      '<button type="button" class="ghost" id="risePath">Rise</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
@@ -179,7 +183,7 @@
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
       '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Divide bakes the selection and the shape behind it into non-overlapping paths; the overlap keeps the front ink.</p>' +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Zig zag bakes ridges along the selection; rectangles and ellipses become a VXL path. Roughen jitters samples by size and detail; corner points stay segments, smooth points become cubics. Open ends stay put. Pucker pulls edge samples toward the selection center; bloat pushes them out. Rectangles and ellipses become a VXL path. Twirl rotates samples about the selection center; the angle falls off toward the edge so the silhouette stays pinned. Rectangles and ellipses become a VXL path. Arc bends the selection onto a circular arc; positive bend arches up or left, negative arches down or right. Rectangles and ellipses become a VXL path. Wave offsets samples on a sine along the axis; bend sets the height, waves sets the count. Rectangles and ellipses become a VXL path. Flag pins the hoist edge and grows a sine toward the fly; bend sets the lift, waves sets the count. Rectangles and ellipses become a VXL path. Fish pins the head and shears the sides in opposite directions toward the tail; bend sets the swing, waves sets the count. Rectangles and ellipses become a VXL path.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Zig zag bakes ridges along the selection; rectangles and ellipses become a VXL path. Roughen jitters samples by size and detail; corner points stay segments, smooth points become cubics. Open ends stay put. Pucker pulls edge samples toward the selection center; bloat pushes them out. Rectangles and ellipses become a VXL path. Twirl rotates samples about the selection center; the angle falls off toward the edge so the silhouette stays pinned. Rectangles and ellipses become a VXL path. Arc bends the selection onto a circular arc; positive bend arches up or left, negative arches down or right. Rectangles and ellipses become a VXL path. Wave offsets samples on a sine along the axis; bend sets the height, waves sets the count. Rectangles and ellipses become a VXL path. Flag pins the hoist edge and grows a sine toward the fly; bend sets the lift, waves sets the count. Rectangles and ellipses become a VXL path. Fish pins the head and shears the sides in opposite directions toward the tail; bend sets the swing, waves sets the count. Rectangles and ellipses become a VXL path. Rise pins the start edge and lifts both sides the same way toward the far edge; bend sets the lift, waves sets the count. Rectangles and ellipses become a VXL path.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -812,6 +816,29 @@
       var axis = state.fishAxis === "v" ? "v" : "h";
       var n = VeloraEdit.fish(state.doc, ids, bend, waves, axis);
       publishScene(state.doc, n ? "Fish " + bend : "Select a path");
+    };
+    var riseBend = document.getElementById("riseBend");
+    if (riseBend) riseBend.onchange = function () { state.riseBend = Number(riseBend.value) || 46; };
+    var riseCount = document.getElementById("riseCount");
+    if (riseCount) riseCount.onchange = function () { state.riseCount = Number(riseCount.value) || 1; };
+    var riseAxis = document.getElementById("riseAxis");
+    if (riseAxis) riseAxis.onclick = function () {
+      state.riseAxis = state.riseAxis === "v" ? "h" : "v";
+      publishScene(state.doc, state.riseAxis === "v" ? "Vertical rise" : "Horizontal rise");
+    };
+    var risePath = document.getElementById("risePath");
+    if (risePath) risePath.onclick = function () {
+      var ids = selectedIds();
+      if (!ids.length) return publishScene(state.doc, "Select a path");
+      var bend = Number((document.getElementById("riseBend") || {}).value);
+      var waves = Number((document.getElementById("riseCount") || {}).value);
+      if (!isFinite(bend) || bend === 0) bend = state.riseBend || 46;
+      if (!isFinite(waves) || waves < 1) waves = state.riseCount || 1;
+      state.riseBend = bend;
+      state.riseCount = waves;
+      var axis = state.riseAxis === "v" ? "v" : "h";
+      var n = VeloraEdit.rise(state.doc, ids, bend, waves, axis);
+      publishScene(state.doc, n ? "Rise " + bend : "Select a path");
     };
     var roughenPath = document.getElementById("roughenPath");
     if (roughenPath) roughenPath.onclick = function () {
