@@ -141,3 +141,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 
 ## Phase 31 — Arc warp
 - [x] Bend the selection onto a circular arc; horizontal or vertical; positive arches up or left, negative arches down or right; rectangles and ellipses bake to an editable VXL path
+
+## Phase 32 — Wave warp
+- [x] Offset samples on a sine along the selection; bend sets amplitude, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path

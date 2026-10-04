@@ -43,6 +43,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Pucker & Bloat | Pull anchors in or push them out from the center | Editor Pucker / Bloat bakes samples about the selection center; a negative amount puckers edges inward; a positive amount bloats them outward; primitives bake to an editable VXL path |
 | Twirl | Spin points around a center, stronger near the middle | Editor Twirl bakes a rotation about the selection center; the angle falls off toward the edge so the silhouette stays pinned; rectangles and ellipses bake to an editable VXL path |
 | Arc | Bend artwork onto a circular arc | Editor Arc bakes the selection onto a circular arc; Axis H/V chooses the bend; positive arches up or left, negative arches down or right; rectangles and ellipses bake to an editable VXL path |
+| Wave | Bend artwork on a sine | Editor Wave bakes a sine offset along the selection; bend sets the amplitude, waves sets the count; Axis H/V chooses the travel; rectangles and ellipses bake to an editable VXL path |
 
 ## Type
 | Tool | What it produces | Velora mapping |

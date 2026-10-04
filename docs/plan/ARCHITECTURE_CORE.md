@@ -61,3 +61,5 @@ AI never draws pixels. AI emits VXL. The app always owns geometry.
 Radial gradient is the same ink jobs as linear, compiled as userSpaceOnUse radialGradient from the shape center. The app owns the vector. Skills do not invent raster meshes.
 
 - Roughen bakes jittered samples into a VXL path. Size is the offset. Detail sets how many samples. Corner points stay line segments. Smooth points become cubics. Open ends stay on the spine. The app owns the geometry.
+
+- Wave warp bakes a sine offset along the selection. Bend is the amplitude as a fraction of the cross span. Waves is an integer count from 1 to 8. Axis H travels on x and offsets y; axis V travels on y and offsets x. The centerline becomes an editable VXL path. Primitives bake to paths. Zero bend is a no-op.
