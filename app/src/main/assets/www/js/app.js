@@ -123,6 +123,7 @@
       '<button type="button" class="ghost" id="paintRadial">Radial</button>' +
       '<label class="ink">Radius<input id="cornerRadius" type="number" min="1" max="240" step="1" value="' + (state.cornerRadius || 24) + '" aria-label="Corner radius"/></label>' +
       '<button type="button" class="ghost" id="roundCorners">Round corners</button>' +
+      '<button type="button" class="ghost" id="divideShapes">Divide</button>' +
       '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
@@ -151,7 +152,7 @@
       patternPanel(checked.document) +
       layerPanel(checked.document) +
       '<p class="muted" id="selMsg">' + (state.sel ? "Selected " + VeloraVxl.esc(state.sel) + ((state.also && state.also.length) ? " +" + state.also.length : "") + toolHint() : "Select a shape on the canvas or in the list.") + "</p>" +
-      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path.</p>' +
+      '<p class="muted">Shift-click adds shapes. One shape aligns to the artboard. Several align to the selection. Distribute needs three. Gradient paints figure to accent across the selection. Radial paints figure at the center to accent at the edge. Clip uses the front shape as the mask. Scissors opens a closed path or splits an open one. Shape builder merges faces under the cursor; Alt-click deletes the face. Knife draws a cut that bakes crossed shapes into closed pieces. Reflect copy mirrors the selection across its center axis and keeps the source. Flip bakes the mirror in place. Join connects the nearest open ends into one path, or closes a single open path. Shear skews the selection about its center; rectangles become paths. Shear copy keeps the source. Outline stroke bakes a stroke, width profile, or brush into a filled path; a fill stays and loses its stroke. Anchors adds a point on a segment or deletes the point under the click. Round corners fillets sharp corners by the radius and bakes a VXL path. Divide bakes the selection and the shape behind it into non-overlapping paths; the overlap keeps the front ink.</p>' +
       '<p class="muted">' + VeloraVxl.esc(note || checked.document.meta.name) + " \u00b7 " + layers + " layers \u00b7 " + shapes + " shapes" +
       (checked.document.repeat ? " \u00b7 " + checked.document.repeat.type + " \u00b7 " + checked.document.repeat.cols + "\u00d7" + checked.document.repeat.rows : "") +
       (checked.document.meta.purpose === "trace" ? " \u00b7 editable VXL" : "") + "</p>" +
@@ -637,6 +638,14 @@
       state.cornerRadius = radius;
       var n = VeloraEdit.roundCorners(state.doc, ids, radius);
       publishScene(state.doc, n ? "Corners " + radius : "No sharp corner");
+    };
+    var divideShapes = document.getElementById("divideShapes");
+    if (divideShapes) divideShapes.onclick = function () {
+      var ids = selectionIds();
+      if (!ids.length) return;
+      var n = VeloraEdit.divideShapes(state.doc, ids[ids.length - 1]);
+      if (n) state.also = [];
+      publishScene(state.doc, n ? "Divided " + n : "Need an overlap behind");
     };
     var flatFill = document.getElementById("flatFill");
     if (flatFill) flatFill.onclick = function () {

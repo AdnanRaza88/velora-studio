@@ -37,6 +37,7 @@ What professionals actually use, and what those tools produce, mapped to our eng
 | Outline stroke | Expand a stroke into a filled shape | Editor Outline stroke bakes stroke, width profile, or brush into a filled VXL path; fill stays and loses its stroke |
 | Add / delete anchor | Insert a point on a segment, or remove an anchor and rejoin | Editor Anchors bakes the click into the path d; a segment click splits the cubic or line; an anchor click deletes it and joins the neighbors |
 | Live corners | Round a corner by a radius | Editor Round corners fillets sharp corners; radius is limited by the adjacent edges; rectangles and polygons bake to a VXL path |
+| Divide | Split overlapping shapes into separate faces | Editor Divide bakes the selection and the shape behind it into non-overlapping VXL paths; the overlap keeps the front ink; leftovers stay editable |
 
 ## Type
 | Tool | What it produces | Velora mapping |

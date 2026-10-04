@@ -1343,6 +1343,11 @@
   }
 
 
+  function divideShapes(doc, id) {
+    if (typeof VeloraDivide === "undefined") return 0;
+    return VeloraDivide.divide(doc, id);
+  }
+
   function roundCorners(doc, ids, radius) {
     if (typeof VeloraCorners === "undefined") return 0;
     var n = 0;
@@ -1408,6 +1413,7 @@
     anchorAt: anchorAt,
     releaseClip: releaseClip,
     roundCorners: roundCorners,
+    divideShapes: divideShapes,
     smoothShape: smoothShape,
     setText: setText,
     outlineText: outlineText,

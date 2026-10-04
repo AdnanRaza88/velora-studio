@@ -125,3 +125,6 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 ## Phase 25 — Live corners
 - [x] Round sharp corners of the selection by a radius; rectangles and polygons bake to a VXL path; the fillet is a cubic and stays editable
 
+## Phase 26 — Pathfinder divide
+- [x] Divide bakes the selection and the shape behind it into non-overlapping VXL paths; overlap keeps the front ink; leftovers stay editable
+
