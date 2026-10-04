@@ -76,3 +76,4 @@ Last updated: 2026-10-04 09:20
 
 | app/src/main/assets/www/js/shape.js | Shape builder faces | VeloraShape.mergeAt, eraseAt, mergeIds | VeloraBoolean | app.js, tools/shape-check.js |
 - 2026-10-04 Phase 23 anchors: click a segment to insert an anchor; click an anchor to delete it; path d is rewritten
+- 2026-10-04 Phase 29 pucker and bloat: VeloraPucker warps samples about the selection center; editor.js pucker; tools/pucker-check.js

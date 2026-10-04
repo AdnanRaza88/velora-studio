@@ -132,3 +132,7 @@ Needle runs on device. Projects stay on device. Remote is opt-in only. The defau
 
 ## Phase 28 — Roughen
 - [x] Jitter samples along the selection by a size and detail; corner points stay segments, smooth points become cubics; open ends stay put; rectangles and ellipses bake to a VXL path
+
+## Phase 29 — Pucker and bloat
+- [x] Pull or push samples about the selection center; negative amount puckers, positive amount bloats; rectangles and ellipses bake to a VXL path; the curve stays editable
+
