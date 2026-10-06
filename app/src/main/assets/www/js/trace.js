@@ -851,6 +851,71 @@
     return out;
   }
 
+  function sampleField(field, w, h, x, y) {
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x > w - 1) x = w - 1;
+    if (y > h - 1) y = h - 1;
+    var x0 = x | 0;
+    var y0 = y | 0;
+    var x1 = x0 + 1 < w ? x0 + 1 : x0;
+    var y1 = y0 + 1 < h ? y0 + 1 : y0;
+    var tx = x - x0;
+    var ty = y - y0;
+    var a = field[y0 * w + x0];
+    var b = field[y0 * w + x1];
+    var c = field[y1 * w + x0];
+    var d = field[y1 * w + x1];
+    return a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty;
+  }
+
+  function isoPlace(points, field, w, h, level) {
+    if (!field || !points || points.length < 3) return points;
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var n = ring.length;
+    if (n < 3) return points;
+    var out = [];
+    var i, x, y, step, v, gx, gy, g2, t, dx, dy, move, cap, prev, next;
+    for (i = 0; i < n; i++) {
+      x = ring[i][0];
+      y = ring[i][1];
+      prev = ring[(i + n - 1) % n];
+      next = ring[(i + 1) % n];
+      cap = turnAt(prev, ring[i], next) > 1.15 ? 0.32 : 0.85;
+      for (step = 0; step < 2; step++) {
+        v = sampleField(field, w, h, x, y) - level;
+        gx = sampleField(field, w, h, x + 0.5, y) - sampleField(field, w, h, x - 0.5, y);
+        gy = sampleField(field, w, h, x, y + 0.5) - sampleField(field, w, h, x, y - 0.5);
+        g2 = gx * gx + gy * gy;
+        if (g2 < 9) break;
+        t = v / g2;
+        if (t > 0.65) t = 0.65;
+        if (t < -0.65) t = -0.65;
+        x -= gx * t;
+        y -= gy * t;
+      }
+      dx = x - ring[i][0];
+      dy = y - ring[i][1];
+      move = Math.hypot(dx, dy);
+      if (move > cap) {
+        x = ring[i][0] + dx * (cap / move);
+        y = ring[i][1] + dy * (cap / move);
+      }
+      out.push([x, y]);
+    }
+    if (pack.closed && out.length) out.push(out[0].slice());
+    return out;
+  }
+
+  function softField(mask, w, h) {
+    var field = new Uint8Array(mask.length);
+    var i;
+    for (i = 0; i < mask.length; i++) field[i] = mask[i] ? 255 : 0;
+    return blur3(blur3(field, w, h), w, h);
+  }
+
+
   function axisOf(a, b) {
     var dx = Math.abs(b[0] - a[0]);
     var dy = Math.abs(b[1] - a[1]);
@@ -959,11 +1024,14 @@
     return keep;
   }
 
-  function prepare(raw, mask, w, h, corner) {
+  function prepare(raw, mask, w, h, corner, field, level) {
     var settled = [];
-    var i;
+    var i, chain;
     for (i = 0; i < raw.length; i++) {
-      settled.push(collapseCollinear(snapOrthogonal(smoothChain(settle(raw[i], mask, w, h), corner))));
+      chain = settle(raw[i], mask, w, h);
+      chain = snapOrthogonal(chain);
+      if (field) chain = isoPlace(chain, field, w, h, level);
+      settled.push(collapseCollinear(smoothChain(chain, corner)));
     }
     return settled;
   }
@@ -1155,8 +1223,9 @@
     var ink = despeckle(mask, w, h, turd);
     ink = fillSmallHoles(ink, w, h, turd);
     ink = dilate(ink, w, h);
-    var raw = prepare(contours(ink, w, h, opts.maxContours || 16), ink, w, h, opts.alphamax);
-    var holes = prepare(holeContours(ink, w, h, opts.maxHoles || 12), ink, w, h, opts.alphamax);
+    var field = softField(ink, w, h);
+    var raw = prepare(contours(ink, w, h, opts.maxContours || 16), ink, w, h, opts.alphamax, field, 128);
+    var holes = prepare(holeContours(ink, w, h, opts.maxHoles || 12), ink, w, h, opts.alphamax, field, 128);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
     var simplified = simplify(raw, eps, minArea, opts.alphamax);
@@ -1322,8 +1391,8 @@
     var turd = opts.turdsize != null ? opts.turdsize : Math.max(6, Math.round((w * h) / 14000));
     mask = despeckle(mask, w, h, turd);
     mask = fillSmallHoles(mask, w, h, turd);
-    var raw = prepare(contours(mask, w, h, opts.maxContours || 64), mask, w, h, opts.alphamax);
-    var holes = prepare(holeContours(mask, w, h, opts.maxHoles || 24), mask, w, h, opts.alphamax);
+    var raw = prepare(contours(mask, w, h, opts.maxContours || 64), mask, w, h, opts.alphamax, bytes, level);
+    var holes = prepare(holeContours(mask, w, h, opts.maxHoles || 24), mask, w, h, opts.alphamax, bytes, level);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
     var simplified = simplify(raw, eps, minArea, opts.alphamax);
@@ -1395,7 +1464,7 @@
 
   function fromImage(img, done, options) {
     var opts = options || {};
-    var maxEdge = opts.maxEdge || 768;
+    var maxEdge = opts.maxEdge || 896;
     var sw = img.naturalWidth || img.width;
     var sh = img.naturalHeight || img.height;
     if (!sw || !sh) {
