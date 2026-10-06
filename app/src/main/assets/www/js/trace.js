@@ -526,7 +526,7 @@
         guard++;
       } while (idx !== to && guard <= ring.length);
       if (span.length < 2) continue;
-      if (span.length < 4) segs.push({ k: "L", p: span[span.length - 1] });
+      if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1] });
       else segs = segs.concat(fitSpan(span, opttolerance, 0));
     }
     return { start: start, segs: segs };
@@ -589,10 +589,81 @@
         n++;
       }
       if (!n) out.push([x, y]);
-      else out.push([x + (ox / n) * 0.45, y + (oy / n) * 0.45]);
+      else out.push([x + (ox / n) * 0.5, y + (oy / n) * 0.5]);
     }
     if (pack.closed && out.length) out.push(out[0].slice());
     return out;
+  }
+
+  function axisOf(a, b) {
+    var dx = Math.abs(b[0] - a[0]);
+    var dy = Math.abs(b[1] - a[1]);
+    if (dx + dy < 0.2) return 0;
+    if (dy <= dx * 0.28) return 1;
+    if (dx <= dy * 0.28) return 2;
+    return 0;
+  }
+
+  function snapOrthogonal(points) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var n = ring.length;
+    if (n < 6) return points.slice();
+    var axis = new Array(n);
+    var i, prev, next;
+    for (i = 0; i < n; i++) {
+      prev = axisOf(ring[(i + n - 1) % n], ring[i]);
+      next = axisOf(ring[i], ring[(i + 1) % n]);
+      axis[i] = prev && prev === next ? prev : 0;
+    }
+    var out = [];
+    var seen = new Array(n);
+    for (i = 0; i < n; i++) out.push(ring[i].slice());
+    for (i = 0; i < n; i++) {
+      if (!axis[i] || seen[i]) continue;
+      var run = [];
+      var j = i;
+      while (axis[j] === axis[i] && !seen[j]) {
+        seen[j] = 1;
+        run.push(j);
+        j = (j + 1) % n;
+        if (run.length > n) break;
+      }
+      var back = (i + n - 1) % n;
+      while (axis[back] === axis[i] && !seen[back]) {
+        seen[back] = 1;
+        run.unshift(back);
+        back = (back + n - 1) % n;
+        if (run.length > n) break;
+      }
+      if (run.length < 4) continue;
+      var ax = axis[i];
+      var vals = [];
+      var k;
+      for (k = 0; k < run.length; k++) vals.push(ax === 1 ? ring[run[k]][1] : ring[run[k]][0]);
+      vals.sort(function (a, b) { return a - b; });
+      var med = vals[vals.length >> 1];
+      for (k = 0; k < run.length; k++) {
+        if (ax === 1) out[run[k]][1] = med;
+        else out[run[k]][0] = med;
+      }
+    }
+    if (pack.closed && out.length) out.push(out[0].slice());
+    return out;
+  }
+
+  function flatSpan(span) {
+    if (span.length < 2) return false;
+    var x0 = span[0][0];
+    var y0 = span[0][1];
+    var horiz = true;
+    var vert = true;
+    var i;
+    for (i = 1; i < span.length; i++) {
+      if (Math.abs(span[i][1] - y0) > 0.6) horiz = false;
+      if (Math.abs(span[i][0] - x0) > 0.6) vert = false;
+    }
+    return horiz || vert;
   }
 
   function smoothChain(points, corner) {
@@ -617,7 +688,7 @@
   function prepare(raw, mask, w, h, corner) {
     var settled = [];
     var i;
-    for (i = 0; i < raw.length; i++) settled.push(smoothChain(settle(raw[i], mask, w, h), corner));
+    for (i = 0; i < raw.length; i++) settled.push(snapOrthogonal(smoothChain(settle(raw[i], mask, w, h), corner)));
     return settled;
   }
 

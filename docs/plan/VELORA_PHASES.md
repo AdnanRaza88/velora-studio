@@ -40,7 +40,7 @@ Brief (+ optional attachment)
 - [x] Attach image
 - [x] Autotrace → path simplify → VXL paths
 - [x] User can edit result as normal VXL
-- [x] Trace quality: 640-edge raster, median denoise, despeckle, small-hole fill, light background and transparent pixels ignored, boundary settle, corner-pinned smooth, alpha-searched cubics (alphamax / opttolerance), holes as evenodd subpaths
+- [x] Trace quality: 640-edge raster, median denoise, despeckle, small-hole fill, light background and transparent pixels ignored, boundary settle, orthogonal runs snapped to a straight edge, corner-pinned smooth, alpha-searched cubics (alphamax / opttolerance), holes as evenodd subpaths
 - [x] Multi-ink trace: up to four separated fills (figure, accent, ink2, ink3), light paper ignored, seams overlapped one pixel; device raster sends packed RGB; single-ink stays binary
 
 ## Phase 4 — Editor (Illustrator-mapped)
