@@ -40,6 +40,7 @@ Brief (+ optional attachment)
 - [x] Attach image
 - [x] Autotrace → path simplify → VXL paths
 - [x] User can edit result as normal VXL
+- [x] Trace quality: 512-edge raster, blur, despeckle, small-hole fill, light background and transparent pixels ignored, corner-aware cubics (alphamax / opttolerance), holes as evenodd subpaths
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
