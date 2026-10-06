@@ -185,7 +185,7 @@ class AttachmentBridge(
     private fun previewData(file: File, bounds: BitmapFactory.Options): String {
         var sample = 1
         val edge = maxOf(bounds.outWidth, bounds.outHeight)
-        while (edge / sample > 480) sample *= 2
+        while (edge / sample > 1024) sample *= 2
         val opts = BitmapFactory.Options().apply { inSampleSize = sample }
         val bitmap = BitmapFactory.decodeFile(file.absolutePath, opts) ?: return ""
         val out = ByteArrayOutputStream()
