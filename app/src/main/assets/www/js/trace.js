@@ -626,6 +626,57 @@
     return t;
   }
 
+  function ribbonWidth(points, mask, w, h) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    if (!mask || ring.length < 6) return 99;
+    var samples = [];
+    var step = Math.max(1, (ring.length / 28) | 0);
+    var i, prev, next, tx, ty, nx, ny, len, px, py, inx, iny, s, dist, sx, sy;
+    for (i = 0; i < ring.length; i += step) {
+      prev = ring[(i + ring.length - 1) % ring.length];
+      next = ring[(i + 1) % ring.length];
+      tx = next[0] - prev[0];
+      ty = next[1] - prev[1];
+      nx = -ty;
+      ny = tx;
+      len = Math.hypot(nx, ny) || 1;
+      nx /= len;
+      ny /= len;
+      px = ring[i][0];
+      py = ring[i][1];
+      inx = nx;
+      iny = ny;
+      if (!on(mask, w, h, Math.round(px + nx * 1.4), Math.round(py + ny * 1.4))) {
+        inx = -nx;
+        iny = -ny;
+      }
+      dist = 0;
+      for (s = 1; s <= 16; s++) {
+        sx = Math.round(px + inx * s);
+        sy = Math.round(py + iny * s);
+        if (!on(mask, w, h, sx, sy)) break;
+        dist = s;
+      }
+      if (dist > 0) samples.push(dist);
+    }
+    if (samples.length < 4) return 99;
+    samples.sort(function (a, b) { return a - b; });
+    return samples[samples.length >> 1];
+  }
+
+  function thinFit(points, mask, w, h, opts) {
+    var width = ribbonWidth(points, mask, w, h);
+    var next = {};
+    var key;
+    opts = opts || {};
+    for (key in opts) next[key] = opts[key];
+    if (width > 6.5) return { points: points, opts: next, thin: false };
+    next.opttolerance = Math.max(0.24, Math.min(opts.opttolerance != null ? opts.opttolerance : 0.55, width * 0.1));
+    next.alphamax = Math.min(opts.alphamax != null ? opts.alphamax : 0.95, 0.7);
+    return { points: points, opts: next, thin: true, width: width };
+  }
+
   function fitCubic(pts, ts) {
     var n = pts.length;
     var a = pts[0];
@@ -1218,12 +1269,19 @@
     return flags;
   }
 
-  function simplify(raw, eps, minArea, corner) {
+  function simplify(raw, eps, minArea, corner, mask, w, h) {
     var out = [];
-    var i, slim, limit;
+    var i, slim, limit, width, useEps, cut;
     limit = corner != null ? corner : 0.95;
     for (i = 0; i < raw.length; i++) {
-      slim = rdp(raw[i], eps, cornerFlags(raw[i], limit));
+      width = mask ? ribbonWidth(raw[i], mask, w, h) : 99;
+      useEps = eps;
+      cut = limit;
+      if (width <= 6.5) {
+        useEps = Math.min(eps, Math.max(0.32, width * 0.11));
+        cut = Math.min(cut, 0.7);
+      }
+      slim = rdp(raw[i], useEps, cornerFlags(raw[i], cut));
       if (slim.length >= 4 && area(slim) >= minArea) out.push(slim);
     }
     return out;
@@ -1376,6 +1434,301 @@
     return out;
   }
 
+
+  function distMap(mask, w, h) {
+    var inf = w + h + 4;
+    var d = new Float32Array(mask.length);
+    var i, x, y, best;
+    for (i = 0; i < mask.length; i++) d[i] = mask[i] ? inf : 0;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!mask[i]) continue;
+        best = d[i];
+        if (x > 0) best = Math.min(best, d[i - 1] + 1);
+        if (y > 0) best = Math.min(best, d[i - w] + 1);
+        if (x > 0 && y > 0) best = Math.min(best, d[i - w - 1] + 1.414);
+        if (x + 1 < w && y > 0) best = Math.min(best, d[i - w + 1] + 1.414);
+        d[i] = best;
+      }
+    }
+    for (y = h - 1; y >= 0; y--) {
+      for (x = w - 1; x >= 0; x--) {
+        i = y * w + x;
+        if (!mask[i]) continue;
+        best = d[i];
+        if (x + 1 < w) best = Math.min(best, d[i + 1] + 1);
+        if (y + 1 < h) best = Math.min(best, d[i + w] + 1);
+        if (x + 1 < w && y + 1 < h) best = Math.min(best, d[i + w + 1] + 1.414);
+        if (x > 0 && y + 1 < h) best = Math.min(best, d[i + w - 1] + 1.414);
+        d[i] = best;
+      }
+    }
+    return d;
+  }
+
+  function zhangSuen(mask, w, h) {
+    var img = new Uint8Array(mask);
+    var changed = true;
+    var pass, y, x, i, p, b, a, k, kill;
+    function nb(px, py) {
+      return [
+        on(img, w, h, px, py - 1),
+        on(img, w, h, px + 1, py - 1),
+        on(img, w, h, px + 1, py),
+        on(img, w, h, px + 1, py + 1),
+        on(img, w, h, px, py + 1),
+        on(img, w, h, px - 1, py + 1),
+        on(img, w, h, px - 1, py),
+        on(img, w, h, px - 1, py - 1)
+      ];
+    }
+    while (changed) {
+      changed = false;
+      for (pass = 0; pass < 2; pass++) {
+        kill = [];
+        for (y = 1; y < h - 1; y++) {
+          for (x = 1; x < w - 1; x++) {
+            i = y * w + x;
+            if (!img[i]) continue;
+            p = nb(x, y);
+            b = p[0] + p[1] + p[2] + p[3] + p[4] + p[5] + p[6] + p[7];
+            if (b < 2 || b > 6) continue;
+            a = 0;
+            for (k = 0; k < 8; k++) if (!p[k] && p[(k + 1) % 8]) a++;
+            if (a !== 1) continue;
+            if (pass === 0) {
+              if (p[0] && p[2] && p[4]) continue;
+              if (p[2] && p[4] && p[6]) continue;
+            } else {
+              if (p[0] && p[2] && p[6]) continue;
+              if (p[0] && p[4] && p[6]) continue;
+            }
+            kill.push(i);
+          }
+        }
+        if (!kill.length) continue;
+        changed = true;
+        for (k = 0; k < kill.length; k++) img[kill[k]] = 0;
+      }
+    }
+    return img;
+  }
+
+  function skelNeighbors(img, w, h, x, y) {
+    var out = [];
+    var k, nx, ny;
+    for (k = 0; k < 8; k++) {
+      nx = x + DX[k];
+      ny = y + DY[k];
+      if (on(img, w, h, nx, ny)) out.push([nx, ny]);
+    }
+    return out;
+  }
+
+  function walkSkeleton(img, w, h) {
+    var seen = new Uint8Array(img.length);
+    var chains = [];
+    var y, x, i, deg, nbs, start, pts, prev, cur, nxt, guard, k;
+    function degree(px, py) {
+      return skelNeighbors(img, w, h, px, py).length;
+    }
+    function trace(sx, sy, from) {
+      var pts = [[sx, sy]];
+      var prev = from;
+      var cur = [sx, sy];
+      var guard = 0;
+      seen[sy * w + sx] = 1;
+      while (guard++ < w * h) {
+        var nbs = skelNeighbors(img, w, h, cur[0], cur[1]);
+        var nxt = null;
+        for (var k = 0; k < nbs.length; k++) {
+          if (prev && nbs[k][0] === prev[0] && nbs[k][1] === prev[1]) continue;
+          nxt = nbs[k];
+          break;
+        }
+        if (!nxt) break;
+        if (seen[nxt[1] * w + nxt[0]] && !(nxt[0] === sx && nxt[1] === sy)) break;
+        pts.push(nxt);
+        if (nxt[0] === sx && nxt[1] === sy) break;
+        seen[nxt[1] * w + nxt[0]] = 1;
+        prev = cur;
+        cur = nxt;
+        if (degree(cur[0], cur[1]) !== 2 && pts.length > 1) break;
+      }
+      return pts;
+    }
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!img[i] || seen[i]) continue;
+        deg = degree(x, y);
+        if (deg === 2) continue;
+        chains.push(trace(x, y, null));
+      }
+    }
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!img[i] || seen[i]) continue;
+        chains.push(trace(x, y, null));
+      }
+    }
+    return chains;
+  }
+
+  function relaxSpine(points, closed) {
+    if (!points || points.length < 5) return points;
+    var out = points.map(function (p) { return p.slice(); });
+    var pass, i, n, a, b, c;
+    for (pass = 0; pass < 2; pass++) {
+      n = out.length;
+      var next = out.map(function (p) { return p.slice(); });
+      for (i = 0; i < n; i++) {
+        if (!closed && (i === 0 || i === n - 1)) continue;
+        a = out[(i + n - 1) % n];
+        b = out[i];
+        c = out[(i + 1) % n];
+        next[i] = [(a[0] + b[0] * 2 + c[0]) / 4, (a[1] + b[1] * 2 + c[1]) / 4];
+      }
+      out = next;
+    }
+    return out;
+  }
+
+  function toOpenPath(points, ox, oy, scale, opts, closed) {
+    if (!points || points.length < 2) return "";
+    points = relaxSpine(points, closed);
+    var alphamax = 1.15;
+    var opttolerance = 0.42;
+    var ring = points;
+    var corners = [0];
+    var i, a, b, c, from, to, span, idx, guard, segs, fit, parts, s, seg;
+    if (closed && points.length > 2) {
+      fit = fitContour(points.concat([points[0].slice()]), alphamax, opttolerance);
+      if (!fit || !fit.segs.length) return "";
+      parts = ["M" + xy(fit.start, ox, oy, scale)];
+      for (s = 0; s < fit.segs.length; s++) {
+        seg = fit.segs[s];
+        if (seg.k === "C") parts.push("C" + xy(seg.c[1], ox, oy, scale) + " " + xy(seg.c[2], ox, oy, scale) + " " + xy(seg.c[3], ox, oy, scale));
+        else parts.push("L" + xy(seg.p, ox, oy, scale));
+      }
+      parts.push("Z");
+      return parts.join(" ");
+    }
+    for (i = 1; i < ring.length - 1; i++) {
+      a = ring[i - 1];
+      b = ring[i];
+      c = ring[i + 1];
+      if (turnAt(a, b, c) >= alphamax) corners.push(i);
+    }
+    corners.push(ring.length - 1);
+    segs = [];
+    for (i = 0; i < corners.length - 1; i++) {
+      from = corners[i];
+      to = corners[i + 1];
+      span = ring.slice(from, to + 1);
+      if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1] });
+      else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
+    }
+    parts = ["M" + xy(ring[0], ox, oy, scale)];
+    for (s = 0; s < segs.length; s++) {
+      seg = segs[s];
+      if (seg.k === "C") parts.push("C" + xy(seg.c[1], ox, oy, scale) + " " + xy(seg.c[2], ox, oy, scale) + " " + xy(seg.c[3], ox, oy, scale));
+      else parts.push("L" + xy(seg.p, ox, oy, scale));
+    }
+    return parts.join(" ");
+  }
+
+
+  function joinChains(chains) {
+    var pool = [];
+    var i, c;
+    for (i = 0; i < chains.length; i++) {
+      c = chains[i];
+      if (c && c.length >= 2) pool.push(c.map(function (p) { return p.slice(); }));
+    }
+    function near(a, b) {
+      return Math.hypot(a[0] - b[0], a[1] - b[1]) <= 2.4;
+    }
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (i = 0; i < pool.length; i++) {
+        for (var j = i + 1; j < pool.length; j++) {
+          var a = pool[i];
+          var b = pool[j];
+          var merged = null;
+          if (near(a[a.length - 1], b[0])) merged = a.concat(b.slice(1));
+          else if (near(a[a.length - 1], b[b.length - 1])) merged = a.concat(b.slice(0, -1).reverse());
+          else if (near(a[0], b[0])) merged = a.slice().reverse().concat(b.slice(1));
+          else if (near(a[0], b[b.length - 1])) merged = b.concat(a.slice(1));
+          if (!merged) continue;
+          pool[i] = merged;
+          pool.splice(j, 1);
+          changed = true;
+          break;
+        }
+        if (changed) break;
+      }
+    }
+    return pool;
+  }
+
+  function peelThin(mask, w, h) {
+    var seen = new Uint8Array(mask.length);
+    var rest = new Uint8Array(mask);
+    var strokes = [];
+    var y, x, i, stack, cells, cx, cy, nx, ny, k, idx, local, dist, samples, width, skel, chains, best, pts, closed, s;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!mask[i] || seen[i]) continue;
+        stack = [[x, y]];
+        seen[i] = 1;
+        cells = [];
+        while (stack.length) {
+          var c = stack.pop();
+          cx = c[0];
+          cy = c[1];
+          cells.push(c);
+          for (k = 0; k < 8; k++) {
+            nx = cx + DX[k];
+            ny = cy + DY[k];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            idx = ny * w + nx;
+            if (!mask[idx] || seen[idx]) continue;
+            seen[idx] = 1;
+            stack.push([nx, ny]);
+          }
+        }
+        if (cells.length < 12) continue;
+        local = new Uint8Array(w * h);
+        for (k = 0; k < cells.length; k++) local[cells[k][1] * w + cells[k][0]] = 1;
+        dist = distMap(local, w, h);
+        samples = [];
+        for (k = 0; k < cells.length; k++) samples.push(dist[cells[k][1] * w + cells[k][0]]);
+        samples.sort(function (a, b) { return a - b; });
+        width = samples[Math.min(samples.length - 1, (samples.length * 0.9) | 0)] * 2;
+        if (width > 6.5 || samples[samples.length - 1] > 5.5) continue;
+        skel = zhangSuen(local, w, h);
+        chains = joinChains(walkSkeleton(skel, w, h));
+        if (!chains.length) continue;
+        for (k = 0; k < cells.length; k++) rest[cells[k][1] * w + cells[k][0]] = 0;
+        for (k = 0; k < chains.length; k++) {
+          best = chains[k];
+          if (!best || best.length < 6) continue;
+          closed = best.length > 8 && Math.hypot(best[0][0] - best[best.length - 1][0], best[0][1] - best[best.length - 1][1]) < 2.2;
+          pts = [];
+          for (s = 0; s < best.length; s++) pts.push([best[s][0] + 0.5, best[s][1] + 0.5]);
+          if (closed) pts = pts.slice(0, -1);
+          strokes.push({ points: pts, closed: closed, width: width });
+        }
+      }
+    }
+    return { rest: rest, strokes: strokes };
+  }
+
   function shapesFromMask(mask, w, h, opts, job, idBase) {
     var turd = opts.turdsize != null ? opts.turdsize : Math.max(6, Math.round((w * h) / 14000));
     var ink = bridgeGaps(mask, w, h);
@@ -1383,13 +1736,15 @@
     ink = despeckle(ink, w, h, turd);
     ink = fillSmallHoles(ink, w, h, turd);
     ink = dilate(ink, w, h);
+    var peeled = peelThin(ink, w, h);
+    ink = peeled.rest;
     var field = softField(ink, w, h);
     var raw = prepare(contours(ink, w, h, opts.maxContours || 16), ink, w, h, opts.alphamax, field, 128);
     var holes = prepare(holeContours(ink, w, h, opts.maxHoles || 12), ink, w, h, opts.alphamax, field, 128);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
-    var simplified = simplify(raw, eps, minArea, opts.alphamax);
-    var holeSlim = simplify(holes, eps, minArea, opts.alphamax);
+    var simplified = simplify(raw, eps, minArea, opts.alphamax, ink, w, h);
+    var holeSlim = simplify(holes, eps, minArea, opts.alphamax, ink, w, h);
     simplified.sort(function (a, b) { return area(b) - area(a); });
     simplified = simplified.slice(0, opts.maxShapes || 8);
     var edge = Math.max(w, h);
@@ -1398,10 +1753,27 @@
     var oy = (1024 - h * scale) / 2;
     var shapes = [];
     var used = new Array(holeSlim.length);
-    var i, j, parent, holeArea, d, hd;
+    var i, j, parent, holeArea, d, hd, strokePath, sw;
     var role = job === "accent" ? "accent" : "figure";
+    for (i = 0; i < peeled.strokes.length; i++) {
+      strokePath = toOpenPath(peeled.strokes[i].points, ox, oy, scale, opts, peeled.strokes[i].closed);
+      if (!strokePath) continue;
+      sw = Math.max(1, round1(peeled.strokes[i].width * scale));
+      shapes.push({
+        id: idBase + "-stroke-" + (shapes.length + 1),
+        type: "path",
+        role: role,
+        fill: "none",
+        stroke: job,
+        strokeWidth: sw,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        d: strokePath
+      });
+    }
     for (i = 0; i < simplified.length; i++) {
-      d = toPath(simplified[i], ox, oy, scale, opts);
+      var fitted = thinFit(simplified[i], ink, w, h, opts);
+      d = toPath(fitted.points, ox, oy, scale, fitted.opts);
       if (!d) continue;
       for (j = 0; j < holeSlim.length; j++) {
         if (used[j]) continue;
@@ -1409,7 +1781,8 @@
         parent = area(simplified[i]);
         holeArea = area(holeSlim[j]);
         if (holeArea >= parent * 0.92) continue;
-        hd = toPath(holeSlim[j], ox, oy, scale, opts);
+        var holeFit = thinFit(holeSlim[j], ink, w, h, opts);
+        hd = toPath(holeFit.points, ox, oy, scale, holeFit.opts);
         if (!hd) continue;
         d += " " + hd;
         used[j] = 1;
@@ -1558,12 +1931,14 @@
     mask = smoothMask(mask, w, h);
     mask = despeckle(mask, w, h, turd);
     mask = fillSmallHoles(mask, w, h, turd);
+    var peeled = peelThin(mask, w, h);
+    mask = peeled.rest;
     var raw = prepare(contours(mask, w, h, opts.maxContours || 64), mask, w, h, opts.alphamax, bytes, level);
     var holes = prepare(holeContours(mask, w, h, opts.maxHoles || 24), mask, w, h, opts.alphamax, bytes, level);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
-    var simplified = simplify(raw, eps, minArea, opts.alphamax);
-    var holeSlim = simplify(holes, eps, minArea, opts.alphamax);
+    var simplified = simplify(raw, eps, minArea, opts.alphamax, mask, w, h);
+    var holeSlim = simplify(holes, eps, minArea, opts.alphamax, mask, w, h);
     simplified.sort(function (a, b) { return area(b) - area(a); });
     simplified = simplified.slice(0, opts.maxShapes || 18);
     var edge = Math.max(w, h);
@@ -1572,9 +1947,26 @@
     var oy = (1024 - h * scale) / 2;
     var shapes = [];
     var used = new Array(holeSlim.length);
-    var i, j, parent, holeArea, d, hd;
+    var i, j, parent, holeArea, d, hd, strokePath, sw;
+    for (i = 0; i < peeled.strokes.length; i++) {
+      strokePath = toOpenPath(peeled.strokes[i].points, ox, oy, scale, opts, peeled.strokes[i].closed);
+      if (!strokePath) continue;
+      sw = Math.max(1, round1(peeled.strokes[i].width * scale));
+      shapes.push({
+        id: "trace-stroke-" + (shapes.length + 1),
+        type: "path",
+        role: "figure",
+        fill: "none",
+        stroke: "figure",
+        strokeWidth: sw,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        d: strokePath
+      });
+    }
     for (i = 0; i < simplified.length; i++) {
-      d = toPath(simplified[i], ox, oy, scale, opts);
+      var fitted = thinFit(simplified[i], mask, w, h, opts);
+      d = toPath(fitted.points, ox, oy, scale, fitted.opts);
       if (!d) continue;
       for (j = 0; j < holeSlim.length; j++) {
         if (used[j]) continue;
@@ -1582,7 +1974,8 @@
         parent = area(simplified[i]);
         holeArea = area(holeSlim[j]);
         if (holeArea >= parent * 0.92) continue;
-        hd = toPath(holeSlim[j], ox, oy, scale, opts);
+        var holeFit = thinFit(holeSlim[j], mask, w, h, opts);
+        hd = toPath(holeFit.points, ox, oy, scale, holeFit.opts);
         if (!hd) continue;
         d += " " + hd;
         used[j] = 1;
