@@ -41,6 +41,37 @@
     return luma.length ? s / luma.length : 128;
   }
 
+  function median3(luma, w, h) {
+    var out = new Uint8Array(luma.length);
+    var y, x, sy, sx, yy, xx, n, buf, k, a, b, tmp;
+    buf = new Array(9);
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        n = 0;
+        for (sy = -1; sy <= 1; sy++) {
+          yy = y + sy;
+          if (yy < 0 || yy >= h) continue;
+          for (sx = -1; sx <= 1; sx++) {
+            xx = x + sx;
+            if (xx < 0 || xx >= w) continue;
+            buf[n++] = luma[yy * w + xx];
+          }
+        }
+        for (a = 1; a < n; a++) {
+          tmp = buf[a];
+          b = a;
+          while (b > 0 && buf[b - 1] > tmp) {
+            buf[b] = buf[b - 1];
+            b--;
+          }
+          buf[b] = tmp;
+        }
+        out[y * w + x] = buf[n >> 1];
+      }
+    }
+    return out;
+  }
+
   function blur3(luma, w, h) {
     var out = new Uint8Array(luma.length);
     var y, x, sy, sx, sum, n, yy, xx;
@@ -405,14 +436,30 @@
     ];
   }
 
-  function guessCubic(pts) {
+  function guessCubic(pts, scale) {
     var a = pts[0];
     var b = pts[pts.length - 1];
     var t1 = tangentAt(pts, 0);
     var t2 = tangentAt(pts, pts.length - 1);
     var chord = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    var alpha = chord / 3;
+    var alpha = chord * (scale != null ? scale : 1 / 3);
     return [a, [a[0] + t1[0] * alpha, a[1] + t1[1] * alpha], [b[0] - t2[0] * alpha, b[1] - t2[1] * alpha], b];
+  }
+
+  function fitCubic(pts) {
+    var scales = [0.18, 0.28, 0.34, 0.45, 0.58];
+    var best = guessCubic(pts, scales[2]);
+    var bestErr = cubicError(pts, best).max;
+    var i, cubic, err;
+    for (i = 0; i < scales.length; i++) {
+      cubic = guessCubic(pts, scales[i]);
+      err = cubicError(pts, cubic).max;
+      if (err < bestErr) {
+        bestErr = err;
+        best = cubic;
+      }
+    }
+    return best;
   }
 
   function cubicError(pts, cubic) {
@@ -433,7 +480,7 @@
 
   function fitSpan(pts, tol, depth) {
     if (pts.length < 3) return [{ k: "L", p: pts[pts.length - 1] }];
-    var cubic = guessCubic(pts);
+    var cubic = fitCubic(pts);
     var err = cubicError(pts, cubic);
     if (err.max <= tol || depth > 5 || pts.length < 5) return [{ k: "C", c: cubic }];
     var mid = err.at;
@@ -513,6 +560,65 @@
     }
     parts.push("Z");
     return parts.join(" ");
+  }
+
+  function closedRing(points) {
+    var ring = points.slice();
+    var closed = ring.length > 2 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1];
+    if (closed) ring = ring.slice(0, -1);
+    return { ring: ring, closed: closed };
+  }
+
+  function settle(points, mask, w, h) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var out = [];
+    var i, x, y, ox, oy, n, k, nx, ny;
+    for (i = 0; i < ring.length; i++) {
+      x = ring[i][0];
+      y = ring[i][1];
+      ox = 0;
+      oy = 0;
+      n = 0;
+      for (k = 0; k < 4; k++) {
+        nx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
+        ny = y + (k === 2 ? 1 : k === 3 ? -1 : 0);
+        if (on(mask, w, h, nx, ny)) continue;
+        ox += nx - x;
+        oy += ny - y;
+        n++;
+      }
+      if (!n) out.push([x, y]);
+      else out.push([x + (ox / n) * 0.45, y + (oy / n) * 0.45]);
+    }
+    if (pack.closed && out.length) out.push(out[0].slice());
+    return out;
+  }
+
+  function smoothChain(points, corner) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    if (ring.length < 5) return points.slice();
+    var limit = corner != null ? corner : 0.95;
+    var out = [];
+    var i, a, b, c, turn;
+    for (i = 0; i < ring.length; i++) {
+      a = ring[(i + ring.length - 1) % ring.length];
+      b = ring[i];
+      c = ring[(i + 1) % ring.length];
+      turn = turnAt(a, b, c);
+      if (turn >= limit) out.push(b.slice());
+      else out.push([(a[0] + b[0] * 2 + c[0]) / 4, (a[1] + b[1] * 2 + c[1]) / 4]);
+    }
+    if (pack.closed && out.length) out.push(out[0].slice());
+    return out;
+  }
+
+  function prepare(raw, mask, w, h, corner) {
+    var settled = [];
+    var i;
+    for (i = 0; i < raw.length; i++) settled.push(smoothChain(settle(raw[i], mask, w, h), corner));
+    return settled;
   }
 
   function simplify(raw, eps, minArea) {
@@ -641,9 +747,9 @@
     var ink = despeckle(mask, w, h, turd);
     ink = fillSmallHoles(ink, w, h, turd);
     ink = dilate(ink, w, h);
-    var raw = contours(ink, w, h, opts.maxContours || 16);
-    var holes = holeContours(ink, w, h, opts.maxHoles || 12);
-    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.85, Math.min(2.1, Math.max(w, h) / 220));
+    var raw = prepare(contours(ink, w, h, opts.maxContours || 16), ink, w, h, opts.alphamax);
+    var holes = prepare(holeContours(ink, w, h, opts.maxHoles || 12), ink, w, h, opts.alphamax);
+    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.75, Math.min(1.7, Math.max(w, h) / 280));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
     var simplified = simplify(raw, eps, minArea);
     var holeSlim = simplify(holes, eps, minArea);
@@ -700,9 +806,9 @@
       bch[i] = src[o + 2];
     }
     if (opts.blur !== false) {
-      rch = blur3(rch, w, h);
-      gch = blur3(gch, w, h);
-      bch = blur3(bch, w, h);
+      rch = median3(rch, w, h);
+      gch = median3(gch, w, h);
+      bch = median3(bch, w, h);
     }
     var packed = new Uint8Array(w * h * 3);
     for (i = 0; i < w * h; i++) {
@@ -792,7 +898,7 @@
     if (!w || !h || !luma || luma.length < w * h) return { ok: false, error: "empty raster" };
     var opts = options || {};
     var bytes = luma.length === w * h ? luma : luma.subarray(0, w * h);
-    if (opts.blur !== false) bytes = blur3(bytes, w, h);
+    if (opts.blur !== false) bytes = median3(bytes, w, h);
     var tone = borderTone(bytes, w, h);
     var level = opts.threshold != null ? (opts.threshold | 0) : otsu(bytes);
     var invert;
@@ -805,9 +911,9 @@
     var turd = opts.turdsize != null ? opts.turdsize : Math.max(6, Math.round((w * h) / 14000));
     mask = despeckle(mask, w, h, turd);
     mask = fillSmallHoles(mask, w, h, turd);
-    var raw = contours(mask, w, h, opts.maxContours || 64);
-    var holes = holeContours(mask, w, h, opts.maxHoles || 24);
-    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.85, Math.min(2.1, Math.max(w, h) / 220));
+    var raw = prepare(contours(mask, w, h, opts.maxContours || 64), mask, w, h, opts.alphamax);
+    var holes = prepare(holeContours(mask, w, h, opts.maxHoles || 24), mask, w, h, opts.alphamax);
+    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.75, Math.min(1.7, Math.max(w, h) / 280));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
     var simplified = simplify(raw, eps, minArea);
     var holeSlim = simplify(holes, eps, minArea);
@@ -878,7 +984,7 @@
 
   function fromImage(img, done, options) {
     var opts = options || {};
-    var maxEdge = opts.maxEdge || 512;
+    var maxEdge = opts.maxEdge || 640;
     var sw = img.naturalWidth || img.width;
     var sh = img.naturalHeight || img.height;
     if (!sw || !sh) {
