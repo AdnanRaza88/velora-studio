@@ -41,6 +41,29 @@
     return luma.length ? s / luma.length : 128;
   }
 
+  function blur3(luma, w, h) {
+    var out = new Uint8Array(luma.length);
+    var y, x, sy, sx, sum, n, yy, xx;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        sum = 0;
+        n = 0;
+        for (sy = -1; sy <= 1; sy++) {
+          yy = y + sy;
+          if (yy < 0 || yy >= h) continue;
+          for (sx = -1; sx <= 1; sx++) {
+            xx = x + sx;
+            if (xx < 0 || xx >= w) continue;
+            sum += luma[yy * w + xx];
+            n++;
+          }
+        }
+        out[y * w + x] = (sum / n) | 0;
+      }
+    }
+    return out;
+  }
+
   function inkMask(luma, level, invert) {
     var mask = new Uint8Array(luma.length);
     for (var i = 0; i < luma.length; i++) {
@@ -48,6 +71,46 @@
       mask[i] = invert ? (dark ? 0 : 1) : (dark ? 1 : 0);
     }
     return mask;
+  }
+
+  function despeckle(mask, w, h, turd) {
+    var out = new Uint8Array(mask);
+    var seen = new Uint8Array(mask.length);
+    var y, x, i, stack, area, cells, cx, cy, nx, ny, k, idx;
+    var N8X = [1, 1, 0, -1, -1, -1, 0, 1];
+    var N8Y = [0, 1, 1, 1, 0, -1, -1, -1];
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!mask[i] || seen[i]) continue;
+        stack = [[x, y]];
+        seen[i] = 1;
+        area = 0;
+        cells = [];
+        while (stack.length) {
+          var c = stack.pop();
+          cx = c[0];
+          cy = c[1];
+          cells.push(c);
+          area++;
+          for (k = 0; k < 8; k++) {
+            nx = cx + N8X[k];
+            ny = cy + N8Y[k];
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            idx = ny * w + nx;
+            if (!mask[idx] || seen[idx]) continue;
+            seen[idx] = 1;
+            stack.push([nx, ny]);
+          }
+        }
+        if (area < turd) {
+          for (k = 0; k < cells.length; k++) {
+            out[cells[k][1] * w + cells[k][0]] = 0;
+          }
+        }
+      }
+    }
+    return out;
   }
 
   function on(mask, w, h, x, y) {
@@ -125,37 +188,73 @@
     return Math.abs(a) / 2;
   }
 
-  function toPath(points, ox, oy, scale) {
-    if (points.length < 3) return "";
-    var parts = [];
-    for (var i = 0; i < points.length; i++) {
-      var x = round1(ox + points[i][0] * scale);
-      var y = round1(oy + points[i][1] * scale);
-      parts.push((i === 0 ? "M" : "L") + x + " " + y);
+  function chaikin(points, rounds) {
+    if (points.length < 3) return points.slice();
+    var pts = points.slice();
+    var closed = pts.length > 2 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1];
+    if (closed) pts = pts.slice(0, -1);
+    var r, i, next, a, b;
+    for (r = 0; r < rounds; r++) {
+      next = [];
+      for (i = 0; i < pts.length; i++) {
+        a = pts[i];
+        b = pts[(i + 1) % pts.length];
+        next.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+        next.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+      }
+      pts = next;
     }
-    parts.push("Z");
+    if (closed && pts.length) pts.push([pts[0][0], pts[0][1]]);
+    return pts;
+  }
+
+  function toPath(points, ox, oy, scale, smooth) {
+    if (points.length < 3) return "";
+    var pts = smooth ? chaikin(points, 1) : points;
+    if (pts.length < 3) pts = points;
+    var parts = [];
+    var i, x, y, x1, y1, x2, y2;
+    if (pts.length >= 4 && smooth) {
+      x = round1(ox + pts[0][0] * scale);
+      y = round1(oy + pts[0][1] * scale);
+      parts.push("M" + x + " " + y);
+      for (i = 1; i < pts.length - 2; i += 2) {
+        x1 = round1(ox + pts[i][0] * scale);
+        y1 = round1(oy + pts[i][1] * scale);
+        x2 = round1(ox + pts[Math.min(i + 1, pts.length - 1)][0] * scale);
+        y2 = round1(oy + pts[Math.min(i + 1, pts.length - 1)][1] * scale);
+        parts.push("Q" + x1 + " " + y1 + " " + x2 + " " + y2);
+      }
+      parts.push("Z");
+    } else {
+      for (i = 0; i < pts.length; i++) {
+        x = round1(ox + pts[i][0] * scale);
+        y = round1(oy + pts[i][1] * scale);
+        parts.push((i === 0 ? "M" : "L") + x + " " + y);
+      }
+      parts.push("Z");
+    }
     return parts.join(" ");
   }
 
-  function contours(mask, w, h) {
+  function contours(mask, w, h, maxContours) {
     var seen = new Uint8Array(mask.length);
     var found = [];
-    var y;
-    var x;
+    var y, x, i, raw, p, px, py;
+    var limit = maxContours || 48;
     for (y = 0; y < h; y++) {
       for (x = 0; x < w; x++) {
-        var i = y * w + x;
+        i = y * w + x;
         if (!mask[i] || seen[i]) continue;
         if (on(mask, w, h, x - 1, y)) continue;
-        var raw = walk(mask, w, h, x, y);
-        var p;
+        raw = walk(mask, w, h, x, y);
         for (p = 0; p < raw.length; p++) {
-          var px = raw[p][0];
-          var py = raw[p][1];
+          px = raw[p][0];
+          py = raw[p][1];
           if (px >= 0 && py >= 0 && px < w && py < h) seen[py * w + px] = 1;
         }
-        if (raw.length >= 4) found.push(raw);
-        if (found.length >= 24) return found;
+        if (raw.length >= 6) found.push(raw);
+        if (found.length >= limit) return found;
       }
     }
     return found;
@@ -167,28 +266,33 @@
     if (!w || !h || !luma || luma.length < w * h) {
       return { ok: false, error: "empty raster" };
     }
+    var opts = options || {};
     var bytes = luma.length === w * h ? luma : luma.subarray(0, w * h);
-    var level = otsu(bytes);
-    var invert = mean(bytes) < 96;
-    if (options && options.invert != null) invert = !!options.invert;
+    if (opts.blur !== false) bytes = blur3(bytes, w, h);
+    var level = opts.threshold != null ? (opts.threshold | 0) : otsu(bytes);
+    var invert = opts.invert != null ? !!opts.invert : mean(bytes) < 96;
     var mask = inkMask(bytes, level, invert);
-    var raw = contours(mask, w, h);
-    var eps = options && options.epsilon ? options.epsilon : 1.35;
+    var turd = opts.turdsize != null ? opts.turdsize : Math.max(4, Math.round((w * h) / 12000));
+    mask = despeckle(mask, w, h, turd);
+    var raw = contours(mask, w, h, opts.maxContours || 48);
+    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.9, Math.min(2.4, Math.max(w, h) / 180));
+    var minArea = opts.minArea != null ? opts.minArea : Math.max(8, (w * h) / 8000);
     var simplified = [];
-    var i;
+    var i, slim;
     for (i = 0; i < raw.length; i++) {
-      var slim = rdp(raw[i], eps);
-      if (slim.length >= 4 && area(slim) >= 6) simplified.push(slim);
+      slim = rdp(raw[i], eps);
+      if (slim.length >= 4 && area(slim) >= minArea) simplified.push(slim);
     }
     simplified.sort(function (a, b) { return area(b) - area(a); });
-    simplified = simplified.slice(0, 8);
+    simplified = simplified.slice(0, opts.maxShapes || 16);
     var edge = Math.max(w, h);
     var scale = 1024 / edge;
     var ox = (1024 - w * scale) / 2;
     var oy = (1024 - h * scale) / 2;
+    var smooth = opts.smooth !== false;
     var shapes = [];
     for (i = 0; i < simplified.length; i++) {
-      var d = toPath(simplified[i], ox, oy, scale);
+      var d = toPath(simplified[i], ox, oy, scale, smooth);
       if (!d) continue;
       shapes.push({
         id: "trace-" + (i + 1),
@@ -205,6 +309,7 @@
       viewBox: [0, 0, 1024, 1024],
       threshold: level,
       invert: invert,
+      turdsize: turd,
       contours: shapes.length,
       shapes: shapes
     };
@@ -217,13 +322,14 @@
     return out;
   }
 
-  function fromRaster(payload) {
+  function fromRaster(payload, options) {
     if (!payload || !payload.ok) return { ok: false, error: (payload && payload.error) || "missing raster" };
-    return fromLuma(payload.width, payload.height, decodeLuma(payload.luma));
+    return fromLuma(payload.width, payload.height, decodeLuma(payload.luma), options);
   }
 
-  function fromImage(img, done) {
-    var maxEdge = 96;
+  function fromImage(img, done, options) {
+    var opts = options || {};
+    var maxEdge = opts.maxEdge || 384;
     var sw = img.naturalWidth || img.width;
     var sh = img.naturalHeight || img.height;
     if (!sw || !sh) {
@@ -244,7 +350,7 @@
       var o = i * 4;
       luma[i] = (data[o] * 54 + data[o + 1] * 183 + data[o + 2] * 19) >> 8;
     }
-    done(fromLuma(w, h, luma));
+    done(fromLuma(w, h, luma, opts));
   }
 
   function documentFrom(trace, brief, name) {
