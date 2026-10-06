@@ -674,13 +674,71 @@
   }
 
   function fitSpan(pts, tol, depth) {
-    if (pts.length < 3) return [{ k: "L", p: pts[pts.length - 1] }];
+    if (pts.length < 3) return [{ k: "L", p: pts[pts.length - 1], pts: pts }];
     var fit = fitTight(pts);
     var err = cubicError(pts, fit.cubic, fit.ts);
-    if (err.max <= tol || depth > 5 || pts.length < 5) return [{ k: "C", c: fit.cubic }];
+    if (err.max <= tol || depth > 5 || pts.length < 5) {
+      if (flatCubic(fit.cubic, tol * 0.65)) return [{ k: "L", p: pts[pts.length - 1], pts: pts }];
+      return [{ k: "C", c: fit.cubic, pts: pts }];
+    }
     var mid = err.at;
     if (mid < 2 || mid > pts.length - 3) mid = (pts.length / 2) | 0;
     return fitSpan(pts.slice(0, mid + 1), tol, depth + 1).concat(fitSpan(pts.slice(mid), tol, depth + 1));
+  }
+
+  function flatCubic(cubic, tol) {
+    var a = cubic[0];
+    var b = cubic[3];
+    return distPointSeg(cubic[1], a, b) <= tol && distPointSeg(cubic[2], a, b) <= tol;
+  }
+
+  function joinPts(a, b) {
+    if (!a || !b || !a.length || !b.length) return null;
+    var out = a.slice();
+    var start = 0;
+    var last = out[out.length - 1];
+    if (b[0][0] === last[0] && b[0][1] === last[1]) start = 1;
+    var i;
+    for (i = start; i < b.length; i++) out.push(b[i]);
+    return out;
+  }
+
+  function opticurve(segs, tol) {
+    var cur = [];
+    var i, seg, pts, end, merged, fit, err;
+    for (i = 0; i < segs.length; i++) {
+      seg = segs[i];
+      if (seg.k === "C" && flatCubic(seg.c, tol * 0.65)) cur.push({ k: "L", p: seg.c[3], pts: seg.pts });
+      else cur.push(seg);
+    }
+    var out = [];
+    i = 0;
+    while (i < cur.length) {
+      seg = cur[i];
+      if (seg.k !== "C" || !seg.pts) {
+        out.push(seg);
+        i++;
+        continue;
+      }
+      pts = seg.pts;
+      end = i;
+      while (end + 1 < cur.length && cur[end + 1].k === "C" && cur[end + 1].pts) {
+        merged = joinPts(pts, cur[end + 1].pts);
+        if (!merged || merged.length < 4) break;
+        fit = fitTight(merged);
+        err = cubicError(merged, fit.cubic, fit.ts);
+        if (err.max > tol || flatCubic(fit.cubic, tol * 0.65)) break;
+        pts = merged;
+        end++;
+      }
+      if (end === i) out.push(seg);
+      else {
+        fit = fitTight(pts);
+        out.push({ k: "C", c: fit.cubic, pts: pts });
+      }
+      i = end + 1;
+    }
+    return out;
   }
 
   function turnAt(a, b, c) {
@@ -724,8 +782,8 @@
         guard++;
       } while (idx !== to && guard <= ring.length);
       if (span.length < 2) continue;
-      if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1] });
-      else segs = segs.concat(fitSpan(span, opttolerance, 0));
+      if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+      else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
     return { start: start, segs: segs };
   }
@@ -968,6 +1026,32 @@
     return dr * dr + dg * dg + db * db;
   }
 
+  function linChan(c) {
+    var x = c / 255;
+    return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  }
+
+  function toOklab(rgb) {
+    var r = linChan(rgb[0]);
+    var g = linChan(rgb[1]);
+    var b = linChan(rgb[2]);
+    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [
+      0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+      1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+      0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+    ];
+  }
+
+  function labDist2(a, b) {
+    var dl = a[0] - b[0];
+    var da = a[1] - b[1];
+    var db = a[2] - b[2];
+    return dl * dl + da * da + db * db;
+  }
+
   function quantizeInks(rgb, w, h) {
     var n = w * h;
     var stride = Math.max(1, (n / 3200) | 0);
@@ -982,16 +1066,20 @@
       samples.push([r, g, b]);
     }
     if (samples.length < 16) return [];
+    var labs = [];
+    for (s = 0; s < samples.length; s++) labs.push(toOklab(samples[s]));
     var k = 4;
-    var centers = [samples[(samples.length / 3) | 0].slice()];
+    var seed = (samples.length / 3) | 0;
+    var centers = [samples[seed].slice()];
+    var centerLab = [labs[seed].slice()];
     var far, farD;
     while (centers.length < k) {
       far = 0;
       farD = -1;
       for (s = 0; s < samples.length; s++) {
         bestD = 1e12;
-        for (c = 0; c < centers.length; c++) {
-          d = colorDist2(samples[s], centers[c]);
+        for (c = 0; c < centerLab.length; c++) {
+          d = labDist2(labs[s], centerLab[c]);
           if (d < bestD) bestD = d;
         }
         if (bestD > farD) {
@@ -999,8 +1087,9 @@
           far = s;
         }
       }
-      if (farD < 40 * 40) break;
+      if (farD < 0.014) break;
       centers.push(samples[far].slice());
+      centerLab.push(labs[far].slice());
     }
     for (iter = 0; iter < 6; iter++) {
       sum = [];
@@ -1012,8 +1101,8 @@
       for (s = 0; s < samples.length; s++) {
         best = 0;
         bestD = 1e12;
-        for (c = 0; c < centers.length; c++) {
-          d = colorDist2(samples[s], centers[c]);
+        for (c = 0; c < centerLab.length; c++) {
+          d = labDist2(labs[s], centerLab[c]);
           if (d < bestD) {
             bestD = d;
             best = c;
@@ -1027,15 +1116,20 @@
       for (c = 0; c < centers.length; c++) {
         if (!cnt[c]) continue;
         centers[c] = [sum[c][0] / cnt[c], sum[c][1] / cnt[c], sum[c][2] / cnt[c]];
+        centerLab[c] = toOklab(centers[c]);
       }
     }
     var kept = [];
+    var keptLab = [];
     for (c = 0; c < centers.length; c++) {
       best = false;
-      for (s = 0; s < kept.length; s++) {
-        if (colorDist2(centers[c], kept[s]) < 34 * 34) best = true;
+      for (s = 0; s < keptLab.length; s++) {
+        if (labDist2(centerLab[c], keptLab[s]) < 0.006) best = true;
       }
-      if (!best) kept.push(centers[c]);
+      if (!best) {
+        kept.push(centers[c]);
+        keptLab.push(centerLab[c]);
+      }
     }
     return kept.slice(0, 4);
   }
@@ -1153,17 +1247,20 @@
       masks.push(new Uint8Array(w * h));
       counts.push(0);
     }
-    var cutoff = 58 * 58;
-    var best, bestD, d, r, g, b;
+    var cutoff = 0.028;
+    var centerLab = [];
+    for (c = 0; c < centers.length; c++) centerLab.push(toOklab(centers[c]));
+    var best, bestD, d, r, g, b, pix;
     for (i = 0; i < w * h; i++) {
       r = rch[i];
       g = gch[i];
       b = bch[i];
       if (paperPixel(r, g, b)) continue;
+      pix = toOklab([r, g, b]);
       best = -1;
       bestD = cutoff;
-      for (c = 0; c < centers.length; c++) {
-        d = colorDist2([r, g, b], centers[c]);
+      for (c = 0; c < centerLab.length; c++) {
+        d = labDist2(pix, centerLab[c]);
         if (d < bestD) {
           bestD = d;
           best = c;

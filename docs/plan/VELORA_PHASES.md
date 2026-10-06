@@ -40,8 +40,8 @@ Brief (+ optional attachment)
 - [x] Attach image
 - [x] Autotrace → path simplify → VXL paths
 - [x] User can edit result as normal VXL
-- [x] Trace quality: 768-edge raster, median denoise, despeckle, small-hole fill, light background and transparent pixels ignored, boundary settle, orthogonal runs snapped and collapsed, corner-preserving simplify, repeated close vertices dropped before corner cuts, chord-length least-squares cubics with two Newton reparameterization passes (alphamax / opttolerance), holes as evenodd subpaths
-- [x] Multi-ink trace: up to four separated fills (figure, accent, ink2, ink3), light paper ignored, seams overlapped one pixel; device raster sends packed RGB; single-ink stays binary
+- [x] Trace quality: 768-edge raster, median denoise, despeckle, small-hole fill, light background and transparent pixels ignored, boundary settle, orthogonal runs snapped and collapsed, corner-preserving simplify, repeated close vertices dropped before corner cuts, chord-length least-squares cubics with two Newton reparameterization passes, opticurve merges adjacent cubics inside a corner span and drops near-flat cubics to lines (alphamax / opttolerance), holes as evenodd subpaths
+- [x] Multi-ink trace: up to four separated fills (figure, accent, ink2, ink3), light paper ignored, seams overlapped one pixel; device raster sends packed RGB; single-ink stays binary; ink clusters and pixel assignment use OKLab so close logo hues stay apart
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
