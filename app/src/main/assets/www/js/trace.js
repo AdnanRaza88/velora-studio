@@ -1425,6 +1425,50 @@
     return hi >= 234 && hi - lo < 20;
   }
 
+  function borderPaper(rch, gch, bch, w, h) {
+    var stepX = Math.max(1, (w / 24) | 0);
+    var stepY = Math.max(1, (h / 24) | 0);
+    var samples = [];
+    function push(x, y) {
+      var i = y * w + x;
+      samples.push([rch[i], gch[i], bch[i]]);
+    }
+    var x, y;
+    for (x = 0; x < w; x += stepX) {
+      push(x, 0);
+      push(x, h - 1);
+    }
+    for (y = stepY; y < h - 1; y += stepY) {
+      push(0, y);
+      push(w - 1, y);
+    }
+    if (samples.length < 8) return null;
+    function mid(ch) {
+      var vals = samples.map(function (s) { return s[ch]; });
+      vals.sort(function (a, b) { return a - b; });
+      return vals[(vals.length / 2) | 0];
+    }
+    var rgb = [mid(0), mid(1), mid(2)];
+    var luma = (rgb[0] * 54 + rgb[1] * 183 + rgb[2] * 19) >> 8;
+    if (luma < 168) return null;
+    var lab = toOklab(rgb);
+    var hit = 0;
+    var i;
+    for (i = 0; i < samples.length; i++) {
+      if (labDist2(toOklab(samples[i]), lab) <= 0.012) hit++;
+    }
+    if (hit / samples.length < 0.62) return null;
+    return { rgb: rgb, lab: lab, luma: luma, tol: 0.009 };
+  }
+
+  function isBackdrop(r, g, b, paper) {
+    if (paperPixel(r, g, b)) return true;
+    if (!paper) return false;
+    var luma = (r * 54 + g * 183 + b * 19) >> 8;
+    if (luma + 22 < paper.luma) return false;
+    return labDist2(toOklab([r, g, b]), paper.lab) <= paper.tol;
+  }
+
   function colorDist2(a, b) {
     var dr = a[0] - b[0];
     var dg = a[1] - b[1];
@@ -1458,7 +1502,7 @@
     return dl * dl + da * da + db * db;
   }
 
-  function quantizeInks(rgb, w, h) {
+  function quantizeInks(rgb, w, h, paper) {
     var n = w * h;
     var stride = Math.max(1, (n / 3200) | 0);
     var samples = [];
@@ -1468,7 +1512,7 @@
       r = rgb[o];
       g = rgb[o + 1];
       b = rgb[o + 2];
-      if (paperPixel(r, g, b)) continue;
+      if (isBackdrop(r, g, b, paper)) continue;
       samples.push([r, g, b]);
     }
     if (samples.length < 16) return [];
@@ -1861,7 +1905,7 @@
     var peeled = peelThin(ink, w, h);
     ink = peeled.rest;
     var field = softField(ink, w, h);
-    var rings = dropHoleEchoes(sealRings(contours(ink, w, h, opts.maxContours || 16)), sealRings(holeContours(ink, w, h, opts.maxHoles || 12)));
+    var rings = dropHoleEchoes(sealRings(contours(ink, w, h, opts.maxContours || 32)), sealRings(holeContours(ink, w, h, opts.maxHoles || 12)));
     var raw = prepare(rings, ink, w, h, opts.alphamax, field, 128);
     var holes = prepare(sealRings(holeContours(ink, w, h, opts.maxHoles || 12)), ink, w, h, opts.alphamax, field, 128);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
@@ -1869,7 +1913,7 @@
     var simplified = simplify(raw, eps, minArea, opts.alphamax, ink, w, h);
     var holeSlim = simplify(holes, eps, minArea, opts.alphamax, ink, w, h);
     simplified.sort(function (a, b) { return area(b) - area(a); });
-    simplified = simplified.slice(0, opts.maxShapes || 8);
+    simplified = simplified.slice(0, opts.maxShapes || 14);
     var edge = Math.max(w, h);
     var scale = 1024 / edge;
     var ox = (1024 - w * scale) / 2;
@@ -1944,7 +1988,8 @@
       packed[i * 3 + 1] = gch[i];
       packed[i * 3 + 2] = bch[i];
     }
-    var centers = quantizeInks(packed, w, h);
+    var paper = borderPaper(rch, gch, bch, w, h);
+    var centers = quantizeInks(packed, w, h, paper);
     if (centers.length < 2) {
       var luma = new Uint8Array(w * h);
       for (i = 0; i < w * h; i++) luma[i] = (rch[i] * 54 + gch[i] * 183 + bch[i] * 19) >> 8;
@@ -1973,7 +2018,7 @@
       r = rch[i];
       g = gch[i];
       b = bch[i];
-      if (paperPixel(r, g, b)) continue;
+      if (isBackdrop(r, g, b, paper)) continue;
       pix = toOklab([r, g, b]);
       best = -1;
       bestD = cutoff;
@@ -2000,7 +2045,7 @@
     order.sort(function (a, b) { return counts[b] - counts[a]; });
     var shapes = [];
     var inks = [];
-    var palette = { ground: "#f6f1e8", figure: "#1e1b16", accent: "#355e57" };
+    var palette = { ground: paper ? hexOf(paper.rgb[0], paper.rgb[1], paper.rgb[2]) : "#f6f1e8", figure: "#1e1b16", accent: "#355e57" };
     var turd = opts.turdsize != null ? opts.turdsize : Math.max(6, Math.round((w * h) / 14000));
     for (c = 0; c < order.length; c++) {
       if (counts[order[c]] < turd) continue;
@@ -2012,7 +2057,7 @@
       palette[job] = hex;
       inks.push({ role: job, hex: hex, contours: batch.length });
       for (i = 0; i < batch.length; i++) shapes.push(batch[i]);
-      if (shapes.length >= 20) break;
+      if (shapes.length >= 32) break;
     }
     if (!shapes.length) return { ok: false, error: "no contours" };
     return {
