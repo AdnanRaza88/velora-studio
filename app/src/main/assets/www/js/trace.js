@@ -499,6 +499,76 @@
     return n ? [sx / n, sy / n] : [0, 0];
   }
 
+  function holeSamples(points) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var samples = [];
+    var step = Math.max(1, Math.floor(ring.length / 8));
+    var i;
+    for (i = 0; i < ring.length; i += step) samples.push(ring[i]);
+    var c = centroid(points);
+    if (c && isFinite(c[0]) && isFinite(c[1])) samples.push(c);
+    return samples;
+  }
+
+  function containedBy(parent, hole) {
+    var samples = holeSamples(hole);
+    if (samples.length < 2) return false;
+    var hits = 0;
+    var i;
+    for (i = 0; i < samples.length; i++) if (inside(parent, samples[i])) hits++;
+    return hits >= Math.max(2, Math.ceil(samples.length * 0.6));
+  }
+
+  function holeParents(outers, holes) {
+    var owners = new Array(holes.length);
+    var j, i, best, bestArea, parentArea, holeArea;
+    for (j = 0; j < holes.length; j++) {
+      owners[j] = -1;
+      best = -1;
+      bestArea = Infinity;
+      holeArea = Math.abs(area(holes[j]));
+      for (i = 0; i < outers.length; i++) {
+        parentArea = Math.abs(area(outers[i]));
+        if (holeArea >= parentArea * 0.92) continue;
+        if (!containedBy(outers[i], holes[j])) continue;
+        if (parentArea < bestArea) {
+          bestArea = parentArea;
+          best = i;
+        }
+      }
+      owners[j] = best;
+    }
+    return owners;
+  }
+
+  function dropHoleEchoes(outers, holes) {
+    var out = [];
+    var i, j, aa, ba, ratio, echo, ca, cb;
+    for (i = 0; i < outers.length; i++) {
+      echo = false;
+      aa = Math.abs(area(outers[i]));
+      ca = centroid(outers[i]);
+      for (j = 0; j < holes.length; j++) {
+        ba = Math.abs(area(holes[j]));
+        if (aa < 8 || ba < 8) continue;
+        ratio = aa / ba;
+        if (ratio < 0.62 || ratio > 1.62) continue;
+        cb = centroid(holes[j]);
+        if (ca && cb && Math.hypot(ca[0] - cb[0], ca[1] - cb[1]) <= 4) {
+          echo = true;
+          break;
+        }
+        if (containedBy(outers[i], holes[j]) || containedBy(holes[j], outers[i])) {
+          echo = true;
+          break;
+        }
+      }
+      if (!echo) out.push(outers[i]);
+    }
+    return out;
+  }
+
   function inside(points, p) {
     var n = points.length;
     if (n > 1 && points[0][0] === points[n - 1][0] && points[0][1] === points[n - 1][1]) n--;
@@ -1791,7 +1861,8 @@
     var peeled = peelThin(ink, w, h);
     ink = peeled.rest;
     var field = softField(ink, w, h);
-    var raw = prepare(sealRings(contours(ink, w, h, opts.maxContours || 16)), ink, w, h, opts.alphamax, field, 128);
+    var rings = dropHoleEchoes(sealRings(contours(ink, w, h, opts.maxContours || 16)), sealRings(holeContours(ink, w, h, opts.maxHoles || 12)));
+    var raw = prepare(rings, ink, w, h, opts.alphamax, field, 128);
     var holes = prepare(sealRings(holeContours(ink, w, h, opts.maxHoles || 12)), ink, w, h, opts.alphamax, field, 128);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
@@ -1804,8 +1875,8 @@
     var ox = (1024 - w * scale) / 2;
     var oy = (1024 - h * scale) / 2;
     var shapes = [];
-    var used = new Array(holeSlim.length);
-    var i, j, parent, holeArea, d, hd, strokePath, sw;
+    var owners = holeParents(simplified, holeSlim);
+    var i, j, d, hd, strokePath, sw;
     var role = job === "accent" ? "accent" : "figure";
     for (i = 0; i < peeled.strokes.length; i++) {
       strokePath = toOpenPath(peeled.strokes[i].points, ox, oy, scale, opts, peeled.strokes[i].closed);
@@ -1828,16 +1899,11 @@
       d = toPath(fitted.points, ox, oy, scale, fitted.opts);
       if (!d) continue;
       for (j = 0; j < holeSlim.length; j++) {
-        if (used[j]) continue;
-        if (!inside(simplified[i], centroid(holeSlim[j]))) continue;
-        parent = area(simplified[i]);
-        holeArea = area(holeSlim[j]);
-        if (holeArea >= parent * 0.92) continue;
+        if (owners[j] !== i) continue;
         var holeFit = thinFit(holeSlim[j], ink, w, h, opts);
         hd = toPath(holeFit.points, ox, oy, scale, holeFit.opts);
         if (!hd) continue;
         d += " " + hd;
-        used[j] = 1;
       }
       shapes.push({
         id: idBase + "-" + (shapes.length + 1),
@@ -1985,7 +2051,8 @@
     mask = fillSmallHoles(mask, w, h, turd);
     var peeled = peelThin(mask, w, h);
     mask = peeled.rest;
-    var raw = prepare(sealRings(contours(mask, w, h, opts.maxContours || 64)), mask, w, h, opts.alphamax, bytes, level);
+    var rings = dropHoleEchoes(sealRings(contours(mask, w, h, opts.maxContours || 64)), sealRings(holeContours(mask, w, h, opts.maxHoles || 24)));
+    var raw = prepare(rings, mask, w, h, opts.alphamax, bytes, level);
     var holes = prepare(sealRings(holeContours(mask, w, h, opts.maxHoles || 24)), mask, w, h, opts.alphamax, bytes, level);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
@@ -1998,8 +2065,8 @@
     var ox = (1024 - w * scale) / 2;
     var oy = (1024 - h * scale) / 2;
     var shapes = [];
-    var used = new Array(holeSlim.length);
-    var i, j, parent, holeArea, d, hd, strokePath, sw;
+    var owners = holeParents(simplified, holeSlim);
+    var i, j, d, hd, strokePath, sw;
     for (i = 0; i < peeled.strokes.length; i++) {
       strokePath = toOpenPath(peeled.strokes[i].points, ox, oy, scale, opts, peeled.strokes[i].closed);
       if (!strokePath) continue;
@@ -2021,16 +2088,11 @@
       d = toPath(fitted.points, ox, oy, scale, fitted.opts);
       if (!d) continue;
       for (j = 0; j < holeSlim.length; j++) {
-        if (used[j]) continue;
-        if (!inside(simplified[i], centroid(holeSlim[j]))) continue;
-        parent = area(simplified[i]);
-        holeArea = area(holeSlim[j]);
-        if (holeArea >= parent * 0.92) continue;
+        if (owners[j] !== i) continue;
         var holeFit = thinFit(holeSlim[j], mask, w, h, opts);
         hd = toPath(holeFit.points, ox, oy, scale, holeFit.opts);
         if (!hd) continue;
         d += " " + hd;
-        used[j] = 1;
       }
       shapes.push({
         id: "trace-" + (shapes.length + 1),
