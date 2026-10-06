@@ -284,25 +284,101 @@
     return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
   }
 
-  function rdp(points, eps) {
+  function rdpOpen(points, eps, keep) {
     if (points.length < 3) return points.slice();
-    var max = 0;
-    var index = 0;
-    var end = points.length - 1;
-    var i;
-    for (i = 1; i < end; i++) {
-      var d = distPointSeg(points[i], points[0], points[end]);
-      if (d > max) {
-        max = d;
-        index = i;
+    var mark = new Array(points.length);
+    var stack = [[0, points.length - 1]];
+    var lo, hi, max, index, forced, i, d, cut, j, out;
+    mark[0] = 1;
+    mark[points.length - 1] = 1;
+    while (stack.length) {
+      var span = stack.pop();
+      lo = span[0];
+      hi = span[1];
+      if (hi <= lo + 1) continue;
+      max = 0;
+      index = -1;
+      forced = -1;
+      for (i = lo + 1; i < hi; i++) {
+        if (keep && keep[i] && forced < 0) forced = i;
+        d = distPointSeg(points[i], points[lo], points[hi]);
+        if (d > max) {
+          max = d;
+          index = i;
+        }
       }
+      cut = forced >= 0 ? forced : (max > eps ? index : -1);
+      if (cut <= lo || cut >= hi) continue;
+      mark[cut] = 1;
+      stack.push([lo, cut]);
+      stack.push([cut, hi]);
     }
-    if (max > eps) {
-      var left = rdp(points.slice(0, index + 1), eps);
-      var right = rdp(points.slice(index), eps);
-      return left.slice(0, -1).concat(right);
+    out = [];
+    for (j = 0; j < points.length; j++) if (mark[j]) out.push(points[j]);
+    return out;
+  }
+
+  function rdp(points, eps, keep) {
+    if (points.length < 3) return points.slice();
+    var closed = points[0][0] === points[points.length - 1][0] && points[0][1] === points[points.length - 1][1];
+    if (!closed) return rdpOpen(points, eps, keep);
+    var ring = points.slice(0, -1);
+    var flags = [];
+    var i, k, cx, cy, far, farD, dd, opposite, anchors, a, from, to, idx, guard, span, spanKeep, slim, out;
+    for (i = 0; i < ring.length; i++) flags.push(keep && keep[i] ? 1 : 0);
+    anchors = [];
+    for (i = 0; i < ring.length; i++) if (flags[i]) anchors.push(i);
+    if (anchors.length < 2) {
+      cx = 0;
+      cy = 0;
+      for (k = 0; k < ring.length; k++) {
+        cx += ring[k][0];
+        cy += ring[k][1];
+      }
+      cx /= ring.length;
+      cy /= ring.length;
+      far = 0;
+      farD = -1;
+      for (k = 0; k < ring.length; k++) {
+        dd = (ring[k][0] - cx) * (ring[k][0] - cx) + (ring[k][1] - cy) * (ring[k][1] - cy);
+        if (dd > farD) {
+          farD = dd;
+          far = k;
+        }
+      }
+      opposite = 0;
+      farD = -1;
+      for (k = 0; k < ring.length; k++) {
+        dd = (ring[k][0] - ring[far][0]) * (ring[k][0] - ring[far][0]) + (ring[k][1] - ring[far][1]) * (ring[k][1] - ring[far][1]);
+        if (dd > farD) {
+          farD = dd;
+          opposite = k;
+        }
+      }
+      anchors = far < opposite ? [far, opposite] : [opposite, far];
+      flags[far] = 1;
+      flags[opposite] = 1;
     }
-    return [points[0], points[end]];
+    out = [];
+    for (a = 0; a < anchors.length; a++) {
+      from = anchors[a];
+      to = anchors[(a + 1) % anchors.length];
+      span = [];
+      spanKeep = [];
+      idx = from;
+      guard = 0;
+      while (guard <= ring.length) {
+        span.push(ring[idx]);
+        spanKeep.push(idx === from || idx === to ? 1 : flags[idx]);
+        if (idx === to && span.length > 1) break;
+        idx = (idx + 1) % ring.length;
+        guard++;
+      }
+      slim = rdpOpen(span, eps, spanKeep);
+      out = out.length ? out.concat(slim.slice(1)) : slim;
+    }
+    if (out.length) out.push(out[0].slice());
+    return out;
   }
 
   function area(points) {
@@ -436,39 +512,92 @@
     ];
   }
 
-  function guessCubic(pts, scale) {
-    var a = pts[0];
-    var b = pts[pts.length - 1];
-    var t1 = tangentAt(pts, 0);
-    var t2 = tangentAt(pts, pts.length - 1);
-    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    var alpha = chord * (scale != null ? scale : 1 / 3);
-    return [a, [a[0] + t1[0] * alpha, a[1] + t1[1] * alpha], [b[0] - t2[0] * alpha, b[1] - t2[1] * alpha], b];
+  function chordParams(pts) {
+    var t = [0];
+    var total = 0;
+    var i, d;
+    for (i = 1; i < pts.length; i++) {
+      d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      total += d;
+      t.push(total);
+    }
+    if (total < 1e-6) {
+      for (i = 0; i < t.length; i++) t[i] = i / (pts.length - 1 || 1);
+      return t;
+    }
+    for (i = 0; i < t.length; i++) t[i] /= total;
+    return t;
   }
 
   function fitCubic(pts) {
-    var scales = [0.18, 0.28, 0.34, 0.45, 0.58];
-    var best = guessCubic(pts, scales[2]);
-    var bestErr = cubicError(pts, best).max;
-    var i, cubic, err;
-    for (i = 0; i < scales.length; i++) {
-      cubic = guessCubic(pts, scales[i]);
-      err = cubicError(pts, cubic).max;
-      if (err < bestErr) {
-        bestErr = err;
-        best = cubic;
-      }
+    var n = pts.length;
+    var a = pts[0];
+    var b = pts[n - 1];
+    var t1 = tangentAt(pts, 0);
+    var t2 = tangentAt(pts, n - 1);
+    var ts = chordParams(pts);
+    var c00 = 0;
+    var c01 = 0;
+    var c11 = 0;
+    var x0 = 0;
+    var x1 = 0;
+    var dot = t1[0] * -t2[0] + t1[1] * -t2[1];
+    var i, t, u, b1, b2, cx, cy, dx, dy;
+    for (i = 1; i < n - 1; i++) {
+      t = ts[i];
+      u = 1 - t;
+      b1 = 3 * u * u * t;
+      b2 = 3 * u * t * t;
+      cx = u * u * (1 + 2 * t) * a[0] + t * t * (3 - 2 * t) * b[0];
+      cy = u * u * (1 + 2 * t) * a[1] + t * t * (3 - 2 * t) * b[1];
+      dx = pts[i][0] - cx;
+      dy = pts[i][1] - cy;
+      c00 += b1 * b1;
+      c01 += b1 * b2 * dot;
+      c11 += b2 * b2;
+      x0 += b1 * (dx * t1[0] + dy * t1[1]);
+      x1 += b2 * (dx * -t2[0] + dy * -t2[1]);
     }
-    return best;
+    var det = c00 * c11 - c01 * c01;
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    var alpha;
+    var beta;
+    if (det < 1e-8 || n < 4) {
+      alpha = chord / 3;
+      beta = chord / 3;
+    } else {
+      alpha = (x0 * c11 - x1 * c01) / det;
+      beta = (c00 * x1 - c01 * x0) / det;
+    }
+    if (!(alpha > 0)) alpha = chord / 3;
+    if (!(beta > 0)) beta = chord / 3;
+    var cap = chord * 0.8;
+    if (alpha > cap) alpha = cap;
+    if (beta > cap) beta = cap;
+    var c1 = [a[0] + t1[0] * alpha, a[1] + t1[1] * alpha];
+    var c2 = [b[0] - t2[0] * beta, b[1] - t2[1] * beta];
+    var minX = a[0];
+    var maxX = a[0];
+    var minY = a[1];
+    var maxY = a[1];
+    for (i = 0; i < n; i++) {
+      if (pts[i][0] < minX) minX = pts[i][0];
+      if (pts[i][0] > maxX) maxX = pts[i][0];
+      if (pts[i][1] < minY) minY = pts[i][1];
+      if (pts[i][1] > maxY) maxY = pts[i][1];
+    }
+    c1 = [Math.max(minX - 1.5, Math.min(maxX + 1.5, c1[0])), Math.max(minY - 1.5, Math.min(maxY + 1.5, c1[1]))];
+    c2 = [Math.max(minX - 1.5, Math.min(maxX + 1.5, c2[0])), Math.max(minY - 1.5, Math.min(maxY + 1.5, c2[1]))];
+    return [a, c1, c2, b];
   }
 
   function cubicError(pts, cubic) {
+    var ts = chordParams(pts);
     var max = 0;
     var at = 1;
-    var i, p, d, t;
+    var i, p, d;
     for (i = 1; i < pts.length - 1; i++) {
-      t = i / (pts.length - 1);
-      p = bezier(cubic[0], cubic[1], cubic[2], cubic[3], t);
+      p = bezier(cubic[0], cubic[1], cubic[2], cubic[3], ts[i]);
       d = Math.hypot(pts[i][0] - p[0], pts[i][1] - p[1]);
       if (d > max) {
         max = d;
@@ -508,7 +637,7 @@
       a = ring[(i + ring.length - 1) % ring.length];
       b = ring[i];
       c = ring[(i + 1) % ring.length];
-      if (turnAt(a, b, c) >= limit) corners.push(i);
+      if (turnAt(a, b, c) >= limit || axisCorner(a, b, c)) corners.push(i);
     }
     if (!corners.length) corners.push(0);
     var segs = [];
@@ -660,8 +789,8 @@
     var vert = true;
     var i;
     for (i = 1; i < span.length; i++) {
-      if (Math.abs(span[i][1] - y0) > 0.6) horiz = false;
-      if (Math.abs(span[i][0] - x0) > 0.6) vert = false;
+      if (Math.abs(span[i][1] - y0) > 1.25) horiz = false;
+      if (Math.abs(span[i][0] - x0) > 1.25) vert = false;
     }
     return horiz || vert;
   }
@@ -685,18 +814,63 @@
     return out;
   }
 
+  function collapseCollinear(points) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    if (ring.length < 4) return points.slice();
+    var keep = [];
+    var i, a, b, c;
+    for (i = 0; i < ring.length; i++) {
+      a = ring[(i + ring.length - 1) % ring.length];
+      b = ring[i];
+      c = ring[(i + 1) % ring.length];
+      if (turnAt(a, b, c) < 0.14 && distPointSeg(b, a, c) < 0.45) continue;
+      keep.push(b.slice());
+    }
+    if (keep.length < 3) return points.slice();
+    if (pack.closed) keep.push(keep[0].slice());
+    return keep;
+  }
+
   function prepare(raw, mask, w, h, corner) {
     var settled = [];
     var i;
-    for (i = 0; i < raw.length; i++) settled.push(snapOrthogonal(smoothChain(settle(raw[i], mask, w, h), corner)));
+    for (i = 0; i < raw.length; i++) {
+      settled.push(collapseCollinear(snapOrthogonal(smoothChain(settle(raw[i], mask, w, h), corner))));
+    }
     return settled;
   }
 
-  function simplify(raw, eps, minArea) {
+  function axisCorner(a, b, c) {
+    var inn = axisOf(a, b);
+    var out = axisOf(b, c);
+    return !!(inn && out && inn !== out);
+  }
+
+  function cornerFlags(points, limit) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var flags = [];
+    var i, a, b, c;
+    for (i = 0; i < points.length; i++) flags.push(0);
+    if (ring.length < 3) return flags;
+    for (i = 0; i < ring.length; i++) {
+      a = ring[(i + ring.length - 1) % ring.length];
+      b = ring[i];
+      c = ring[(i + 1) % ring.length];
+      if (turnAt(a, b, c) < limit && !axisCorner(a, b, c)) continue;
+      flags[i] = 1;
+      if (pack.closed && i === 0 && points.length > ring.length) flags[points.length - 1] = 1;
+    }
+    return flags;
+  }
+
+  function simplify(raw, eps, minArea, corner) {
     var out = [];
-    var i, slim;
+    var i, slim, limit;
+    limit = corner != null ? corner : 0.95;
     for (i = 0; i < raw.length; i++) {
-      slim = rdp(raw[i], eps);
+      slim = rdp(raw[i], eps, cornerFlags(raw[i], limit));
       if (slim.length >= 4 && area(slim) >= minArea) out.push(slim);
     }
     return out;
@@ -820,10 +994,10 @@
     ink = dilate(ink, w, h);
     var raw = prepare(contours(ink, w, h, opts.maxContours || 16), ink, w, h, opts.alphamax);
     var holes = prepare(holeContours(ink, w, h, opts.maxHoles || 12), ink, w, h, opts.alphamax);
-    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.75, Math.min(1.7, Math.max(w, h) / 280));
+    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
-    var simplified = simplify(raw, eps, minArea);
-    var holeSlim = simplify(holes, eps, minArea);
+    var simplified = simplify(raw, eps, minArea, opts.alphamax);
+    var holeSlim = simplify(holes, eps, minArea, opts.alphamax);
     simplified.sort(function (a, b) { return area(b) - area(a); });
     simplified = simplified.slice(0, opts.maxShapes || 8);
     var edge = Math.max(w, h);
@@ -984,10 +1158,10 @@
     mask = fillSmallHoles(mask, w, h, turd);
     var raw = prepare(contours(mask, w, h, opts.maxContours || 64), mask, w, h, opts.alphamax);
     var holes = prepare(holeContours(mask, w, h, opts.maxHoles || 24), mask, w, h, opts.alphamax);
-    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.75, Math.min(1.7, Math.max(w, h) / 280));
+    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
-    var simplified = simplify(raw, eps, minArea);
-    var holeSlim = simplify(holes, eps, minArea);
+    var simplified = simplify(raw, eps, minArea, opts.alphamax);
+    var holeSlim = simplify(holes, eps, minArea, opts.alphamax);
     simplified.sort(function (a, b) { return area(b) - area(a); });
     simplified = simplified.slice(0, opts.maxShapes || 18);
     var edge = Math.max(w, h);
@@ -1055,7 +1229,7 @@
 
   function fromImage(img, done, options) {
     var opts = options || {};
-    var maxEdge = opts.maxEdge || 640;
+    var maxEdge = opts.maxEdge || 768;
     var sw = img.naturalWidth || img.width;
     var sh = img.naturalHeight || img.height;
     if (!sw || !sh) {
