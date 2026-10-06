@@ -42,3 +42,129 @@ Brief (+ optional attachment)
 - [x] User can edit result as normal VXL
 - [x] Trace quality: 1024-edge raster, median denoise, despeckle, mask smooth, 1px stroke bridge, small-hole fill, ink-label majority, light background and transparent pixels ignored, boundary settle, orthogonal runs snapped, subpixel iso placement on the threshold (soft field for multi-ink), corner-preserving simplify, repeated close vertices dropped before corner cuts, chord-length least-squares cubics with two Newton reparameterization passes, opticurve merges adjacent cubics inside a corner span and drops near-flat cubics to lines (alphamax / opttolerance), holes as evenodd subpaths
 - [x] Multi-ink trace: up to four separated fills (figure, accent, ink2, ink3), light paper ignored, seams overlapped one pixel; device raster sends packed RGB; single-ink stays binary; ink clusters and pixel assignment use OKLab so close logo hues stay apart
+
+## Phase 4 — Editor (Illustrator-mapped)
+- [x] Select, move, scale, rotate
+- [x] Recolor by job (figure/ground/accent)
+- [x] Anchor edit (pen-level)
+- [x] Width profile on strokes
+- [x] Text tool
+- [x] Undo/redo, layers
+
+## Phase 5 — Advanced geometry
+- [x] Boolean (unite/subtract)
+- [x] Blend steps
+- [x] Pattern instance controls
+- [x] Pencil + smooth
+
+## Phase 6 — Optional remote assist
+- [x] OpenAI / Anthropic / Gemini / OpenRouter as optional planners
+- [x] Same skill packs; same VXL validator
+
+## Phase 7 — Curvature
+- [x] Click-to-curve path builder (smooth points, corner points, close, finish)
+
+## Phase 8 — Pathfinder remainder
+- [x] Intersect and exclude bake the selection with the shape behind it
+
+## Phase 9 — Type on path
+- [x] Text follows a selected path spine; flip side; outline bakes glyphs along the path
+
+## Phase 10 — Named stroke profiles
+- [x] Skill pack names taper, swell, point; emit_vxl strokeProfile resolves to widthProfile
+
+## Phase 11 — Brush instances
+- [x] Named calligraphic nibs round, flat, oval; emit_vxl brush resolves to a nib; compiler expands the outline; centerline stays editable
+
+## Phase 12 — Offset path
+- [x] Offset a selected path or primitive by a distance; miter joins bevel past the limit; original stays; the new path is normal VXL
+
+## Phase 13 — Align / distribute
+- [x] Align selection to the artboard (one shape) or to the selection bounds (shift-click set); distribute horizontal and vertical gaps; geometry is baked with the move matrix
+
+## Phase 14 — Gradient fill
+- [x] Linear gradient across the selection, figure to accent, userSpaceOnUse vector; Flat fill clears it. Stops stay ink jobs or hex. No raster.
+
+## Acceptance
+User installs APK (Needle included) → types brief → gets VXL + vector preview → downloads SVG that zooms clean → can paste VXL and re-render → can attach reference later for trace.
+
+## Privacy
+Needle runs on device. Projects stay on device. Remote is opt-in only. The default path never reads or sends an API key. Reference images stay in app files (`files/attachments`) and are not uploaded.
+
+## Phase 15 — Clipping mask
+- [x] Front shape becomes the clip path; content keeps its geometry; compiler emits clipPath; Release clears it; move, scale, and rotate bake the clip with the shape
+
+
+## Phase 16 — Scissors
+- [x] Click a path to open a closed shape or split an open path; the cut is baked into normal VXL paths
+
+## Phase 17 — Shape builder
+- [x] Drag or click merges overlapping faces into one VXL path; Alt-click deletes the face under the cursor; leftovers stay editable paths
+
+## Phase 18 — Knife
+- [x] Draw a cut across closed shapes; each crossed shape bakes into separate closed VXL paths; the knife stroke is not kept
+
+
+## Phase 19 — Reflect
+- [x] Mirror the selection across a vertical or horizontal axis through its center; Reflect copy keeps the source and bakes the mirror as new VXL; Flip rewrites the selection in place
+
+
+## Phase 20 — Join
+- [x] Join the nearest open ends in the selection into one VXL path; a single open path closes; the extra path is dropped
+
+## Phase 21 — Shear
+- [x] Skew the selection about its center by an angle; horizontal or vertical; rectangles and ellipses bake to VXL paths; Shear copy keeps the source
+
+## Phase 22 — Outline stroke
+- [x] Expand a stroke, width profile, or brush into a filled VXL path; a filled shape keeps its fill and loses the stroke; the outline stays editable
+
+## Phase 23 — Add / delete anchor
+- [x] Click a segment to insert an anchor; click an anchor to delete it; the path is rewritten as normal VXL
+
+## Phase 24 — Radial gradient
+- [x] Radial fill from the selection center, figure to accent, userSpaceOnUse; Flat fill clears it. Stops stay ink jobs or hex. No raster.
+
+## Phase 25 — Live corners
+- [x] Round sharp corners of the selection by a radius; rectangles and polygons bake to a VXL path; the fillet is a cubic and stays editable
+
+## Phase 26 — Pathfinder divide
+- [x] Divide bakes the selection and the shape behind it into non-overlapping VXL paths; overlap keeps the front ink; leftovers stay editable
+## Phase 27 — Zig zag
+- [x] Offset ridges along the selection by a size; integer ridges close on a loop; rectangles and ellipses bake to a VXL path; the wave stays editable
+
+## Phase 28 — Roughen
+- [x] Jitter samples along the selection by a size and detail; corner points stay segments, smooth points become cubics; open ends stay put; rectangles and ellipses bake to a VXL path
+
+## Phase 29 — Pucker and bloat
+- [x] Pull or push samples about the selection center; negative amount puckers, positive amount bloats; rectangles and ellipses bake to a VXL path; the curve stays editable
+
+## Phase 30 — Twirl
+- [x] Rotate samples about the selection center; angle falls off toward the edge so the silhouette stays pinned; rectangles and ellipses bake to an editable VXL path
+
+## Phase 31 — Arc warp
+- [x] Bend the selection onto a circular arc; horizontal or vertical; positive arches up or left, negative arches down or right; rectangles and ellipses bake to an editable VXL path
+
+## Phase 32 — Wave warp
+- [x] Offset samples on a sine along the selection; bend sets amplitude, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path
+
+## Phase 33 — Flag warp
+- [x] Pin the hoist edge and grow a sine toward the fly; bend sets the lift, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path
+
+## Phase 34 — Fish warp
+- [x] Pin the head and shear opposite sides toward the tail; bend sets the swing, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path
+
+## Phase 35 — Rise warp
+- [x] Pin the start edge and lift both sides the same way toward the far edge; bend sets the lift, waves sets the count; horizontal or vertical; rectangles and ellipses bake to an editable VXL path
+
+## Phase 36 — Fisheye warp
+- [x] Push samples away from the selection center and pin the corners; bend sets the bulge, waves sets the rings; horizontal stretches wider, vertical stretches taller; rectangles and ellipses bake to an editable VXL path
+
+
+## Phase 37 — Inflate warp
+- [x] Bow the edges of the selection outward and pin the corners; bend sets the swell, waves sets the lobes; horizontal swells wider, vertical swells taller; rectangles and ellipses bake to an editable VXL path
+
+## Phase 38 — Squeeze warp
+- [x] Pinch the edges of the selection inward and pin the corners; bend sets the pinch, waves sets the lobes; horizontal squeezes narrower, vertical squeezes shorter; rectangles and ellipses bake to an editable VXL path
+
+## Phase 39 — Twist warp
+- [x] Spin samples about the selection center; rotation grows toward the edge so corners move; bend sets the turn, waves sets the turns; horizontal twists the sides, vertical twists the ends; rectangles and ellipses bake to an editable VXL path
