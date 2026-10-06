@@ -537,6 +537,58 @@
     return found;
   }
 
+
+  function sealRings(list) {
+    var closed = [];
+    var pool = [];
+    var i, c, a, b, gap, merged, changed;
+    function ends(pts) {
+      return Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
+    }
+    function shut(pts) {
+      if (ends(pts) > 4.2 || pts.length < 6) return pts;
+      var out = pts.map(function (p) { return p.slice(); });
+      if (out[0][0] !== out[out.length - 1][0] || out[0][1] !== out[out.length - 1][1]) out.push(out[0].slice());
+      return out;
+    }
+    for (i = 0; i < list.length; i++) {
+      c = list[i];
+      if (!c || c.length < 4) continue;
+      if (c.length > 3 && c[0][0] === c[c.length - 1][0] && c[0][1] === c[c.length - 1][1]) closed.push(c);
+      else pool.push(c.map(function (p) { return p.slice(); }));
+    }
+    function near(u, v) {
+      return Math.hypot(u[0] - v[0], u[1] - v[1]) <= 4.2;
+    }
+    changed = true;
+    while (changed) {
+      changed = false;
+      for (i = 0; i < pool.length; i++) {
+        for (var j = i + 1; j < pool.length; j++) {
+          a = pool[i];
+          b = pool[j];
+          merged = null;
+          if (near(a[a.length - 1], b[0])) merged = a.concat(b.slice(1));
+          else if (near(a[a.length - 1], b[b.length - 1])) merged = a.concat(b.slice(0, -1).reverse());
+          else if (near(a[0], b[0])) merged = a.slice().reverse().concat(b.slice(1));
+          else if (near(a[0], b[b.length - 1])) merged = b.concat(a.slice(1));
+          if (!merged) continue;
+          pool[i] = merged;
+          pool.splice(j, 1);
+          changed = true;
+          break;
+        }
+        if (changed) break;
+      }
+    }
+    for (i = 0; i < pool.length; i++) {
+      gap = ends(pool[i]);
+      if (gap <= 4.2) closed.push(shut(pool[i]));
+      else closed.push(pool[i]);
+    }
+    return closed;
+  }
+
   function holeContours(mask, w, h, maxHoles) {
     var ext = markExterior(mask, w, h);
     var seen = new Uint8Array(mask.length);
@@ -1649,7 +1701,7 @@
       if (c && c.length >= 2) pool.push(c.map(function (p) { return p.slice(); }));
     }
     function near(a, b) {
-      return Math.hypot(a[0] - b[0], a[1] - b[1]) <= 2.4;
+      return Math.hypot(a[0] - b[0], a[1] - b[1]) <= 6.5;
     }
     var changed = true;
     while (changed) {
@@ -1718,7 +1770,7 @@
         for (k = 0; k < chains.length; k++) {
           best = chains[k];
           if (!best || best.length < 6) continue;
-          closed = best.length > 8 && Math.hypot(best[0][0] - best[best.length - 1][0], best[0][1] - best[best.length - 1][1]) < 2.2;
+          closed = best.length > 8 && Math.hypot(best[0][0] - best[best.length - 1][0], best[0][1] - best[best.length - 1][1]) <= 6.5;
           pts = [];
           for (s = 0; s < best.length; s++) pts.push([best[s][0] + 0.5, best[s][1] + 0.5]);
           if (closed) pts = pts.slice(0, -1);
@@ -1739,8 +1791,8 @@
     var peeled = peelThin(ink, w, h);
     ink = peeled.rest;
     var field = softField(ink, w, h);
-    var raw = prepare(contours(ink, w, h, opts.maxContours || 16), ink, w, h, opts.alphamax, field, 128);
-    var holes = prepare(holeContours(ink, w, h, opts.maxHoles || 12), ink, w, h, opts.alphamax, field, 128);
+    var raw = prepare(sealRings(contours(ink, w, h, opts.maxContours || 16)), ink, w, h, opts.alphamax, field, 128);
+    var holes = prepare(sealRings(holeContours(ink, w, h, opts.maxHoles || 12)), ink, w, h, opts.alphamax, field, 128);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
     var simplified = simplify(raw, eps, minArea, opts.alphamax, ink, w, h);
@@ -1933,8 +1985,8 @@
     mask = fillSmallHoles(mask, w, h, turd);
     var peeled = peelThin(mask, w, h);
     mask = peeled.rest;
-    var raw = prepare(contours(mask, w, h, opts.maxContours || 64), mask, w, h, opts.alphamax, bytes, level);
-    var holes = prepare(holeContours(mask, w, h, opts.maxHoles || 24), mask, w, h, opts.alphamax, bytes, level);
+    var raw = prepare(sealRings(contours(mask, w, h, opts.maxContours || 64)), mask, w, h, opts.alphamax, bytes, level);
+    var holes = prepare(sealRings(holeContours(mask, w, h, opts.maxHoles || 24)), mask, w, h, opts.alphamax, bytes, level);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
     var simplified = simplify(raw, eps, minArea, opts.alphamax, mask, w, h);
