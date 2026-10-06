@@ -1121,13 +1121,74 @@
     return keep;
   }
 
+  function chordStraighten(points, eps) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var n = ring.length;
+    if (n < 6) return points.slice();
+    var start = 0;
+    var i, a, b, c, turn, bestTurn, far, steps, j, ok, k, seen, guard, out;
+    bestTurn = -1;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      turn = turnAt(a, b, c);
+      if (turn > bestTurn) {
+        bestTurn = turn;
+        start = i;
+      }
+    }
+    var keep = new Array(n);
+    keep[start] = 1;
+    i = start;
+    guard = 0;
+    while (guard < n) {
+      far = i;
+      steps = 1;
+      j = (i + 1) % n;
+      while (j !== start && steps < n) {
+        ok = true;
+        k = (i + 1) % n;
+        seen = 0;
+        while (k !== j) {
+          if (distPointSeg(ring[k], ring[i], ring[j]) > eps) {
+            ok = false;
+            break;
+          }
+          k = (k + 1) % n;
+          seen++;
+          if (seen > n) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) break;
+        far = j;
+        j = (j + 1) % n;
+        steps++;
+      }
+      if (far === i) far = (i + 1) % n;
+      if (far === start) break;
+      keep[far] = 1;
+      i = far;
+      guard++;
+    }
+    out = [];
+    for (i = 0; i < n; i++) if (keep[i]) out.push(ring[i].slice());
+    if (out.length < 3) return points.slice();
+    if (pack.closed) out.push(out[0].slice());
+    return out;
+  }
+
   function prepare(raw, mask, w, h, corner, field, level) {
     var settled = [];
     var i, chain;
     for (i = 0; i < raw.length; i++) {
       chain = settle(raw[i], mask, w, h);
-      chain = snapOrthogonal(chain);
       if (field) chain = isoPlace(chain, field, w, h, level);
+      chain = snapOrthogonal(chain);
+      chain = chordStraighten(chain, 0.82);
       settled.push(collapseCollinear(smoothChain(chain, corner)));
     }
     return settled;
