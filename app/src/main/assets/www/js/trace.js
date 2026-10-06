@@ -529,13 +529,13 @@
     return t;
   }
 
-  function fitCubic(pts) {
+  function fitCubic(pts, ts) {
     var n = pts.length;
     var a = pts[0];
     var b = pts[n - 1];
     var t1 = tangentAt(pts, 0);
     var t2 = tangentAt(pts, n - 1);
-    var ts = chordParams(pts);
+    if (!ts) ts = chordParams(pts);
     var c00 = 0;
     var c01 = 0;
     var c11 = 0;
@@ -591,13 +591,79 @@
     return [a, c1, c2, b];
   }
 
-  function cubicError(pts, cubic) {
+  function cubicVel(cubic, t) {
+    var u = 1 - t;
+    var d0x = cubic[1][0] - cubic[0][0];
+    var d0y = cubic[1][1] - cubic[0][1];
+    var d1x = cubic[2][0] - cubic[1][0];
+    var d1y = cubic[2][1] - cubic[1][1];
+    var d2x = cubic[3][0] - cubic[2][0];
+    var d2y = cubic[3][1] - cubic[2][1];
+    return [
+      3 * u * u * d0x + 6 * u * t * d1x + 3 * t * t * d2x,
+      3 * u * u * d0y + 6 * u * t * d1y + 3 * t * t * d2y
+    ];
+  }
+
+  function cubicAcc(cubic, t) {
+    var a0x = cubic[2][0] - 2 * cubic[1][0] + cubic[0][0];
+    var a0y = cubic[2][1] - 2 * cubic[1][1] + cubic[0][1];
+    var a1x = cubic[3][0] - 2 * cubic[2][0] + cubic[1][0];
+    var a1y = cubic[3][1] - 2 * cubic[2][1] + cubic[1][1];
+    var u = 1 - t;
+    return [6 * u * a0x + 6 * t * a1x, 6 * u * a0y + 6 * t * a1y];
+  }
+
+  function projectT(cubic, p, t0) {
+    var t = t0;
+    var i, pt, vel, acc, dx, dy, num, den;
+    if (!(t > 0.001)) t = 0.05;
+    if (t > 0.999) t = 0.95;
+    for (i = 0; i < 4; i++) {
+      pt = bezier(cubic[0], cubic[1], cubic[2], cubic[3], t);
+      vel = cubicVel(cubic, t);
+      acc = cubicAcc(cubic, t);
+      dx = pt[0] - p[0];
+      dy = pt[1] - p[1];
+      num = dx * vel[0] + dy * vel[1];
+      den = vel[0] * vel[0] + vel[1] * vel[1] + dx * acc[0] + dy * acc[1];
+      if (Math.abs(den) < 1e-8) break;
+      t = t - num / den;
+      if (t < 0.001) t = 0.001;
+      if (t > 0.999) t = 0.999;
+    }
+    return t;
+  }
+
+  function monotone(ts) {
+    var i;
+    ts[0] = 0;
+    ts[ts.length - 1] = 1;
+    for (i = 1; i < ts.length - 1; i++) {
+      if (ts[i] <= ts[i - 1]) ts[i] = Math.min(0.999, ts[i - 1] + 0.0001);
+    }
+    return ts;
+  }
+
+  function fitTight(pts) {
     var ts = chordParams(pts);
+    var cubic = fitCubic(pts, ts);
+    var pass, i;
+    for (pass = 0; pass < 2; pass++) {
+      for (i = 1; i < pts.length - 1; i++) ts[i] = projectT(cubic, pts[i], ts[i]);
+      monotone(ts);
+      cubic = fitCubic(pts, ts);
+    }
+    return { cubic: cubic, ts: ts };
+  }
+
+  function cubicError(pts, cubic, ts) {
+    var params = ts || chordParams(pts);
     var max = 0;
     var at = 1;
     var i, p, d;
     for (i = 1; i < pts.length - 1; i++) {
-      p = bezier(cubic[0], cubic[1], cubic[2], cubic[3], ts[i]);
+      p = bezier(cubic[0], cubic[1], cubic[2], cubic[3], params[i]);
       d = Math.hypot(pts[i][0] - p[0], pts[i][1] - p[1]);
       if (d > max) {
         max = d;
@@ -609,9 +675,9 @@
 
   function fitSpan(pts, tol, depth) {
     if (pts.length < 3) return [{ k: "L", p: pts[pts.length - 1] }];
-    var cubic = fitCubic(pts);
-    var err = cubicError(pts, cubic);
-    if (err.max <= tol || depth > 5 || pts.length < 5) return [{ k: "C", c: cubic }];
+    var fit = fitTight(pts);
+    var err = cubicError(pts, fit.cubic, fit.ts);
+    if (err.max <= tol || depth > 5 || pts.length < 5) return [{ k: "C", c: fit.cubic }];
     var mid = err.at;
     if (mid < 2 || mid > pts.length - 3) mid = (pts.length / 2) | 0;
     return fitSpan(pts.slice(0, mid + 1), tol, depth + 1).concat(fitSpan(pts.slice(mid), tol, depth + 1));
@@ -626,9 +692,12 @@
   }
 
   function fitContour(points, alphamax, opttolerance) {
-    var ring = points.slice();
-    var closed = ring.length > 2 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1];
-    if (closed) ring = ring.slice(0, -1);
+    var ring = [];
+    var i;
+    for (i = 0; i < points.length; i++) {
+      if (!ring.length || ring[ring.length - 1][0] !== points[i][0] || ring[ring.length - 1][1] !== points[i][1]) ring.push(points[i]);
+    }
+    while (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
     if (ring.length < 3) return null;
     var limit = alphamax;
     var corners = [];
