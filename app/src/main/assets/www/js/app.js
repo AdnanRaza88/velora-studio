@@ -1737,7 +1737,7 @@
       document.getElementById("out").innerHTML = '<div class="status warn">' + VeloraVxl.esc(checked.errors.join("; ")) + "</div>";
       return;
     }
-    publishScene(checked.document, note + " / " + result.contours + " paths");
+    publishScene(checked.document, note + " / " + result.contours + " paths" + (result.inks && result.inks.length > 1 ? " / " + result.inks.length + " inks" : ""));
   }
 
   function runTrace() {

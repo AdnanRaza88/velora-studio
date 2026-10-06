@@ -66,23 +66,31 @@ class AttachmentBridge(
         bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
         bitmap.recycle()
         val luma = ByteArray(w * h)
+        val rgb = ByteArray(w * h * 3)
         for (i in pixels.indices) {
             val c = pixels[i]
             val a = (c ushr 24) and 0xff
             if (a < 16) {
                 luma[i] = 255.toByte()
+                rgb[i * 3] = 255.toByte()
+                rgb[i * 3 + 1] = 255.toByte()
+                rgb[i * 3 + 2] = 255.toByte()
                 continue
             }
             val r = (c shr 16) and 0xff
             val g = (c shr 8) and 0xff
             val b = c and 0xff
             luma[i] = ((r * 54 + g * 183 + b * 19) shr 8).toByte()
+            rgb[i * 3] = r.toByte()
+            rgb[i * 3 + 1] = g.toByte()
+            rgb[i * 3 + 2] = b.toByte()
         }
         return JSONObject()
             .put("ok", true)
             .put("width", w)
             .put("height", h)
             .put("luma", Base64.encodeToString(luma, Base64.NO_WRAP))
+            .put("rgb", Base64.encodeToString(rgb, Base64.NO_WRAP))
             .toString()
     }
 

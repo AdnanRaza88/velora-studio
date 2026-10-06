@@ -41,6 +41,7 @@ Brief (+ optional attachment)
 - [x] Autotrace → path simplify → VXL paths
 - [x] User can edit result as normal VXL
 - [x] Trace quality: 512-edge raster, blur, despeckle, small-hole fill, light background and transparent pixels ignored, corner-aware cubics (alphamax / opttolerance), holes as evenodd subpaths
+- [x] Multi-ink trace: up to four separated fills (figure, accent, ink2, ink3), light paper ignored, seams overlapped one pixel; device raster sends packed RGB; single-ink stays binary
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate

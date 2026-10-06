@@ -473,11 +473,11 @@
       var guard = 0;
       var idx = from;
       span.push(ring[idx]);
-      while (idx !== to && guard < ring.length + 1) {
+      do {
         idx = (idx + 1) % ring.length;
         span.push(ring[idx]);
         guard++;
-      }
+      } while (idx !== to && guard <= ring.length);
       if (span.length < 2) continue;
       if (span.length < 4) segs.push({ k: "L", p: span[span.length - 1] });
       else segs = segs.concat(fitSpan(span, opttolerance, 0));
@@ -523,6 +523,267 @@
       if (slim.length >= 4 && area(slim) >= minArea) out.push(slim);
     }
     return out;
+  }
+
+  function hexOf(r, g, b) {
+    function byte(n) {
+      var s = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+      return s.length === 1 ? "0" + s : s;
+    }
+    return "#" + byte(r) + byte(g) + byte(b);
+  }
+
+  function paperPixel(r, g, b) {
+    var hi = r > g ? r : g;
+    if (b > hi) hi = b;
+    var lo = r < g ? r : g;
+    if (b < lo) lo = b;
+    return hi >= 234 && hi - lo < 20;
+  }
+
+  function colorDist2(a, b) {
+    var dr = a[0] - b[0];
+    var dg = a[1] - b[1];
+    var db = a[2] - b[2];
+    return dr * dr + dg * dg + db * db;
+  }
+
+  function quantizeInks(rgb, w, h) {
+    var n = w * h;
+    var stride = Math.max(1, (n / 3200) | 0);
+    var samples = [];
+    var i, o, r, g, b, c, s, best, bestD, d, iter, sum, cnt;
+    for (i = 0; i < n; i += stride) {
+      o = i * 3;
+      r = rgb[o];
+      g = rgb[o + 1];
+      b = rgb[o + 2];
+      if (paperPixel(r, g, b)) continue;
+      samples.push([r, g, b]);
+    }
+    if (samples.length < 16) return [];
+    var k = 4;
+    var centers = [samples[(samples.length / 3) | 0].slice()];
+    var far, farD;
+    while (centers.length < k) {
+      far = 0;
+      farD = -1;
+      for (s = 0; s < samples.length; s++) {
+        bestD = 1e12;
+        for (c = 0; c < centers.length; c++) {
+          d = colorDist2(samples[s], centers[c]);
+          if (d < bestD) bestD = d;
+        }
+        if (bestD > farD) {
+          farD = bestD;
+          far = s;
+        }
+      }
+      if (farD < 40 * 40) break;
+      centers.push(samples[far].slice());
+    }
+    for (iter = 0; iter < 6; iter++) {
+      sum = [];
+      cnt = [];
+      for (c = 0; c < centers.length; c++) {
+        sum.push([0, 0, 0]);
+        cnt.push(0);
+      }
+      for (s = 0; s < samples.length; s++) {
+        best = 0;
+        bestD = 1e12;
+        for (c = 0; c < centers.length; c++) {
+          d = colorDist2(samples[s], centers[c]);
+          if (d < bestD) {
+            bestD = d;
+            best = c;
+          }
+        }
+        sum[best][0] += samples[s][0];
+        sum[best][1] += samples[s][1];
+        sum[best][2] += samples[s][2];
+        cnt[best]++;
+      }
+      for (c = 0; c < centers.length; c++) {
+        if (!cnt[c]) continue;
+        centers[c] = [sum[c][0] / cnt[c], sum[c][1] / cnt[c], sum[c][2] / cnt[c]];
+      }
+    }
+    var kept = [];
+    for (c = 0; c < centers.length; c++) {
+      best = false;
+      for (s = 0; s < kept.length; s++) {
+        if (colorDist2(centers[c], kept[s]) < 34 * 34) best = true;
+      }
+      if (!best) kept.push(centers[c]);
+    }
+    return kept.slice(0, 4);
+  }
+
+  function dilate(mask, w, h) {
+    var out = new Uint8Array(mask);
+    var y, x, i;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!mask[i]) continue;
+        if (x + 1 < w) out[i + 1] = 1;
+        if (x > 0) out[i - 1] = 1;
+        if (y + 1 < h) out[i + w] = 1;
+        if (y > 0) out[i - w] = 1;
+      }
+    }
+    return out;
+  }
+
+  function shapesFromMask(mask, w, h, opts, job, idBase) {
+    var turd = opts.turdsize != null ? opts.turdsize : Math.max(6, Math.round((w * h) / 14000));
+    var ink = despeckle(mask, w, h, turd);
+    ink = fillSmallHoles(ink, w, h, turd);
+    ink = dilate(ink, w, h);
+    var raw = contours(ink, w, h, opts.maxContours || 16);
+    var holes = holeContours(ink, w, h, opts.maxHoles || 12);
+    var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.85, Math.min(2.1, Math.max(w, h) / 220));
+    var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
+    var simplified = simplify(raw, eps, minArea);
+    var holeSlim = simplify(holes, eps, minArea);
+    simplified.sort(function (a, b) { return area(b) - area(a); });
+    simplified = simplified.slice(0, opts.maxShapes || 8);
+    var edge = Math.max(w, h);
+    var scale = 1024 / edge;
+    var ox = (1024 - w * scale) / 2;
+    var oy = (1024 - h * scale) / 2;
+    var shapes = [];
+    var used = new Array(holeSlim.length);
+    var i, j, parent, holeArea, d, hd;
+    var role = job === "accent" ? "accent" : "figure";
+    for (i = 0; i < simplified.length; i++) {
+      d = toPath(simplified[i], ox, oy, scale, opts);
+      if (!d) continue;
+      for (j = 0; j < holeSlim.length; j++) {
+        if (used[j]) continue;
+        if (!inside(simplified[i], centroid(holeSlim[j]))) continue;
+        parent = area(simplified[i]);
+        holeArea = area(holeSlim[j]);
+        if (holeArea >= parent * 0.92) continue;
+        hd = toPath(holeSlim[j], ox, oy, scale, opts);
+        if (!hd) continue;
+        d += " " + hd;
+        used[j] = 1;
+      }
+      shapes.push({
+        id: idBase + "-" + (shapes.length + 1),
+        type: "path",
+        role: role,
+        fill: job,
+        fillRule: "evenodd",
+        d: d
+      });
+    }
+    return shapes;
+  }
+
+  function fromRgb(width, height, rgb, options) {
+    var w = width | 0;
+    var h = height | 0;
+    if (!w || !h || !rgb || rgb.length < w * h * 3) return { ok: false, error: "empty raster" };
+    var opts = options || {};
+    var src = rgb.length === w * h * 3 ? rgb : rgb.subarray(0, w * h * 3);
+    var rch = new Uint8Array(w * h);
+    var gch = new Uint8Array(w * h);
+    var bch = new Uint8Array(w * h);
+    var i, o, c;
+    for (i = 0; i < w * h; i++) {
+      o = i * 3;
+      rch[i] = src[o];
+      gch[i] = src[o + 1];
+      bch[i] = src[o + 2];
+    }
+    if (opts.blur !== false) {
+      rch = blur3(rch, w, h);
+      gch = blur3(gch, w, h);
+      bch = blur3(bch, w, h);
+    }
+    var packed = new Uint8Array(w * h * 3);
+    for (i = 0; i < w * h; i++) {
+      packed[i * 3] = rch[i];
+      packed[i * 3 + 1] = gch[i];
+      packed[i * 3 + 2] = bch[i];
+    }
+    var centers = quantizeInks(packed, w, h);
+    if (centers.length < 2) {
+      var luma = new Uint8Array(w * h);
+      for (i = 0; i < w * h; i++) luma[i] = (rch[i] * 54 + gch[i] * 183 + bch[i] * 19) >> 8;
+      var mono = fromLuma(w, h, luma, opts);
+      if (mono.ok && centers.length === 1) {
+        mono.palette = {
+          ground: "#f6f1e8",
+          figure: hexOf(centers[0][0], centers[0][1], centers[0][2]),
+          accent: "#355e57"
+        };
+        mono.inks = [{ role: "figure", hex: mono.palette.figure }];
+        for (i = 0; i < mono.shapes.length; i++) mono.shapes[i].fill = "figure";
+      }
+      return mono;
+    }
+    var jobs = ["figure", "accent", "ink2", "ink3"];
+    var masks = [];
+    var counts = [];
+    for (c = 0; c < centers.length; c++) {
+      masks.push(new Uint8Array(w * h));
+      counts.push(0);
+    }
+    var cutoff = 58 * 58;
+    var best, bestD, d, r, g, b;
+    for (i = 0; i < w * h; i++) {
+      r = rch[i];
+      g = gch[i];
+      b = bch[i];
+      if (paperPixel(r, g, b)) continue;
+      best = -1;
+      bestD = cutoff;
+      for (c = 0; c < centers.length; c++) {
+        d = colorDist2([r, g, b], centers[c]);
+        if (d < bestD) {
+          bestD = d;
+          best = c;
+        }
+      }
+      if (best < 0) continue;
+      masks[best][i] = 1;
+      counts[best]++;
+    }
+    var order = [];
+    for (c = 0; c < centers.length; c++) order.push(c);
+    order.sort(function (a, b) { return counts[b] - counts[a]; });
+    var shapes = [];
+    var inks = [];
+    var palette = { ground: "#f6f1e8", figure: "#1e1b16", accent: "#355e57" };
+    var turd = opts.turdsize != null ? opts.turdsize : Math.max(6, Math.round((w * h) / 14000));
+    for (c = 0; c < order.length; c++) {
+      if (counts[order[c]] < turd) continue;
+      if (inks.length >= 4) break;
+      var job = jobs[inks.length];
+      var hex = hexOf(centers[order[c]][0], centers[order[c]][1], centers[order[c]][2]);
+      var batch = shapesFromMask(masks[order[c]], w, h, opts, job, "trace-" + job);
+      if (!batch.length) continue;
+      palette[job] = hex;
+      inks.push({ role: job, hex: hex, contours: batch.length });
+      for (i = 0; i < batch.length; i++) shapes.push(batch[i]);
+      if (shapes.length >= 20) break;
+    }
+    if (!shapes.length) return { ok: false, error: "no contours" };
+    return {
+      ok: true,
+      viewBox: [0, 0, 1024, 1024],
+      inks: inks,
+      palette: palette,
+      ignoreWhite: true,
+      alphamax: opts.alphamax != null ? opts.alphamax : 0.95,
+      opttolerance: opts.opttolerance != null ? opts.opttolerance : 0.55,
+      contours: shapes.length,
+      shapes: shapes
+    };
   }
 
   function fromLuma(width, height, luma, options) {
@@ -606,6 +867,12 @@
 
   function fromRaster(payload, options) {
     if (!payload || !payload.ok) return { ok: false, error: (payload && payload.error) || "missing raster" };
+    if (payload.rgb) {
+      var rgb = decodeLuma(payload.rgb);
+      if (rgb.length >= (payload.width | 0) * (payload.height | 0) * 3) {
+        return fromRgb(payload.width, payload.height, rgb, options);
+      }
+    }
     return fromLuma(payload.width, payload.height, decodeLuma(payload.luma), options);
   }
 
@@ -627,13 +894,20 @@
     var ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, w, h);
     var data = ctx.getImageData(0, 0, w, h).data;
-    var luma = new Uint8Array(w * h);
-    for (var i = 0; i < luma.length; i++) {
+    var rgb = new Uint8Array(w * h * 3);
+    for (var i = 0; i < w * h; i++) {
       var o = i * 4;
-      if (data[o + 3] < 16) luma[i] = 255;
-      else luma[i] = (data[o] * 54 + data[o + 1] * 183 + data[o + 2] * 19) >> 8;
+      if (data[o + 3] < 16) {
+        rgb[i * 3] = 255;
+        rgb[i * 3 + 1] = 255;
+        rgb[i * 3 + 2] = 255;
+      } else {
+        rgb[i * 3] = data[o];
+        rgb[i * 3 + 1] = data[o + 1];
+        rgb[i * 3 + 2] = data[o + 2];
+      }
     }
-    done(fromLuma(w, h, luma, opts));
+    done(fromRgb(w, h, rgb, opts));
   }
 
   function documentFrom(trace, brief, name) {
@@ -647,13 +921,14 @@
         brief: brief || "Autotrace"
       },
       canvas: { viewBox: trace.viewBox, units: "px" },
-      palette: { ground: "#f6f1e8", figure: "#1e1b16", accent: "#355e57" },
+      palette: (trace && trace.palette) || { ground: "#f6f1e8", figure: "#1e1b16", accent: "#355e57" },
       layers: [{ id: "trace", name: "Trace", visible: true, opacity: 1, shapes: trace.shapes }]
     };
   }
 
   root.VeloraTrace = {
     fromLuma: fromLuma,
+    fromRgb: fromRgb,
     fromRaster: fromRaster,
     fromImage: fromImage,
     documentFrom: documentFrom,
