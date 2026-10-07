@@ -1921,9 +1921,42 @@
     return out;
   }
 
+  function flattenStairs(points, closed) {
+    if (!points || points.length < 4) return points;
+    var eps = 0.78;
+    var n = points.length;
+    var i, j, k, far, ok, keep, out, packed;
+    if (closed) {
+      packed = chordStraighten(points.concat([points[0].slice()]), eps);
+      if (!packed || packed.length < 4) return points;
+      return packed.slice(0, -1);
+    }
+    keep = [0];
+    i = 0;
+    while (i < n - 1) {
+      far = i + 1;
+      for (j = i + 2; j < n; j++) {
+        ok = true;
+        for (k = i + 1; k < j; k++) {
+          if (distPointSeg(points[k], points[i], points[j]) > eps) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) break;
+        far = j;
+      }
+      keep.push(far);
+      i = far;
+    }
+    out = [];
+    for (i = 0; i < keep.length; i++) out.push(points[keep[i]].slice());
+    return out.length >= 2 ? out : points;
+  }
+
   function toOpenPath(points, ox, oy, scale, opts, closed) {
     if (!points || points.length < 2) return "";
-    points = relaxSpine(points, closed);
+    points = flattenStairs(relaxSpine(points, closed), closed);
     var alphamax = 1.15;
     var opttolerance = 0.42;
     var ring = points;
@@ -1945,7 +1978,10 @@
       a = ring[i - 1];
       b = ring[i];
       c = ring[i + 1];
-      if (turnAt(a, b, c) >= alphamax) corners.push(i);
+      if (turnAt(a, b, c) < alphamax) continue;
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1.6) continue;
+      if (Math.hypot(c[0] - b[0], c[1] - b[1]) < 1.6) continue;
+      corners.push(i);
     }
     corners.push(ring.length - 1);
     segs = [];
