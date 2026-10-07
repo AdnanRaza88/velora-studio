@@ -794,7 +794,7 @@
     opts = opts || {};
     for (key in opts) next[key] = opts[key];
     if (width > 6.5) return { points: points, opts: next, thin: false };
-    next.opttolerance = Math.max(0.24, Math.min(opts.opttolerance != null ? opts.opttolerance : 0.55, width * 0.1));
+    next.opttolerance = Math.max(0.24, Math.min(opts.opttolerance != null ? opts.opttolerance : 0.36, width * 0.1));
     next.alphamax = Math.min(opts.alphamax != null ? opts.alphamax : 0.95, 0.7);
     return { points: points, opts: next, thin: true, width: width };
   }
@@ -805,6 +805,9 @@
     var b = pts[n - 1];
     var t1 = tangentAt(pts, 0);
     var t2 = tangentAt(pts, n - 1);
+    var chordDir = norm(b[0] - a[0], b[1] - a[1]);
+    if (t1[0] * chordDir[0] + t1[1] * chordDir[1] < 0.2) t1 = chordDir;
+    if (t2[0] * chordDir[0] + t2[1] * chordDir[1] < 0.2) t2 = chordDir;
     if (!ts) ts = chordParams(pts);
     var c00 = 0;
     var c01 = 0;
@@ -919,7 +922,7 @@
     var ts = chordParams(pts);
     var cubic = fitCubic(pts, ts);
     var pass, i;
-    for (pass = 0; pass < 2; pass++) {
+    for (pass = 0; pass < 3; pass++) {
       for (i = 1; i < pts.length - 1; i++) ts[i] = projectT(cubic, pts[i], ts[i]);
       monotone(ts);
       cubic = fitCubic(pts, ts);
@@ -1034,7 +1037,7 @@
       a = ring[(i + ring.length - 1) % ring.length];
       b = ring[i];
       c = ring[(i + 1) % ring.length];
-      if (turnAt(a, b, c) >= limit || axisCorner(a, b, c)) corners.push(i);
+      if (realCorner(a, b, c, limit)) corners.push(i);
     }
     if (!corners.length) corners.push(0);
     var segs = [];
@@ -1072,7 +1075,7 @@
       return line.join(" ");
     }
     var alphamax = opts && opts.alphamax != null ? opts.alphamax : 0.95;
-    var opttolerance = opts && opts.opttolerance != null ? opts.opttolerance : 0.55;
+    var opttolerance = opts && opts.opttolerance != null ? opts.opttolerance : 0.36;
     var fit = fitContour(points, alphamax, opttolerance);
     if (!fit || !fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
@@ -1293,10 +1296,20 @@
       if (run.length < 4) continue;
       var ax = axis[i];
       var vals = [];
-      var k;
+      var along = 0;
+      var k, cross, bow;
       for (k = 0; k < run.length; k++) vals.push(ax === 1 ? ring[run[k]][1] : ring[run[k]][0]);
+      for (k = 1; k < run.length; k++) {
+        along += Math.abs(ax === 1 ? ring[run[k]][0] - ring[run[k - 1]][0] : ring[run[k]][1] - ring[run[k - 1]][1]);
+      }
       vals.sort(function (a, b) { return a - b; });
       var med = vals[vals.length >> 1];
+      bow = 0;
+      for (k = 0; k < run.length; k++) {
+        cross = Math.abs(vals[k] - med);
+        if (cross > bow) bow = cross;
+      }
+      if (bow > 0.55 || along < 5) continue;
       for (k = 0; k < run.length; k++) {
         if (ax === 1) out[run[k]][1] = med;
         else out[run[k]][0] = med;
@@ -1429,6 +1442,7 @@
       c = ring[(i + 1) % ring.length];
       inn = Math.hypot(b[0] - a[0], b[1] - a[1]);
       out = Math.hypot(c[0] - b[0], c[1] - b[1]);
+      if ((b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) < 0 && distPointSeg(b, a, c) < 1.35) continue;
       if (inn < 2.2 && out < 2.2 && (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) < 0) continue;
       keep.push(b.slice());
     }
@@ -1445,7 +1459,7 @@
       if (field) chain = isoPlace(chain, field, w, h, level, pin);
       chain = dropSpikes(dropSpikes(chain));
       chain = snapOrthogonal(chain);
-      chain = chordStraighten(chain, 0.82);
+      chain = chordStraighten(chain, 1.05);
       settled.push(collapseCollinear(smoothChain(chain, corner)));
     }
     return settled;
@@ -1455,9 +1469,16 @@
     var inn = axisOf(a, b);
     var out = axisOf(b, c);
     if (!(inn && out && inn !== out)) return false;
-    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 2.4) return false;
-    if (Math.hypot(c[0] - b[0], c[1] - b[1]) < 2.4) return false;
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 4.2) return false;
+    if (Math.hypot(c[0] - b[0], c[1] - b[1]) < 4.2) return false;
     return true;
+  }
+
+  function realCorner(a, b, c, limit) {
+    var inn = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    var out = Math.hypot(c[0] - b[0], c[1] - b[1]);
+    if (inn < 3.6 && out < 3.6) return false;
+    return turnAt(a, b, c) >= limit || axisCorner(a, b, c);
   }
 
   function cornerFlags(points, limit) {
@@ -1471,7 +1492,7 @@
       a = ring[(i + ring.length - 1) % ring.length];
       b = ring[i];
       c = ring[(i + 1) % ring.length];
-      if (turnAt(a, b, c) < limit && !axisCorner(a, b, c)) continue;
+      if (!realCorner(a, b, c, limit)) continue;
       flags[i] = 1;
       if (pack.closed && i === 0 && points.length > ring.length) flags[points.length - 1] = 1;
     }
@@ -2290,7 +2311,7 @@
       palette: palette,
       ignoreWhite: true,
       alphamax: opts.alphamax != null ? opts.alphamax : 0.95,
-      opttolerance: opts.opttolerance != null ? opts.opttolerance : 0.55,
+      opttolerance: opts.opttolerance != null ? opts.opttolerance : 0.36,
       contours: shapes.length,
       shapes: shapes
     };
@@ -2379,7 +2400,7 @@
       invert: invert,
       turdsize: turd,
       alphamax: opts.alphamax != null ? opts.alphamax : 0.95,
-      opttolerance: opts.opttolerance != null ? opts.opttolerance : 0.55,
+      opttolerance: opts.opttolerance != null ? opts.opttolerance : 0.36,
       ignoreWhite: !invert && tone.light >= 0.62,
       contours: shapes.length,
       shapes: shapes
