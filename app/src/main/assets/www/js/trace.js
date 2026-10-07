@@ -1139,17 +1139,25 @@
     return a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty;
   }
 
-  function isoPlace(points, field, w, h, level) {
+  function isoPlace(points, field, w, h, level, pin) {
     if (!field || !points || points.length < 3) return points;
     var pack = closedRing(points);
     var ring = pack.ring;
     var n = ring.length;
     if (n < 3) return points;
     var out = [];
-    var i, x, y, step, v, gx, gy, g2, t, dx, dy, move, cap, prev, next;
+    var i, x, y, step, v, gx, gy, g2, t, dx, dy, move, cap, prev, next, px, py;
     for (i = 0; i < n; i++) {
       x = ring[i][0];
       y = ring[i][1];
+      if (pin) {
+        px = x | 0;
+        py = y | 0;
+        if (px >= 0 && py >= 0 && px < w && py < h && pin[py * w + px]) {
+          out.push(ring[i].slice());
+          continue;
+        }
+      }
       prev = ring[(i + n - 1) % n];
       next = ring[(i + 1) % n];
       cap = turnAt(prev, ring[i], next) > 1.15 ? 0.32 : 0.85;
@@ -1183,6 +1191,61 @@
     var i;
     for (i = 0; i < mask.length; i++) field[i] = mask[i] ? 255 : 0;
     return blur3(blur3(field, w, h), w, h);
+  }
+
+  function blendT(pix, a, b) {
+    var abx = b[0] - a[0];
+    var aby = b[1] - a[1];
+    var abz = b[2] - a[2];
+    var ab2 = abx * abx + aby * aby + abz * abz;
+    if (ab2 < 1e-8) return 1;
+    var t = ((pix[0] - a[0]) * abx + (pix[1] - a[1]) * aby + (pix[2] - a[2]) * abz) / ab2;
+    if (t < 0) return 0;
+    if (t > 1) return 1;
+    return t;
+  }
+
+  function coverageField(rch, gch, bch, w, h, inkLab, paperLab) {
+    var field = new Uint8Array(w * h);
+    var i, lab, t, ax, ay, az, dx, dy, dz;
+    for (i = 0; i < w * h; i++) {
+      lab = toOklab([rch[i], gch[i], bch[i]]);
+      t = blendT(lab, paperLab, inkLab);
+      ax = paperLab[0] + t * (inkLab[0] - paperLab[0]);
+      ay = paperLab[1] + t * (inkLab[1] - paperLab[1]);
+      az = paperLab[2] + t * (inkLab[2] - paperLab[2]);
+      dx = lab[0] - ax;
+      dy = lab[1] - ay;
+      dz = lab[2] - az;
+      if (dx * dx + dy * dy + dz * dz > 0.008) {
+        field[i] = labDist2(lab, inkLab) <= labDist2(lab, paperLab) ? 255 : 0;
+      } else {
+        field[i] = (t * 255) | 0;
+      }
+    }
+    return blur3(field, w, h);
+  }
+
+  function seamPin(mask, labels, w, h, inkIndex) {
+    var pin = new Uint8Array(mask.length);
+    var y, x, i, k, nx, ny, ni;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (!mask[i]) continue;
+        for (k = 0; k < 8; k++) {
+          nx = x + DX[k];
+          ny = y + DY[k];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          ni = ny * w + nx;
+          if (labels[ni] >= 0 && labels[ni] !== inkIndex) {
+            pin[i] = 1;
+            break;
+          }
+        }
+      }
+    }
+    return pin;
   }
 
 
@@ -1354,12 +1417,12 @@
     return out;
   }
 
-  function prepare(raw, mask, w, h, corner, field, level) {
+  function prepare(raw, mask, w, h, corner, field, level, pin) {
     var settled = [];
     var i, chain;
     for (i = 0; i < raw.length; i++) {
       chain = settle(raw[i], mask, w, h);
-      if (field) chain = isoPlace(chain, field, w, h, level);
+      if (field) chain = isoPlace(chain, field, w, h, level, pin);
       chain = snapOrthogonal(chain);
       chain = chordStraighten(chain, 0.82);
       settled.push(collapseCollinear(smoothChain(chain, corner)));
@@ -1955,7 +2018,7 @@
     return { rest: rest, strokes: strokes };
   }
 
-  function shapesFromMask(mask, w, h, opts, job, idBase) {
+  function shapesFromMask(mask, w, h, opts, job, idBase, cover, labels, inkIndex) {
     var turd = opts.turdsize != null ? opts.turdsize : Math.max(6, Math.round((w * h) / 14000));
     var ink = bridgeGaps(mask, w, h);
     ink = smoothMask(ink, w, h);
@@ -1964,10 +2027,11 @@
     ink = dilate(ink, w, h);
     var peeled = peelThin(ink, w, h);
     ink = peeled.rest;
-    var field = softField(ink, w, h);
+    var field = cover || softField(ink, w, h);
+    var pin = labels ? seamPin(ink, labels, w, h, inkIndex) : null;
     var rings = dropHoleEchoes(sealRings(contours(ink, w, h, opts.maxContours || 32)), sealRings(holeContours(ink, w, h, opts.maxHoles || 12)));
-    var raw = prepare(rings, ink, w, h, opts.alphamax, field, 128);
-    var holes = prepare(sealRings(holeContours(ink, w, h, opts.maxHoles || 12)), ink, w, h, opts.alphamax, field, 128);
+    var raw = prepare(rings, ink, w, h, opts.alphamax, field, 128, pin);
+    var holes = prepare(sealRings(holeContours(ink, w, h, opts.maxHoles || 12)), ink, w, h, opts.alphamax, field, 128, pin);
     var eps = opts.epsilon != null ? opts.epsilon : Math.max(0.65, Math.min(1.25, Math.max(w, h) / 360));
     var minArea = opts.minArea != null ? opts.minArea : Math.max(10, (w * h) / 9000);
     var simplified = simplify(raw, eps, minArea, opts.alphamax, ink, w, h);
@@ -2120,7 +2184,8 @@
       if (inks.length >= 4) break;
       var job = jobs[inks.length];
       var hex = hexOf(centers[order[c]][0], centers[order[c]][1], centers[order[c]][2]);
-      var batch = shapesFromMask(masks[order[c]], w, h, opts, job, "trace-" + job);
+      var cover = paper ? coverageField(rch, gch, bch, w, h, centerLab[order[c]], paper.lab) : null;
+      var batch = shapesFromMask(masks[order[c]], w, h, opts, job, "trace-" + job, cover, labels, order[c]);
       if (!batch.length) continue;
       palette[job] = hex;
       inks.push({ role: job, hex: hex, contours: batch.length });
