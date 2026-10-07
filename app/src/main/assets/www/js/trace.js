@@ -1038,6 +1038,62 @@
     return out;
   }
 
+  function sideRuns(ring) {
+    var n = ring.length;
+    if (n < 4) return [];
+    var cuts = [];
+    var seen = new Array(n);
+    var i, j, k, span, along, step, bow, back, prev, next, prevLen, nextLen, turnIn, turnOut;
+    for (i = 0; i < n; i++) {
+      if (seen[i]) continue;
+      var run = [i];
+      seen[i] = 1;
+      j = (i + 1) % n;
+      while (!seen[j] && run.length < n) {
+        span = [];
+        for (k = 0; k < run.length; k++) span.push(ring[run[k]]);
+        span.push(ring[j]);
+        along = 0;
+        for (k = 1; k < span.length; k++) along += Math.hypot(span[k][0] - span[k - 1][0], span[k][1] - span[k - 1][1]);
+        bow = chordBow(span);
+        step = Math.hypot(ring[j][0] - ring[run[run.length - 1]][0], ring[j][1] - ring[run[run.length - 1]][1]);
+        if (step < 0.4 || bow > 1.05 || (along > 12 && bow > along * 0.012)) break;
+        seen[j] = 1;
+        run.push(j);
+        j = (j + 1) % n;
+      }
+      back = (i + n - 1) % n;
+      while (!seen[back] && run.length < n) {
+        span = [ring[back]];
+        for (k = 0; k < run.length; k++) span.push(ring[run[k]]);
+        along = 0;
+        for (k = 1; k < span.length; k++) along += Math.hypot(span[k][0] - span[k - 1][0], span[k][1] - span[k - 1][1]);
+        bow = chordBow(span);
+        step = Math.hypot(ring[run[0]][0] - ring[back][0], ring[run[0]][1] - ring[back][1]);
+        if (step < 0.4 || bow > 1.05 || (along > 12 && bow > along * 0.012)) break;
+        seen[back] = 1;
+        run.unshift(back);
+        back = (back + n - 1) % n;
+      }
+      along = 0;
+      for (k = 1; k < run.length; k++) along += Math.hypot(ring[run[k]][0] - ring[run[k - 1]][0], ring[run[k]][1] - ring[run[k - 1]][1]);
+      if (along < 16 || run.length < 2) continue;
+      if (run.length === 2) {
+        prev = ring[(run[0] + n - 1) % n];
+        next = ring[(run[1] + 1) % n];
+        prevLen = Math.hypot(ring[run[0]][0] - prev[0], ring[run[0]][1] - prev[1]);
+        nextLen = Math.hypot(next[0] - ring[run[1]][0], next[1] - ring[run[1]][1]);
+        if (prevLen > along * 0.7 && nextLen > along * 0.7) continue;
+        turnIn = turnAt(prev, ring[run[0]], ring[run[1]]);
+        turnOut = turnAt(ring[run[0]], ring[run[1]], next);
+        if (turnIn < 0.4 || turnOut < 0.4) continue;
+      }
+      cuts.push(run[0]);
+      cuts.push(run[run.length - 1]);
+    }
+    return cuts;
+  }
+
   function straightCuts(ring) {
     var n = ring.length;
     if (n < 8) return [];
@@ -1110,7 +1166,7 @@
       c = ring[(i + 1) % ring.length];
       if (realCorner(a, b, c, limit) || joints[i]) corners.push(i);
     }
-    var cuts = straightCuts(ring);
+    var cuts = straightCuts(ring).concat(sideRuns(ring));
     for (i = 0; i < cuts.length; i++) {
       if (corners.indexOf(cuts[i]) < 0) corners.push(cuts[i]);
     }
