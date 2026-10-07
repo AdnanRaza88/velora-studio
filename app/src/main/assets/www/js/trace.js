@@ -1332,6 +1332,152 @@
     };
   }
 
+
+  function segEnd(seg) {
+    return seg.k === "C" ? seg.c[3] : seg.p;
+  }
+
+  function lineCross(a, b, c, d) {
+    var den = (a[0] - b[0]) * (c[1] - d[1]) - (a[1] - b[1]) * (c[0] - d[0]);
+    if (Math.abs(den) < 1e-4) return null;
+    var t = ((a[0] - c[0]) * (c[1] - d[1]) - (a[1] - c[1]) * (c[0] - d[0])) / den;
+    return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+  }
+
+  function miterChamfers(fit) {
+    var segs = fit.segs;
+    if (!segs || segs.length < 4) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 8) {
+      changed = false;
+      guard++;
+      var n = segs.length;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "L") continue;
+        var shortLen = Math.hypot(segEnd(segs[i])[0] - starts[i][0], segEnd(segs[i])[1] - starts[i][1]);
+        if (shortLen < 0.4 || shortLen > 4.8) continue;
+        var a = i;
+        var b = i;
+        var shorts = 1;
+        var span = shortLen;
+        var prev, next, pl, nl;
+        while (shorts < 3) {
+          prev = (a + n - 1) % n;
+          if (segs[prev].k !== "L") break;
+          pl = Math.hypot(segEnd(segs[prev])[0] - starts[prev][0], segEnd(segs[prev])[1] - starts[prev][1]);
+          if (pl > 4.8) break;
+          a = prev;
+          shorts++;
+          span += pl;
+        }
+        while (shorts < 3) {
+          next = (b + 1) % n;
+          if (segs[next].k !== "L") break;
+          nl = Math.hypot(segEnd(segs[next])[0] - starts[next][0], segEnd(segs[next])[1] - starts[next][1]);
+          if (nl > 4.8) break;
+          b = next;
+          shorts++;
+          span += nl;
+        }
+        if (span > 6.2) continue;
+        var inn = (a + n - 1) % n;
+        var out = (b + 1) % n;
+        if (inn === b || out === a || segs[inn].k !== "L" || segs[out].k !== "L") continue;
+        var innLen = Math.hypot(segEnd(segs[inn])[0] - starts[inn][0], segEnd(segs[inn])[1] - starts[inn][1]);
+        var outLen = Math.hypot(segEnd(segs[out])[0] - starts[out][0], segEnd(segs[out])[1] - starts[out][1]);
+        if (innLen < 12 || outLen < 12) continue;
+        var hit = lineCross(starts[inn], segEnd(segs[inn]), starts[out], segEnd(segs[out]));
+        if (!hit) continue;
+        var dx1 = segEnd(segs[inn])[0] - starts[inn][0];
+        var dy1 = segEnd(segs[inn])[1] - starts[inn][1];
+        var dx2 = segEnd(segs[out])[0] - starts[out][0];
+        var dy2 = segEnd(segs[out])[1] - starts[out][1];
+        var dot = (dx1 * dx2 + dy1 * dy2) / (innLen * outLen);
+        if (dot > 0.86 || dot < -0.92) continue;
+        var far = 0;
+        var k = a;
+        var steps = 0;
+        var d0, d1;
+        while (steps < 5) {
+          d0 = Math.hypot(starts[k][0] - hit[0], starts[k][1] - hit[1]);
+          d1 = Math.hypot(segEnd(segs[k])[0] - hit[0], segEnd(segs[k])[1] - hit[1]);
+          if (d0 > far) far = d0;
+          if (d1 > far) far = d1;
+          if (k === b) break;
+          k = (k + 1) % n;
+          steps++;
+        }
+        if (far > 4.4) continue;
+        var along = ((hit[0] - segEnd(segs[inn])[0]) * dx1 + (hit[1] - segEnd(segs[inn])[1]) * dy1) / innLen;
+        if (along < -1.2 || along > 5.5) continue;
+        segs[inn].p = [hit[0], hit[1]];
+        var drop = [];
+        k = a;
+        steps = 0;
+        while (steps < 5) {
+          drop.push(k);
+          if (k === b) break;
+          k = (k + 1) % n;
+          steps++;
+        }
+        drop.sort(function (x, y) { return y - x; });
+        for (k = 0; k < drop.length; k++) segs.splice(drop[k], 1);
+        if (drop.indexOf(0) >= 0) fit.start = [hit[0], hit[1]];
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
+
+  function dropSideJogs(fit) {
+    var segs = fit.segs;
+    if (!segs || segs.length < 4) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 10) {
+      changed = false;
+      guard++;
+      var n = segs.length;
+      if (n < 4) break;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "L") continue;
+        var prev = (i + n - 1) % n;
+        var next = (i + 1) % n;
+        if (segs[prev].k !== "L" || segs[next].k !== "L") continue;
+        var here = segEnd(segs[i]);
+        var a = starts[i];
+        var c = segEnd(segs[next]);
+        var legIn = Math.hypot(here[0] - a[0], here[1] - a[1]);
+        var legOut = Math.hypot(c[0] - here[0], c[1] - here[1]);
+        if (Math.min(legIn, legOut) > 11 || Math.max(legIn, legOut) < 8) continue;
+        if (distPointSeg(here, a, c) > 1.35) continue;
+        if (turnAt(a, here, c) > 0.62) continue;
+        segs.splice(i, 1);
+        if (i === 0) fit.start = a.slice();
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
   function xy(p, ox, oy, scale) {
     return round1(ox + p[0] * scale) + " " + round1(oy + p[1] * scale);
   }
@@ -1350,6 +1496,9 @@
     var fit = fitContour(points, alphamax, opttolerance);
 
     if (!fit || !fit.segs.length) return "";
+    fit = miterChamfers(fit);
+    fit = dropSideJogs(fit);
+    if (!fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
     for (var s = 0; s < fit.segs.length; s++) {
       var seg = fit.segs[s];
