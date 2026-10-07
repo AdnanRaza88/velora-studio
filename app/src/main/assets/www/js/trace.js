@@ -1235,6 +1235,73 @@
     return changes >= 2 || maxRun <= 3;
   }
 
+
+  function ovalFit(ring, tol) {
+    var n = ring.length;
+    if (n < 16) return null;
+    var i, a, b, c;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      if (axisCorner(a, b, c)) return null;
+    }
+    if (straightCuts(ring).length || sideRuns(ring).length) return null;
+    var minX = 0;
+    var maxX = 0;
+    var minY = 0;
+    var maxY = 0;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < ring[minX][0]) minX = i;
+      if (ring[i][0] > ring[maxX][0]) maxX = i;
+      if (ring[i][1] < ring[minY][1]) minY = i;
+      if (ring[i][1] > ring[maxY][1]) maxY = i;
+    }
+    var poles = [minX, maxX, minY, maxY];
+    var uniq = [];
+    for (i = 0; i < poles.length; i++) if (uniq.indexOf(poles[i]) < 0) uniq.push(poles[i]);
+    if (uniq.length < 4) return null;
+    uniq.sort(function (a, b) { return a - b; });
+    var bw = ring[maxX][0] - ring[minX][0];
+    var bh = ring[maxY][1] - ring[minY][1];
+    if (bw < 18 || bh < 18) return null;
+    if (Math.abs(area(ring)) < bw * bh * 0.62) return null;
+    var segs = [];
+    var allow = Math.max(tol, 2.35);
+    function fitOvalSpan(span, depth) {
+      var fit = fitTight(span);
+      var err = cubicError(span, fit.cubic, fit.ts);
+      if (err.max <= allow || depth > 1 || span.length < 8) {
+        if (err.max > allow * 1.8) return null;
+        return [{ k: "C", c: fit.cubic, pts: span }];
+      }
+      var mid = (span.length / 2) | 0;
+      var left = fitOvalSpan(span.slice(0, mid + 1), depth + 1);
+      var right = fitOvalSpan(span.slice(mid), depth + 1);
+      if (!left || !right) return null;
+      return left.concat(right);
+    }
+    for (i = 0; i < uniq.length; i++) {
+      var from = uniq[i];
+      var to = uniq[(i + 1) % uniq.length];
+      var span = [];
+      var idx = from;
+      var guard = 0;
+      span.push(ring[idx]);
+      do {
+        idx = (idx + 1) % n;
+        span.push(ring[idx]);
+        guard++;
+      } while (idx !== to && guard <= n);
+      if (span.length < 4 || chordBow(span) < 1.4) return null;
+      var piece = fitOvalSpan(span, 0);
+      if (!piece) return null;
+      segs = segs.concat(piece);
+    }
+    if (segs.length > 8) return null;
+    return { start: ring[uniq[0]], segs: segs };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -1243,6 +1310,8 @@
     }
     while (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
     if (ring.length < 3) return null;
+    var oval = ovalFit(ring, opttolerance);
+    if (oval) return oval;
     var limit = alphamax;
     var corners = [];
     var i, a, b, c;
@@ -2154,6 +2223,7 @@
     if (inn < 3.6 && out < 3.6) return false;
     return turnAt(a, b, c) >= limit || axisCorner(a, b, c);
   }
+
 
   function cornerFlags(points, limit) {
     var pack = closedRing(points);
