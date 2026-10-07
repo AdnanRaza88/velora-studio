@@ -1000,9 +1000,20 @@
     return out;
   }
 
+  function spanTurn(pts) {
+    if (!pts || pts.length < 3) return 0;
+    var max = 0;
+    var i, turn;
+    for (i = 1; i < pts.length - 1; i++) {
+      turn = turnAt(pts[i - 1], pts[i], pts[i + 1]);
+      if (turn > max) max = turn;
+    }
+    return max;
+  }
+
   function opticurve(segs, tol) {
     var cur = [];
-    var i, seg, pts, end, merged, fit, err;
+    var i, seg, pts, end, merged, fit, err, allow;
     for (i = 0; i < segs.length; i++) {
       seg = segs[i];
       if (seg.k === "C" && (flatCubic(seg.c, tol * 0.65) || straightEnough(seg.pts, tol))) cur.push({ k: "L", p: seg.c[3], pts: seg.pts });
@@ -1024,7 +1035,9 @@
         if (!merged || merged.length < 4) break;
         fit = fitTight(merged);
         err = cubicError(merged, fit.cubic, fit.ts);
-        if (err.max > tol || flatCubic(fit.cubic, tol * 0.65) || straightEnough(merged, tol)) break;
+        allow = tol;
+        if (spanTurn(merged) < 0.55 && chordBow(merged) > 0.9) allow = Math.max(tol, 1.15);
+        if (err.max > allow || flatCubic(fit.cubic, tol * 0.65) || straightEnough(merged, tol)) break;
         pts = merged;
         end++;
       }
