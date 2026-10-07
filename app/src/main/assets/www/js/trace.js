@@ -1092,8 +1092,8 @@
         next = ring[(run[run.length - 1] + 1) % n];
         turnIn = turnAt(prev, ring[run[0]], ring[run[1]]);
         turnOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], next);
-        var farIn = ring[(run[0] + n - 5) % n];
-        var farOut = ring[(run[run.length - 1] + 5) % n];
+        var farIn = ring[wrap(run[0] - 5, n)];
+        var farOut = ring[wrap(run[run.length - 1] + 5, n)];
         var driftIn = turnAt(farIn, ring[run[0]], ring[run[1]]);
         var driftOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], farOut);
         if (turnIn < 0.72 && turnOut < 0.72 && driftIn < 0.85 && driftOut < 0.85) ok = false;
@@ -1151,13 +1151,17 @@
       if (along < 18 || chordBow(span) > 0.5) continue;
       var turnIn = turnAt(ring[(run[0] + n - 1) % n], ring[run[0]], ring[run[1]]);
       var turnOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], ring[(run[run.length - 1] + 1) % n]);
-      var driftIn = turnAt(ring[(run[0] + n - 5) % n], ring[run[0]], ring[run[1]]);
-      var driftOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], ring[(run[run.length - 1] + 5) % n]);
+      var driftIn = turnAt(ring[wrap(run[0] - 5, n)], ring[run[0]], ring[run[1]]);
+      var driftOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], ring[wrap(run[run.length - 1] + 5, n)]);
       if (turnIn < 0.72 && turnOut < 0.72 && driftIn < 0.85 && driftOut < 0.85) continue;
       cuts.push(run[0]);
       cuts.push(run[run.length - 1]);
     }
     return cuts;
+  }
+
+  function wrap(i, n) {
+    return ((i % n) + n) % n;
   }
 
   function turnAt(a, b, c) {
