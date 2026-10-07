@@ -1570,12 +1570,30 @@
     return dx * dx + dy * dy + dz * dz;
   }
 
-  function mergeFringe(labels, counts, centerLab, paper) {
+  function fringeShell(labels, w, h, c) {
+    var n = 0;
+    var edge = 0;
+    var y, x, i, open;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (labels[i] !== c) continue;
+        n++;
+        open = x === 0 || labels[i - 1] !== c || x + 1 === w || labels[i + 1] !== c || y === 0 || labels[i - w] !== c || y + 1 === h || labels[i + w] !== c;
+        if (open) edge++;
+      }
+    }
+    if (!n) return 1;
+    return edge / n;
+  }
+
+  function mergeFringe(labels, counts, centerLab, paper, w, h) {
     if (!paper) return labels;
     var alias = [];
     var c, p, parent, parentCount, seen, cur;
     for (c = 0; c < centerLab.length; c++) alias.push(c);
     for (c = 0; c < centerLab.length; c++) {
+      if (fringeShell(labels, w, h, c) < 0.42) continue;
       parent = -1;
       parentCount = counts[c];
       for (p = 0; p < centerLab.length; p++) {
@@ -2233,7 +2251,7 @@
     for (i = 0; i < labels.length; i++) {
       if (labels[i] >= 0) inkCounts[labels[i]]++;
     }
-    labels = mergeFringe(labels, inkCounts, centerLab, paper);
+    labels = mergeFringe(labels, inkCounts, centerLab, paper, w, h);
     labels = snapHalo(labels, rch, gch, bch, w, h, centerLab, paper);
     labels = snapHalo(labels, rch, gch, bch, w, h, centerLab, paper);
     labels = majorityLabels(labels, w, h, centers.length);
