@@ -1223,7 +1223,7 @@
         field[i] = (t * 255) | 0;
       }
     }
-    return blur3(field, w, h);
+    return blur3(blur3(field, w, h), w, h);
   }
 
   function seamPin(mask, labels, w, h, inkIndex) {
@@ -1417,12 +1417,33 @@
     return out;
   }
 
+  function dropSpikes(points) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    if (ring.length < 6) return points.slice();
+    var keep = [];
+    var i, a, b, c, inn, out;
+    for (i = 0; i < ring.length; i++) {
+      a = ring[(i + ring.length - 1) % ring.length];
+      b = ring[i];
+      c = ring[(i + 1) % ring.length];
+      inn = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      out = Math.hypot(c[0] - b[0], c[1] - b[1]);
+      if (inn < 2.2 && out < 2.2 && (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1]) < 0) continue;
+      keep.push(b.slice());
+    }
+    if (keep.length < 3) return points.slice();
+    if (pack.closed) keep.push(keep[0].slice());
+    return keep;
+  }
+
   function prepare(raw, mask, w, h, corner, field, level, pin) {
     var settled = [];
     var i, chain;
     for (i = 0; i < raw.length; i++) {
       chain = settle(raw[i], mask, w, h);
       if (field) chain = isoPlace(chain, field, w, h, level, pin);
+      chain = dropSpikes(dropSpikes(chain));
       chain = snapOrthogonal(chain);
       chain = chordStraighten(chain, 0.82);
       settled.push(collapseCollinear(smoothChain(chain, corner)));
@@ -1433,7 +1454,10 @@
   function axisCorner(a, b, c) {
     var inn = axisOf(a, b);
     var out = axisOf(b, c);
-    return !!(inn && out && inn !== out);
+    if (!(inn && out && inn !== out)) return false;
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 2.4) return false;
+    if (Math.hypot(c[0] - b[0], c[1] - b[1]) < 2.4) return false;
+    return true;
   }
 
   function cornerFlags(points, limit) {
@@ -1549,15 +1573,27 @@
   function mergeFringe(labels, counts, centerLab, paper) {
     if (!paper) return labels;
     var alias = [];
-    var c, p, parent;
+    var c, p, parent, parentCount, seen, cur;
     for (c = 0; c < centerLab.length; c++) alias.push(c);
     for (c = 0; c < centerLab.length; c++) {
       parent = -1;
+      parentCount = counts[c];
       for (p = 0; p < centerLab.length; p++) {
-        if (p === c || counts[p] <= counts[c]) continue;
-        if (blendOff(centerLab[c], paper.lab, centerLab[p]) <= 0.0035) parent = p;
+        if (p === c || counts[p] <= parentCount) continue;
+        if (blendOff(centerLab[c], paper.lab, centerLab[p]) > 0.0035) continue;
+        parent = p;
+        parentCount = counts[p];
       }
-      if (parent >= 0) alias[c] = alias[parent];
+      if (parent >= 0) alias[c] = parent;
+    }
+    for (c = 0; c < alias.length; c++) {
+      seen = 0;
+      cur = c;
+      while (alias[cur] !== cur && seen < alias.length) {
+        cur = alias[cur];
+        seen++;
+      }
+      alias[c] = cur;
     }
     for (c = 0; c < labels.length; c++) {
       if (labels[c] >= 0) labels[c] = alias[labels[c]];
