@@ -1478,6 +1478,36 @@
     return fit;
   }
 
+
+  function lineBiasSides(fit) {
+    var segs = fit.segs;
+    if (!segs || segs.length < 3) return fit;
+    var starts = [];
+    var cursor = fit.start.slice();
+    var i;
+    for (i = 0; i < segs.length; i++) {
+      starts.push(cursor.slice());
+      cursor = segEnd(segs[i]).slice();
+    }
+    for (i = 0; i < segs.length; i++) {
+      if (segs[i].k !== "C") continue;
+      var prev = (i + segs.length - 1) % segs.length;
+      var next = (i + 1) % segs.length;
+      if (segs[prev].k !== "L" || segs[next].k !== "L") continue;
+      var a = starts[i];
+      var b = segEnd(segs[i]);
+      var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (chord < 22) continue;
+      if (distPointSeg(segs[i].c[1], a, b) > 3.4) continue;
+      if (distPointSeg(segs[i].c[2], a, b) > 3.4) continue;
+      var pin = starts[prev];
+      var nout = segEnd(segs[next]);
+      if (turnAt(pin, a, b) < 0.55 || turnAt(a, b, nout) < 0.55) continue;
+      segs[i] = { k: "L", p: b.slice() };
+    }
+    return fit;
+  }
+
   function xy(p, ox, oy, scale) {
     return round1(ox + p[0] * scale) + " " + round1(oy + p[1] * scale);
   }
@@ -1498,6 +1528,7 @@
     if (!fit || !fit.segs.length) return "";
     fit = miterChamfers(fit);
     fit = dropSideJogs(fit);
+    fit = lineBiasSides(fit);
     if (!fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
     for (var s = 0; s < fit.segs.length; s++) {
