@@ -1084,9 +1084,11 @@
         prevLen = Math.hypot(ring[run[0]][0] - prev[0], ring[run[0]][1] - prev[1]);
         nextLen = Math.hypot(next[0] - ring[run[1]][0], next[1] - ring[run[1]][1]);
         if (prevLen > along * 0.7 && nextLen > along * 0.7) continue;
-        turnIn = turnAt(prev, ring[run[0]], ring[run[1]]);
-        turnOut = turnAt(ring[run[0]], ring[run[1]], next);
-        if (turnIn < 0.4 || turnOut < 0.4) continue;
+        if (along < 24) {
+          turnIn = turnAt(prev, ring[run[0]], ring[run[1]]);
+          turnOut = turnAt(ring[run[0]], ring[run[1]], next);
+          if (turnIn < 0.4 || turnOut < 0.4) continue;
+        }
       }
       cuts.push(run[0]);
       cuts.push(run[run.length - 1]);
@@ -1187,10 +1189,36 @@
         guard++;
       } while (idx !== to && guard <= ring.length);
       if (span.length < 2) continue;
-      if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+      var fillet = span.length < 4 ? cornerFillet(ring, from, to) : null;
+      if (fillet) segs.push(fillet);
+      else if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
     return { start: start, segs: segs };
+  }
+
+  function cornerFillet(ring, from, to) {
+    var n = ring.length;
+    var a = ring[from];
+    var b = ring[to];
+    var prev = ring[(from + n - 1) % n];
+    var next = ring[(to + 1) % n];
+    var inLen = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
+    var outLen = Math.hypot(next[0] - b[0], next[1] - b[1]);
+    if (inLen < 8 || outLen < 8) return null;
+    var ix = (a[0] - prev[0]) / inLen;
+    var iy = (a[1] - prev[1]) / inLen;
+    var ox = (next[0] - b[0]) / outLen;
+    var oy = (next[1] - b[1]) / outLen;
+    if (ix * ox + iy * oy > 0.28) return null;
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (chord < 2.4 || chord > 14) return null;
+    if (Math.abs(b[1] - a[1]) < 1.25 || Math.abs(b[0] - a[0]) < 1.25) return null;
+    var h = 0.5523 * chord / Math.SQRT2;
+    return {
+      k: "C",
+      c: [a, [a[0] + ix * h, a[1] + iy * h], [b[0] - ox * h, b[1] - oy * h], b]
+    };
   }
 
   function xy(p, ox, oy, scale) {
@@ -1611,16 +1639,19 @@
     var pack = closedRing(points);
     var ring = pack.ring;
     if (ring.length < 5) return points.slice();
+    if (ring.length < 16) return points.slice();
     var limit = corner != null ? corner : 0.95;
     var joints = jointFlags(ring);
     var out = [];
-    var i, a, b, c, turn;
+    var i, a, b, c, turn, inn, outLen;
     for (i = 0; i < ring.length; i++) {
       a = ring[(i + ring.length - 1) % ring.length];
       b = ring[i];
       c = ring[(i + 1) % ring.length];
       turn = turnAt(a, b, c);
-      if (turn >= limit || (joints && joints[i])) out.push(b.slice());
+      inn = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      outLen = Math.hypot(c[0] - b[0], c[1] - b[1]);
+      if (turn >= limit || (joints && joints[i]) || (turn >= 0.42 && (inn >= 6 || outLen >= 6))) out.push(b.slice());
       else out.push([(a[0] + b[0] * 2 + c[0]) / 4, (a[1] + b[1] * 2 + c[1]) / 4]);
     }
     if (pack.closed && out.length) out.push(out[0].slice());
@@ -1735,7 +1766,7 @@
       chain = dropSpikes(dropSpikes(chain));
       chain = snapOrthogonal(chain);
       chain = pinAxisCorners(chain);
-      chain = chordStraighten(chain, 1.05);
+      chain = chordStraighten(chain, 0.62);
       chain = pinAxisCorners(collapseCollinear(smoothChain(chain, corner)));
       settled.push(chain);
     }
