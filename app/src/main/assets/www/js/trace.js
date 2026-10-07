@@ -1087,6 +1087,17 @@
           if (turnIn < 0.4 || turnOut < 0.4) ok = false;
         }
       }
+      if (ok && run.length >= 2) {
+        prev = ring[(run[0] + n - 1) % n];
+        next = ring[(run[run.length - 1] + 1) % n];
+        turnIn = turnAt(prev, ring[run[0]], ring[run[1]]);
+        turnOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], next);
+        var farIn = ring[(run[0] + n - 5) % n];
+        var farOut = ring[(run[run.length - 1] + 5) % n];
+        var driftIn = turnAt(farIn, ring[run[0]], ring[run[1]]);
+        var driftOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], farOut);
+        if (turnIn < 0.72 && turnOut < 0.72 && driftIn < 0.85 && driftOut < 0.85) ok = false;
+      }
       if (!ok) {
         seen[i] = 1;
         continue;
@@ -1138,6 +1149,11 @@
       for (k = 0; k < run.length; k++) span.push(ring[run[k]]);
       for (k = 1; k < span.length; k++) along += Math.hypot(span[k][0] - span[k - 1][0], span[k][1] - span[k - 1][1]);
       if (along < 18 || chordBow(span) > 0.5) continue;
+      var turnIn = turnAt(ring[(run[0] + n - 1) % n], ring[run[0]], ring[run[1]]);
+      var turnOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], ring[(run[run.length - 1] + 1) % n]);
+      var driftIn = turnAt(ring[(run[0] + n - 5) % n], ring[run[0]], ring[run[1]]);
+      var driftOut = turnAt(ring[run[run.length - 2]], ring[run[run.length - 1]], ring[(run[run.length - 1] + 5) % n]);
+      if (turnIn < 0.72 && turnOut < 0.72 && driftIn < 0.85 && driftOut < 0.85) continue;
       cuts.push(run[0]);
       cuts.push(run[run.length - 1]);
     }
@@ -1150,6 +1166,56 @@
     var v2x = c[0] - b[0];
     var v2y = c[1] - b[1];
     return Math.abs(Math.atan2(v1x * v2y - v1y * v2x, v1x * v2x + v1y * v2y));
+  }
+
+  function axisJoin(ring, idx) {
+    var n = ring.length;
+    var a = ring[(idx + n - 1) % n];
+    var b = ring[idx];
+    var c = ring[(idx + 1) % n];
+    var inn = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    var out = Math.hypot(c[0] - b[0], c[1] - b[1]);
+    if (inn < 6 || out < 6) return false;
+    var dot = ((b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1])) / (inn * out);
+    var axisIn = Math.abs(b[0] - a[0]) < 1.6 || Math.abs(b[1] - a[1]) < 1.6;
+    var axisOut = Math.abs(c[0] - b[0]) < 1.6 || Math.abs(c[1] - b[1]) < 1.6;
+    return dot < 0.28 && axisIn && axisOut;
+  }
+
+  function flatJoin(ring, from, to) {
+    var a = ring[from];
+    var b = ring[to];
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (chord >= 34) return true;
+    return axisJoin(ring, from) && axisJoin(ring, to);
+  }
+
+  function stairLine(span) {
+    if (!span || span.length < 3) return false;
+    var a = span[0];
+    var b = span[span.length - 1];
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (chord < 12) return false;
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var maxAbs = 0;
+    var changes = 0;
+    var prev = 0;
+    var run = 0;
+    var maxRun = 0;
+    var i, cross, dist, sign;
+    for (i = 1; i < span.length - 1; i++) {
+      cross = (span[i][0] - a[0]) * dy - (span[i][1] - a[1]) * dx;
+      dist = cross / chord;
+      if (Math.abs(dist) > maxAbs) maxAbs = Math.abs(dist);
+      sign = dist > 0.28 ? 1 : dist < -0.28 ? -1 : 0;
+      if (sign && prev && sign !== prev) changes++;
+      run = sign && sign === prev ? run + 1 : sign ? 1 : 0;
+      if (run > maxRun) maxRun = run;
+      if (sign) prev = sign;
+    }
+    if (maxAbs > 1.2) return false;
+    return changes >= 2 || maxRun <= 3;
   }
 
   function fitContour(points, alphamax, opttolerance) {
@@ -1176,6 +1242,25 @@
     }
     if (!corners.length) corners.push(0);
     else corners.sort(function (a, b) { return a - b; });
+    var dropped = true;
+    var ci, prevI, nextI, prevP, here, nextP, legIn, legOut;
+    while (dropped && corners.length >= 4) {
+      dropped = false;
+      for (ci = 0; ci < corners.length; ci++) {
+        prevI = corners[(ci + corners.length - 1) % corners.length];
+        nextI = corners[(ci + 1) % corners.length];
+        prevP = ring[prevI];
+        here = ring[corners[ci]];
+        nextP = ring[nextI];
+        legIn = Math.hypot(here[0] - prevP[0], here[1] - prevP[1]);
+        legOut = Math.hypot(nextP[0] - here[0], nextP[1] - here[1]);
+        if (Math.min(legIn, legOut) < 3.6 && distPointSeg(here, prevP, nextP) < 1.4) {
+          corners.splice(ci, 1);
+          dropped = true;
+          break;
+        }
+      }
+    }
     var segs = [];
     var start = ring[corners[0]];
     for (i = 0; i < corners.length; i++) {
@@ -1193,6 +1278,7 @@
       if (span.length < 2) continue;
       var fillet = cornerFillet(ring, from, to);
       if (fillet) segs.push(fillet);
+      else if (stairLine(span) || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else if (span.length >= 3 && span.length <= 6 && !flatSpan(span)) {
         var best = 1;
         var bestTurn = 0;
@@ -1214,9 +1300,9 @@
         if (lead) {
           segs.push(lead);
           segs.push({ k: "L", p: span[span.length - 1], pts: span.slice(best) });
-        } else if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+        } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
         else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
-      } else if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+      } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
     return { start: start, segs: segs };
@@ -1694,6 +1780,7 @@
       b = ring[i];
       c = ring[(i + 1) % ring.length];
       if (turnAt(a, b, c) < 0.14 && distPointSeg(b, a, c) < 0.45) continue;
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 2.6 && Math.hypot(c[0] - b[0], c[1] - b[1]) < 2.6 && distPointSeg(b, a, c) < 1.15) continue;
       keep.push(b.slice());
     }
     if (keep.length < 3) return points.slice();
