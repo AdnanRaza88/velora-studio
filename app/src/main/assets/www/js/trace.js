@@ -950,6 +950,7 @@
     if (pts.length < 3) return [{ k: "L", p: pts[pts.length - 1], pts: pts }];
     var fit = fitTight(pts);
     var err = cubicError(pts, fit.cubic, fit.ts);
+    if (straightEnough(pts, tol)) return [{ k: "L", p: pts[pts.length - 1], pts: pts }];
     if (err.max <= tol || depth > 5 || pts.length < 5) {
       if (flatCubic(fit.cubic, tol * 0.65)) return [{ k: "L", p: pts[pts.length - 1], pts: pts }];
       return [{ k: "C", c: fit.cubic, pts: pts }];
@@ -963,6 +964,29 @@
     var a = cubic[0];
     var b = cubic[3];
     return distPointSeg(cubic[1], a, b) <= tol && distPointSeg(cubic[2], a, b) <= tol;
+  }
+
+  function chordBow(pts) {
+    if (!pts || pts.length < 3) return 0;
+    var a = pts[0];
+    var b = pts[pts.length - 1];
+    var bow = 0;
+    var i, d;
+    for (i = 1; i < pts.length - 1; i++) {
+      d = distPointSeg(pts[i], a, b);
+      if (d > bow) bow = d;
+    }
+    return bow;
+  }
+
+  function straightEnough(pts, tol) {
+    if (!pts || pts.length < 2) return true;
+    var a = pts[0];
+    var b = pts[pts.length - 1];
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    var bow = chordBow(pts);
+    if (chord < 9) return bow <= tol * 0.5;
+    return bow <= Math.max(tol, 0.62) && bow <= chord * 0.034;
   }
 
   function joinPts(a, b) {
@@ -981,7 +1005,7 @@
     var i, seg, pts, end, merged, fit, err;
     for (i = 0; i < segs.length; i++) {
       seg = segs[i];
-      if (seg.k === "C" && flatCubic(seg.c, tol * 0.65)) cur.push({ k: "L", p: seg.c[3], pts: seg.pts });
+      if (seg.k === "C" && (flatCubic(seg.c, tol * 0.65) || straightEnough(seg.pts, tol))) cur.push({ k: "L", p: seg.c[3], pts: seg.pts });
       else cur.push(seg);
     }
     var out = [];
@@ -1000,7 +1024,7 @@
         if (!merged || merged.length < 4) break;
         fit = fitTight(merged);
         err = cubicError(merged, fit.cubic, fit.ts);
-        if (err.max > tol || flatCubic(fit.cubic, tol * 0.65)) break;
+        if (err.max > tol || flatCubic(fit.cubic, tol * 0.65) || straightEnough(merged, tol)) break;
         pts = merged;
         end++;
       }
@@ -1012,6 +1036,52 @@
       i = end + 1;
     }
     return out;
+  }
+
+  function straightCuts(ring) {
+    var n = ring.length;
+    if (n < 8) return [];
+    var mark = new Array(n);
+    var i, a, b, c, inn, out;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      inn = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      out = Math.hypot(c[0] - b[0], c[1] - b[1]);
+      mark[i] = inn >= 6 && out >= 6 && turnAt(a, b, c) < 0.22;
+    }
+    var cuts = [];
+    var seen = new Array(n);
+    for (i = 0; i < n; i++) {
+      if (!mark[i] || seen[i]) continue;
+      var run = [i];
+      seen[i] = 1;
+      var j = (i + 1) % n;
+      while (mark[j] && !seen[j]) {
+        seen[j] = 1;
+        run.push(j);
+        j = (j + 1) % n;
+        if (run.length > n) break;
+      }
+      var back = (i + n - 1) % n;
+      while (mark[back] && !seen[back]) {
+        seen[back] = 1;
+        run.unshift(back);
+        back = (back + n - 1) % n;
+        if (run.length > n) break;
+      }
+      if (run.length < 2) continue;
+      var span = [];
+      var along = 0;
+      var k;
+      for (k = 0; k < run.length; k++) span.push(ring[run[k]]);
+      for (k = 1; k < span.length; k++) along += Math.hypot(span[k][0] - span[k - 1][0], span[k][1] - span[k - 1][1]);
+      if (along < 18 || chordBow(span) > 0.5) continue;
+      cuts.push(run[0]);
+      cuts.push(run[run.length - 1]);
+    }
+    return cuts;
   }
 
   function turnAt(a, b, c) {
@@ -1040,7 +1110,12 @@
       c = ring[(i + 1) % ring.length];
       if (realCorner(a, b, c, limit) || joints[i]) corners.push(i);
     }
+    var cuts = straightCuts(ring);
+    for (i = 0; i < cuts.length; i++) {
+      if (corners.indexOf(cuts[i]) < 0) corners.push(cuts[i]);
+    }
     if (!corners.length) corners.push(0);
+    else corners.sort(function (a, b) { return a - b; });
     var segs = [];
     var start = ring[corners[0]];
     for (i = 0; i < corners.length; i++) {
@@ -1078,6 +1153,7 @@
     var alphamax = opts && opts.alphamax != null ? opts.alphamax : 0.95;
     var opttolerance = opts && opts.opttolerance != null ? opts.opttolerance : 0.36;
     var fit = fitContour(points, alphamax, opttolerance);
+
     if (!fit || !fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
     for (var s = 0; s < fit.segs.length; s++) {
