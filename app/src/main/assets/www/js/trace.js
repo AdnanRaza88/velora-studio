@@ -1236,17 +1236,106 @@
   }
 
 
+  function ellipseSlack(ring) {
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < ring.length; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var rx = (maxX - minX) / 2;
+    var ry = (maxY - minY) / 2;
+    if (rx < 8 || ry < 8) return 1;
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var worst = 0;
+    var nx, ny, err;
+    for (i = 0; i < ring.length; i++) {
+      nx = (ring[i][0] - cx) / rx;
+      ny = (ring[i][1] - cy) / ry;
+      err = Math.abs(Math.hypot(nx, ny) - 1);
+      if (err > worst) worst = err;
+    }
+    return worst;
+  }
+
+  function ellipsePoles(ring) {
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < ring.length; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var rx = (maxX - minX) / 2;
+    var ry = (maxY - minY) / 2;
+    var poles = [[cx + rx, cy], [cx - rx, cy], [cx, cy - ry], [cx, cy + ry]];
+    var order = [];
+    for (i = 0; i < poles.length; i++) {
+      var best = 0;
+      var bestD = 1e12;
+      var k, d;
+      for (k = 0; k < ring.length; k++) {
+        d = Math.hypot(ring[k][0] - poles[i][0], ring[k][1] - poles[i][1]);
+        if (d < bestD) {
+          bestD = d;
+          best = k;
+        }
+      }
+      order.push({ i: best, p: poles[i] });
+    }
+    order.sort(function (a, b) { return a.i - b.i; });
+    var kappa = 0.5522847498;
+    var segs = [];
+    for (i = 0; i < order.length; i++) {
+      var a = order[i].p;
+      var b = order[(i + 1) % order.length].p;
+      var ax = (a[0] - cx) / rx;
+      var ay = (a[1] - cy) / ry;
+      var bx = (b[0] - cx) / rx;
+      var by = (b[1] - cy) / ry;
+      var sign = ax * by - ay * bx >= 0 ? 1 : -1;
+      var tax = -ay * sign;
+      var tay = ax * sign;
+      var tbx = -by * sign;
+      var tby = bx * sign;
+      var cubic = [
+        a,
+        [a[0] + kappa * rx * tax, a[1] + kappa * ry * tay],
+        [b[0] - kappa * rx * tbx, b[1] - kappa * ry * tby],
+        b
+      ];
+      segs.push({ k: "C", c: cubic, pts: [a, b] });
+    }
+    return { start: order[0].p, segs: segs };
+  }
+
   function ovalFit(ring, tol) {
     var n = ring.length;
     if (n < 16) return null;
+    var slack = ellipseSlack(ring);
+    var round = slack <= 0.075;
     var i, a, b, c;
-    for (i = 0; i < n; i++) {
-      a = ring[(i + n - 1) % n];
-      b = ring[i];
-      c = ring[(i + 1) % n];
-      if (axisCorner(a, b, c)) return null;
+    if (!round) {
+      for (i = 0; i < n; i++) {
+        a = ring[(i + n - 1) % n];
+        b = ring[i];
+        c = ring[(i + 1) % n];
+        if (axisCorner(a, b, c)) return null;
+      }
+      if (straightCuts(ring).length || sideRuns(ring).length) return null;
     }
-    if (straightCuts(ring).length || sideRuns(ring).length) return null;
     var minX = 0;
     var maxX = 0;
     var minY = 0;
@@ -1266,6 +1355,7 @@
     var bh = ring[maxY][1] - ring[minY][1];
     if (bw < 18 || bh < 18) return null;
     if (Math.abs(area(ring)) < bw * bh * 0.62) return null;
+    if (round) return ellipsePoles(ring);
     var segs = [];
     var allow = Math.max(tol, 2.35);
     function fitOvalSpan(span, depth) {
