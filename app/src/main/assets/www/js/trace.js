@@ -2412,6 +2412,64 @@
     return out;
   }
 
+
+  function foldSeamFringe(labels, rch, gch, bch, centerLab, w, h) {
+    var counts = [];
+    var c, i, a, b, shell, seam, out, y, x, k, nx, ny, ni, lab, best, bestD, d, owner;
+    for (c = 0; c < centerLab.length; c++) counts.push(0);
+    for (i = 0; i < labels.length; i++) {
+      if (labels[i] >= 0) counts[labels[i]]++;
+    }
+    seam = [];
+    for (c = 0; c < centerLab.length; c++) seam.push(0);
+    for (c = 0; c < centerLab.length; c++) {
+      if (counts[c] < 8) continue;
+      shell = fringeShell(labels, w, h, c);
+      if (shell < 0.48) continue;
+      for (a = 0; a < centerLab.length && !seam[c]; a++) {
+        if (a === c || counts[a] <= counts[c]) continue;
+        for (b = a + 1; b < centerLab.length; b++) {
+          if (b === c || counts[b] <= counts[c]) continue;
+          if (blendOff(centerLab[c], centerLab[a], centerLab[b]) <= 0.0045) seam[c] = 1;
+        }
+      }
+    }
+    out = new Int8Array(labels);
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (labels[i] < 0 || !seam[labels[i]]) continue;
+        lab = toOklab([rch[i], gch[i], bch[i]]);
+        owner = -1;
+        bestD = 1e12;
+        for (k = 0; k < 8; k++) {
+          nx = x + DX[k];
+          ny = y + DY[k];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          ni = ny * w + nx;
+          if (labels[ni] < 0 || seam[labels[ni]]) continue;
+          d = labDist2(lab, centerLab[labels[ni]]);
+          if (d < bestD) {
+            bestD = d;
+            owner = labels[ni];
+          }
+        }
+        if (owner < 0) {
+          for (k = 0; k < centerLab.length; k++) {
+            if (seam[k] || counts[k] <= counts[labels[i]]) continue;
+            d = labDist2(lab, centerLab[k]);
+            if (d < bestD) {
+              bestD = d;
+              owner = k;
+            }
+          }
+        }
+        if (owner >= 0) out[i] = owner;
+      }
+    }
+    return out;
+  }
+
   function colorDist2(a, b) {
     var dr = a[0] - b[0];
     var dg = a[1] - b[1];
@@ -3065,6 +3123,7 @@
     labels = snapHalo(labels, rch, gch, bch, w, h, centerLab, paper);
     labels = snapHalo(labels, rch, gch, bch, w, h, centerLab, paper);
     labels = majorityLabels(labels, w, h, centers.length);
+    labels = foldSeamFringe(labels, rch, gch, bch, centerLab, w, h);
     var masks = [];
     for (c = 0; c < centers.length; c++) masks.push(new Uint8Array(w * h));
     for (i = 0; i < labels.length; i++) {
