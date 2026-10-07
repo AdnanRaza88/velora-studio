@@ -2651,9 +2651,53 @@
     return out.length >= 2 ? out : points;
   }
 
+  function miterOpenElbow(points) {
+    if (!points || points.length < 4) return points;
+    var out = points.map(function (p) { return p.slice(); });
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 6) {
+      changed = false;
+      guard++;
+      var n = out.length;
+      var i, j, k, a, b, c, d, inLen, outLen, elbow, dx1, dy1, dx2, dy2, dot, hit, da, db;
+      for (i = 0; i < n - 3; i++) {
+        a = out[i];
+        b = out[i + 1];
+        for (j = i + 2; j <= Math.min(i + 3, n - 2); j++) {
+          c = out[j];
+          d = out[j + 1];
+          inLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          outLen = Math.hypot(d[0] - c[0], d[1] - c[1]);
+          if (inLen < 12 || outLen < 12) continue;
+          elbow = 0;
+          for (k = i + 1; k < j; k++) elbow += Math.hypot(out[k + 1][0] - out[k][0], out[k + 1][1] - out[k][1]);
+          if (elbow > 6.4) continue;
+          dx1 = b[0] - a[0];
+          dy1 = b[1] - a[1];
+          dx2 = d[0] - c[0];
+          dy2 = d[1] - c[1];
+          dot = (dx1 * dx2 + dy1 * dy2) / (inLen * outLen);
+          if (dot > 0.62 || dot < -0.9) continue;
+          hit = lineCross(a, b, c, d);
+          if (!hit) continue;
+          da = Math.hypot(hit[0] - b[0], hit[1] - b[1]);
+          db = Math.hypot(hit[0] - c[0], hit[1] - c[1]);
+          if (da > 6.2 || db > 6.2) continue;
+          out.splice(i + 1, j - i, [hit[0], hit[1]]);
+          changed = true;
+          break;
+        }
+        if (changed) break;
+      }
+    }
+    return out;
+  }
+
   function toOpenPath(points, ox, oy, scale, opts, closed) {
     if (!points || points.length < 2) return "";
     points = flattenStairs(relaxSpine(points, closed), closed);
+    if (!closed) points = miterOpenElbow(points);
     var alphamax = 1.15;
     var opttolerance = 0.42;
     var ring = points;
