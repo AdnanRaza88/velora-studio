@@ -1469,6 +1469,66 @@
     return labDist2(toOklab([r, g, b]), paper.lab) <= paper.tol;
   }
 
+  function blendOff(pix, a, b) {
+    var abx = b[0] - a[0];
+    var aby = b[1] - a[1];
+    var abz = b[2] - a[2];
+    var ab2 = abx * abx + aby * aby + abz * abz;
+    if (ab2 < 1e-8) return 1;
+    var t = ((pix[0] - a[0]) * abx + (pix[1] - a[1]) * aby + (pix[2] - a[2]) * abz) / ab2;
+    if (t < 0.14 || t > 0.9) return 1;
+    var dx = pix[0] - (a[0] + t * abx);
+    var dy = pix[1] - (a[1] + t * aby);
+    var dz = pix[2] - (a[2] + t * abz);
+    return dx * dx + dy * dy + dz * dz;
+  }
+
+  function mergeFringe(labels, counts, centerLab, paper) {
+    if (!paper) return labels;
+    var alias = [];
+    var c, p, parent;
+    for (c = 0; c < centerLab.length; c++) alias.push(c);
+    for (c = 0; c < centerLab.length; c++) {
+      parent = -1;
+      for (p = 0; p < centerLab.length; p++) {
+        if (p === c || counts[p] <= counts[c]) continue;
+        if (blendOff(centerLab[c], paper.lab, centerLab[p]) <= 0.0035) parent = p;
+      }
+      if (parent >= 0) alias[c] = alias[parent];
+    }
+    for (c = 0; c < labels.length; c++) {
+      if (labels[c] >= 0) labels[c] = alias[labels[c]];
+    }
+    return labels;
+  }
+
+  function snapHalo(labels, rch, gch, bch, w, h, centerLab, paper) {
+    if (!paper) return labels;
+    var out = new Int8Array(labels);
+    var y, x, i, k, nx, ny, ni, owner, lab;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        i = y * w + x;
+        if (labels[i] >= 0) continue;
+        if (isBackdrop(rch[i], gch[i], bch[i], paper)) continue;
+        owner = -1;
+        for (k = 0; k < 8; k++) {
+          nx = x + DX[k];
+          ny = y + DY[k];
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          ni = ny * w + nx;
+          if (labels[ni] < 0) continue;
+          owner = labels[ni];
+          break;
+        }
+        if (owner < 0) continue;
+        lab = toOklab([rch[i], gch[i], bch[i]]);
+        if (blendOff(lab, paper.lab, centerLab[owner]) <= 0.004) out[i] = owner;
+      }
+    }
+    return out;
+  }
+
   function colorDist2(a, b) {
     var dr = a[0] - b[0];
     var dg = a[1] - b[1];
@@ -2032,6 +2092,14 @@
       if (best < 0) continue;
       labels[i] = best;
     }
+    var inkCounts = [];
+    for (c = 0; c < centers.length; c++) inkCounts.push(0);
+    for (i = 0; i < labels.length; i++) {
+      if (labels[i] >= 0) inkCounts[labels[i]]++;
+    }
+    labels = mergeFringe(labels, inkCounts, centerLab, paper);
+    labels = snapHalo(labels, rch, gch, bch, w, h, centerLab, paper);
+    labels = snapHalo(labels, rch, gch, bch, w, h, centerLab, paper);
     labels = majorityLabels(labels, w, h, centers.length);
     var masks = [];
     for (c = 0; c < centers.length; c++) masks.push(new Uint8Array(w * h));
