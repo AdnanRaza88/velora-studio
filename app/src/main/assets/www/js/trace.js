@@ -1043,13 +1043,12 @@
     if (n < 4) return [];
     var cuts = [];
     var seen = new Array(n);
-    var i, j, k, span, along, step, bow, back, prev, next, prevLen, nextLen, turnIn, turnOut;
+    var i, j, k, span, along, step, bow, back, prev, next, prevLen, nextLen, turnIn, turnOut, ok;
     for (i = 0; i < n; i++) {
       if (seen[i]) continue;
       var run = [i];
-      seen[i] = 1;
       j = (i + 1) % n;
-      while (!seen[j] && run.length < n) {
+      while (run.indexOf(j) < 0 && run.length < n) {
         span = [];
         for (k = 0; k < run.length; k++) span.push(ring[run[k]]);
         span.push(ring[j]);
@@ -1058,12 +1057,11 @@
         bow = chordBow(span);
         step = Math.hypot(ring[j][0] - ring[run[run.length - 1]][0], ring[j][1] - ring[run[run.length - 1]][1]);
         if (step < 0.4 || bow > 1.05 || (along > 12 && bow > along * 0.012)) break;
-        seen[j] = 1;
         run.push(j);
         j = (j + 1) % n;
       }
       back = (i + n - 1) % n;
-      while (!seen[back] && run.length < n) {
+      while (run.indexOf(back) < 0 && run.length < n) {
         span = [ring[back]];
         for (k = 0; k < run.length; k++) span.push(ring[run[k]]);
         along = 0;
@@ -1071,25 +1069,29 @@
         bow = chordBow(span);
         step = Math.hypot(ring[run[0]][0] - ring[back][0], ring[run[0]][1] - ring[back][1]);
         if (step < 0.4 || bow > 1.05 || (along > 12 && bow > along * 0.012)) break;
-        seen[back] = 1;
         run.unshift(back);
         back = (back + n - 1) % n;
       }
       along = 0;
       for (k = 1; k < run.length; k++) along += Math.hypot(ring[run[k]][0] - ring[run[k - 1]][0], ring[run[k]][1] - ring[run[k - 1]][1]);
-      if (along < 16 || run.length < 2) continue;
-      if (run.length === 2) {
+      ok = along >= 16 && run.length >= 2;
+      if (ok && run.length === 2) {
         prev = ring[(run[0] + n - 1) % n];
         next = ring[(run[1] + 1) % n];
         prevLen = Math.hypot(ring[run[0]][0] - prev[0], ring[run[0]][1] - prev[1]);
         nextLen = Math.hypot(next[0] - ring[run[1]][0], next[1] - ring[run[1]][1]);
-        if (prevLen > along * 0.7 && nextLen > along * 0.7) continue;
+        if (prevLen > along * 0.7 && nextLen > along * 0.7) ok = false;
         if (along < 24) {
           turnIn = turnAt(prev, ring[run[0]], ring[run[1]]);
           turnOut = turnAt(ring[run[0]], ring[run[1]], next);
-          if (turnIn < 0.4 || turnOut < 0.4) continue;
+          if (turnIn < 0.4 || turnOut < 0.4) ok = false;
         }
       }
+      if (!ok) {
+        seen[i] = 1;
+        continue;
+      }
+      for (k = 0; k < run.length; k++) seen[run[k]] = 1;
       cuts.push(run[0]);
       cuts.push(run[run.length - 1]);
     }
@@ -1189,9 +1191,32 @@
         guard++;
       } while (idx !== to && guard <= ring.length);
       if (span.length < 2) continue;
-      var fillet = span.length < 4 ? cornerFillet(ring, from, to) : null;
+      var fillet = cornerFillet(ring, from, to);
       if (fillet) segs.push(fillet);
-      else if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+      else if (span.length >= 3 && span.length <= 6 && !flatSpan(span)) {
+        var best = 1;
+        var bestTurn = 0;
+        var s;
+        for (s = 1; s < span.length - 1; s++) {
+          var turn = turnAt(span[s - 1], span[s], span[s + 1]);
+          if (turn > bestTurn) {
+            bestTurn = turn;
+            best = s;
+          }
+        }
+        var mid = from;
+        var walk = 0;
+        while (walk < best) {
+          mid = (mid + 1) % ring.length;
+          walk++;
+        }
+        var lead = bestTurn >= 0.45 ? cornerFillet(ring, from, mid) : null;
+        if (lead) {
+          segs.push(lead);
+          segs.push({ k: "L", p: span[span.length - 1], pts: span.slice(best) });
+        } else if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+        else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
+      } else if (span.length < 4 || flatSpan(span)) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
     return { start: start, segs: segs };
@@ -1205,14 +1230,14 @@
     var next = ring[(to + 1) % n];
     var inLen = Math.hypot(a[0] - prev[0], a[1] - prev[1]);
     var outLen = Math.hypot(next[0] - b[0], next[1] - b[1]);
-    if (inLen < 8 || outLen < 8) return null;
+    if (inLen < 4 || outLen < 4) return null;
     var ix = (a[0] - prev[0]) / inLen;
     var iy = (a[1] - prev[1]) / inLen;
     var ox = (next[0] - b[0]) / outLen;
     var oy = (next[1] - b[1]) / outLen;
     if (ix * ox + iy * oy > 0.28) return null;
     var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (chord < 2.4 || chord > 14) return null;
+    if (chord < 2.4 || chord > 26) return null;
     if (Math.abs(b[1] - a[1]) < 1.25 || Math.abs(b[0] - a[0]) < 1.25) return null;
     var h = 0.5523 * chord / Math.SQRT2;
     return {
