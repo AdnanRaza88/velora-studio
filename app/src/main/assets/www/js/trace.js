@@ -1033,11 +1033,12 @@
     var limit = alphamax;
     var corners = [];
     var i, a, b, c;
+    var joints = jointFlags(ring);
     for (i = 0; i < ring.length; i++) {
       a = ring[(i + ring.length - 1) % ring.length];
       b = ring[i];
       c = ring[(i + 1) % ring.length];
-      if (realCorner(a, b, c, limit)) corners.push(i);
+      if (realCorner(a, b, c, limit) || joints[i]) corners.push(i);
     }
     if (!corners.length) corners.push(0);
     var segs = [];
@@ -1261,6 +1262,147 @@
     return 0;
   }
 
+  function straightRuns(ring) {
+    var n = ring.length;
+    if (n < 8) return [];
+    var edge = [];
+    var i;
+    for (i = 0; i < n; i++) edge.push(axisOf(ring[i], ring[(i + 1) % n]));
+    var start = 0;
+    for (i = 0; i < n; i++) {
+      if (edge[i] !== edge[(i + n - 1) % n]) {
+        start = i;
+        break;
+      }
+    }
+    var runs = [];
+    var k = start;
+    var guard = 0;
+    while (guard < n) {
+      var ax = edge[k];
+      var first = k;
+      var along = 0;
+      var steps = 0;
+      var vals = [];
+      while (edge[k] === ax && steps < n) {
+        vals.push(ax === 1 ? ring[k][1] : ring[k][0]);
+        along += Math.hypot(ring[(k + 1) % n][0] - ring[k][0], ring[(k + 1) % n][1] - ring[k][1]);
+        k = (k + 1) % n;
+        steps++;
+        guard++;
+        if (k === start) break;
+      }
+      vals.push(ax === 1 ? ring[k][1] : ring[k][0]);
+      var bow = 0;
+      var med = 0;
+      if (ax) {
+        var sorted = vals.slice().sort(function (a, b) { return a - b; });
+        med = sorted[sorted.length >> 1];
+        var t, cross;
+        for (t = 0; t < vals.length; t++) {
+          cross = Math.abs(vals[t] - med);
+          if (cross > bow) bow = cross;
+        }
+      }
+      runs.push({
+        ax: ax && bow <= 0.55 && along >= 12 ? ax : 0,
+        first: first,
+        end: k,
+        along: along,
+        med: med
+      });
+      if (k === start) break;
+    }
+    return runs;
+  }
+
+  function runGap(ring, from, to) {
+    var n = ring.length;
+    var along = 0;
+    var gap = 0;
+    var g = from;
+    while (g !== to && gap < n) {
+      var nxt = (g + 1) % n;
+      along += Math.hypot(ring[nxt][0] - ring[g][0], ring[nxt][1] - ring[g][1]);
+      g = nxt;
+      gap++;
+    }
+    return { along: along, gap: gap };
+  }
+
+  function nextStraight(runs, i) {
+    var k;
+    for (k = 1; k < runs.length; k++) {
+      if (runs[(i + k) % runs.length].ax) return { run: runs[(i + k) % runs.length], steps: k };
+    }
+    return null;
+  }
+
+  function pinAxisCorners(points) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var n = ring.length;
+    var runs = straightRuns(ring);
+    if (runs.length < 2) return points.slice();
+    var replace = new Array(n);
+    var drop = new Array(n);
+    var i, a, found, b, span, g, cursor;
+    for (i = 0; i < runs.length; i++) {
+      a = runs[i];
+      if (!a.ax) continue;
+      found = nextStraight(runs, i);
+      if (!found) continue;
+      b = found.run;
+      if (a.ax === b.ax) continue;
+      span = runGap(ring, a.end, b.first);
+      if (span.gap > 3 || span.along > 3.2) continue;
+      replace[a.end] = a.ax === 1 ? [b.med, a.med] : [a.med, b.med];
+      g = a.end;
+      cursor = 0;
+      while (g !== b.first && cursor < n) {
+        g = (g + 1) % n;
+        if (g === b.first) break;
+        drop[g] = 1;
+        cursor++;
+      }
+    }
+    var out = [];
+    for (i = 0; i < n; i++) {
+      if (drop[i]) continue;
+      out.push(replace[i] ? replace[i] : ring[i].slice());
+    }
+    var slim = [];
+    for (i = 0; i < out.length; i++) {
+      if (!slim.length || Math.hypot(out[i][0] - slim[slim.length - 1][0], out[i][1] - slim[slim.length - 1][1]) > 0.2) slim.push(out[i]);
+    }
+    if (slim.length > 2 && Math.hypot(slim[0][0] - slim[slim.length - 1][0], slim[0][1] - slim[slim.length - 1][1]) <= 0.2) slim.pop();
+    if (slim.length < 4) return points.slice();
+    if (pack.closed) slim.push(slim[0].slice());
+    return slim;
+  }
+
+  function jointFlags(points) {
+    var pack = closedRing(points);
+    var ring = pack.ring;
+    var flags = [];
+    var i;
+    for (i = 0; i < points.length; i++) flags.push(0);
+    var runs = straightRuns(ring);
+    for (i = 0; i < runs.length; i++) {
+      var a = runs[i];
+      if (!a.ax) continue;
+      var found = nextStraight(runs, i);
+      if (!found || found.run.ax === a.ax) continue;
+      if (runGap(ring, a.end, found.run.first).along > 48) continue;
+      flags[a.end] = 1;
+      flags[found.run.first] = 1;
+      if (pack.closed && points.length > ring.length) {
+        if (a.end === 0 || found.run.first === 0) flags[points.length - 1] = 1;
+      }
+    }
+    return flags;
+  }
+
   function snapOrthogonal(points) {
     var pack = closedRing(points);
     var ring = pack.ring;
@@ -1338,6 +1480,7 @@
     var ring = pack.ring;
     if (ring.length < 5) return points.slice();
     var limit = corner != null ? corner : 0.95;
+    var joints = jointFlags(ring);
     var out = [];
     var i, a, b, c, turn;
     for (i = 0; i < ring.length; i++) {
@@ -1345,7 +1488,7 @@
       b = ring[i];
       c = ring[(i + 1) % ring.length];
       turn = turnAt(a, b, c);
-      if (turn >= limit) out.push(b.slice());
+      if (turn >= limit || (joints && joints[i])) out.push(b.slice());
       else out.push([(a[0] + b[0] * 2 + c[0]) / 4, (a[1] + b[1] * 2 + c[1]) / 4]);
     }
     if (pack.closed && out.length) out.push(out[0].slice());
@@ -1459,8 +1602,10 @@
       if (field) chain = isoPlace(chain, field, w, h, level, pin);
       chain = dropSpikes(dropSpikes(chain));
       chain = snapOrthogonal(chain);
+      chain = pinAxisCorners(chain);
       chain = chordStraighten(chain, 1.05);
-      settled.push(collapseCollinear(smoothChain(chain, corner)));
+      chain = pinAxisCorners(collapseCollinear(smoothChain(chain, corner)));
+      settled.push(chain);
     }
     return settled;
   }
@@ -1488,11 +1633,12 @@
     var i, a, b, c;
     for (i = 0; i < points.length; i++) flags.push(0);
     if (ring.length < 3) return flags;
+    var joints = jointFlags(ring);
     for (i = 0; i < ring.length; i++) {
       a = ring[(i + ring.length - 1) % ring.length];
       b = ring[i];
       c = ring[(i + 1) % ring.length];
-      if (!realCorner(a, b, c, limit)) continue;
+      if (!realCorner(a, b, c, limit) && !joints[i]) continue;
       flags[i] = 1;
       if (pack.closed && i === 0 && points.length > ring.length) flags[points.length - 1] = 1;
     }
