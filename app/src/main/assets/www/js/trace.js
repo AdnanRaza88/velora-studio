@@ -1508,6 +1508,62 @@
     return fit;
   }
 
+
+  function miterTipCubics(fit) {
+    var segs = fit.segs;
+    if (!segs || segs.length < 3) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 4) {
+      changed = false;
+      guard++;
+      var n = segs.length;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "C") continue;
+        var prev = (i + n - 1) % n;
+        var next = (i + 1) % n;
+        if (segs[prev].k !== "L" || segs[next].k !== "L") continue;
+        var a = starts[i];
+        var b = segEnd(segs[i]);
+        var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (chord < 1.1 || chord > 4.6) continue;
+        var pin = starts[prev];
+        var nout = segEnd(segs[next]);
+        var inLen = Math.hypot(a[0] - pin[0], a[1] - pin[1]);
+        var outLen = Math.hypot(nout[0] - b[0], nout[1] - b[1]);
+        if (inLen < 18 || outLen < 18) continue;
+        var hit = lineCross(pin, a, b, nout);
+        if (!hit) continue;
+        var da = Math.hypot(hit[0] - a[0], hit[1] - a[1]);
+        var db = Math.hypot(hit[0] - b[0], hit[1] - b[1]);
+        if (da > 5.2 || db > 5.2) continue;
+        var dx1 = a[0] - pin[0];
+        var dy1 = a[1] - pin[1];
+        var dx2 = nout[0] - b[0];
+        var dy2 = nout[1] - b[1];
+        var dot = (dx1 * dx2 + dy1 * dy2) / (inLen * outLen);
+        if (dot > 0.62) continue;
+        if (distPointSeg(segs[i].c[1], a, hit) > 2.6) continue;
+        if (distPointSeg(segs[i].c[2], b, hit) > 2.6) continue;
+        var along = ((hit[0] - a[0]) * dx1 + (hit[1] - a[1]) * dy1) / inLen;
+        if (along < -0.4 || along > 6.4) continue;
+        segs[prev].p = [hit[0], hit[1]];
+        segs.splice(i, 1);
+        if (i === 0) fit.start = [hit[0], hit[1]];
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
   function xy(p, ox, oy, scale) {
     return round1(ox + p[0] * scale) + " " + round1(oy + p[1] * scale);
   }
@@ -1529,6 +1585,7 @@
     fit = miterChamfers(fit);
     fit = dropSideJogs(fit);
     fit = lineBiasSides(fit);
+    fit = miterTipCubics(fit);
     if (!fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
     for (var s = 0; s < fit.segs.length; s++) {
