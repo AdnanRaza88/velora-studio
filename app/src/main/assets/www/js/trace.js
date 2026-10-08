@@ -1950,7 +1950,7 @@
 
   function polygonFit(ring) {
     var n = ring.length;
-    if (n < 8 || n > 96) return null;
+    if (n < 6 || n > 96) return null;
     var win = n <= 18 ? 3.4 : 5.4;
     function step(i, dir) {
       var walked = 0;
@@ -1994,7 +1994,7 @@
       }
       if (best) peaks.push(i);
     }
-    if (peaks.length < 8 || peaks.length > 14) return null;
+    if (peaks.length < 6 || peaks.length > 16) return null;
     var kept = [];
     for (i = 0; i < peaks.length; i++) {
       if (!kept.length) {
@@ -2015,8 +2015,15 @@
         kept.pop();
       }
     }
-    if (kept.length !== 8) return null;
+    if (kept.length !== 6 && kept.length !== 8) return null;
     peaks = kept;
+    var turnLo = peaks.length === 6 ? 0.52 : 0.48;
+    var turnHi = peaks.length === 6 ? 1.22 : 0.95;
+    var bowCap = peaks.length === 6 ? 1.85 : 1.35;
+    var bowRatio = peaks.length === 6 ? 0.11 : 0.06;
+    for (i = 0; i < peaks.length; i++) {
+      if (turns[peaks[i]] < turnLo || turns[peaks[i]] > turnHi) return null;
+    }
     lens = [];
     for (i = 0; i < peaks.length; i++) {
       a = peaks[i];
@@ -2031,7 +2038,7 @@
       bow = chordBow(span);
       len = Math.hypot(ring[b][0] - ring[a][0], ring[b][1] - ring[a][1]);
       if (len < 5.6) return null;
-      if (bow > 1.35 && bow > len * 0.06) return null;
+      if (bow > bowCap && bow > len * bowRatio) return null;
       lens.push(len);
     }
     lo = lens[0];

@@ -256,6 +256,31 @@ function octagon(cx, cy, r, rot) {
     return inside;
   };
 }
+function hexagon(cx, cy, r, rot) {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = rot + i * Math.PI / 3;
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return (x, y) => {
+    let inside = false;
+    for (let i = 0, j = 5; i < 6; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+}
+[[12, -Math.PI / 2], [16, -Math.PI / 2], [18, -Math.PI / 2], [20, -Math.PI / 2], [28, -Math.PI / 2], [40, -Math.PI / 2], [18, Math.PI / 6], [30, Math.PI / 6]].forEach((spec) => {
+  const r = spec[0];
+  const rot = spec[1];
+  const tag = (rot < 0 ? "v" : "f") + r;
+  const hex = trace(raster(200, 200, hexagon(100, 100, r, rot)), 200, 200);
+  const hexN = counts(hex);
+  assert.strictEqual(hexN.c, 0, "hexagon cubics " + tag + " " + hex);
+  assert.strictEqual(hexN.l, 6, "hexagon lines " + tag + " " + hex);
+});
+
 [[18, -Math.PI / 2], [28, -Math.PI / 2], [30, -Math.PI / 2], [12, -Math.PI / 2], [20, Math.PI / 8], [16, Math.PI / 8]].forEach((spec) => {
   const r = spec[0];
   const rot = spec[1];
