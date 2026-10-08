@@ -47,6 +47,7 @@ Brief (+ optional attachment)
 - [x] Trace hexagon corners: six nearly equal sides emit six lines before the oval fit, including a 7-point ring and a stair-split 40px hexagon, so a small hexagon is not four kappa cubics; a circle, ellipse, octagon, pentagon, square, rounded rectangle, and stadium stay
 - [x] Trace pentagon corners: five nearly equal sides emit five lines before the oval fit, including a stair-split 22px pentagon, so a small pentagon is not two cubics on one side; a circle, ellipse, hexagon, octagon, square, rounded rectangle, and stadium stay; a corner that sits on the chord between two kept corners, and bows more than 1.8px, stays a vertex, so a house keeps both eaves instead of collapsing to a triangle
 - [x] Trace trapezoid sides: an edge is an axis side only when its cross-axis step stays within 1.8px, so a slanted leg is not a rounded-rect side and a trapezoid stays four lines; a rounded rectangle, stadium, circle, ellipse, and polygon stay
+- [x] Trace semicircle fit: a flat diameter and a half-disk arc emit one line and two kappa quarters, so a stair on the chord is not a jog of cubics; a circle, ellipse, stadium, rounded rectangle, pie, and polygon stay
 - [x] Multi-ink trace: up to four separated fills (figure, accent, ink2, ink3), light paper ignored, seams overlapped one pixel; device raster sends packed RGB; single-ink stays binary; ink clusters and pixel assignment use OKLab so close logo hues stay apart
 
 ## Phase 4 — Editor (Illustrator-mapped)

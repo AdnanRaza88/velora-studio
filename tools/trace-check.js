@@ -334,6 +334,25 @@ function trap(pts) {
   assert.strictEqual(n.l, 4, "trap lines t" + i + " " + d);
 });
 
+function semiDisk(x, y, cx, cy, r, axis) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if (dx * dx + dy * dy > r * r) return false;
+  return axis === "v" ? dx >= 0 : dy >= 0;
+}
+[28, 40, 52].forEach((r) => {
+  const semiD = trace(raster(180, 150, (x, y) => semiDisk(x, y, 90, 48, r, "h")), 180, 150);
+  const semiN = counts(semiD);
+  assert.strictEqual(semiN.c, 2, "semi cubics r" + r + " " + semiD);
+  assert.strictEqual(semiN.l, 1, "semi lines r" + r + " " + semiD);
+});
+[24, 36].forEach((r) => {
+  const vSemi = trace(raster(150, 180, (x, y) => semiDisk(x, y, 40, 90, r, "v")), 150, 180);
+  const vN = counts(vSemi);
+  assert.strictEqual(vN.c, 2, "v-semi cubics r" + r + " " + vSemi);
+  assert.strictEqual(vN.l, 1, "v-semi lines r" + r + " " + vSemi);
+});
+
 function house(x, y) {
   return (y >= 70 && y < 140 && x >= 30 && x < 130) || (y >= 30 && y < 70 && Math.abs(x - 80) <= (y - 30) * 1.25);
 }

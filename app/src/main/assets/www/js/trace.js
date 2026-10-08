@@ -1817,6 +1817,136 @@
     };
   }
 
+  function semicircleFit(ring) {
+    var n = ring.length;
+    if (n < 12 || n > 240) return null;
+    var best = null;
+    var i, k, span, along, step, bow, nxt, fit;
+    for (i = 0; i < n; i++) {
+      span = [ring[i]];
+      along = 0;
+      k = i;
+      while (span.length < n - 5) {
+        nxt = (k + 1) % n;
+        step = Math.hypot(ring[nxt][0] - ring[k][0], ring[nxt][1] - ring[k][1]);
+        span.push(ring[nxt]);
+        along += step;
+        bow = chordBow(span);
+        if (bow > 1.65 || (along > 16 && bow > along * 0.04)) break;
+        k = nxt;
+        if (along >= 18 && bow <= 1.4) {
+          fit = scoreSemi(ring, i, k);
+          if (fit && (!best || fit.err < best.err - 0.05 || (Math.abs(fit.err - best.err) <= 0.05 && fit.chord > best.chord))) best = fit;
+        }
+        if (along > 320) break;
+      }
+    }
+    if (!best) return null;
+    return emitSemi(best);
+  }
+
+  function scoreSemi(ring, i, k) {
+    var a = ring[i];
+    var b = ring[k];
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var chord = Math.hypot(dx, dy);
+    if (chord < 16) return null;
+    var cx = (a[0] + b[0]) / 2;
+    var cy = (a[1] + b[1]) / 2;
+    var r = chord / 2;
+    var arc = [];
+    var j = k;
+    var guard = 0;
+    var arcLen = 0;
+    while (j !== i && guard < ring.length) {
+      var nxt = (j + 1) % ring.length;
+      arcLen += Math.hypot(ring[nxt][0] - ring[j][0], ring[nxt][1] - ring[j][1]);
+      arc.push(ring[j]);
+      j = nxt;
+      guard++;
+    }
+    if (arc.length < 6 || arcLen < chord * 1.15 || arcLen > chord * 2.4) return null;
+    var nx = -dy / chord;
+    var ny = dx / chord;
+    var side = 0;
+    var sideAt = 0;
+    var worst = 0;
+    var far = 0;
+    var t, px, py, cross, err, depth;
+    for (t = 0; t < arc.length; t++) {
+      px = arc[t][0] - cx;
+      py = arc[t][1] - cy;
+      cross = px * nx + py * ny;
+      if (Math.abs(cross) > Math.abs(sideAt)) {
+        sideAt = cross;
+        side = cross >= 0 ? 1 : -1;
+      }
+    }
+    if (!side) return null;
+    for (t = 0; t < arc.length; t++) {
+      px = arc[t][0] - cx;
+      py = arc[t][1] - cy;
+      cross = px * nx + py * ny;
+      if (cross * side < -1.8) return null;
+      err = Math.abs(Math.hypot(px, py) - r);
+      if (err > worst) worst = err;
+      depth = cross * side;
+      if (depth > far) far = depth;
+    }
+    if (worst > Math.max(2.05, r * 0.085)) return null;
+    if (far < r * 0.78) return null;
+    return {
+      a: a,
+      b: b,
+      pole: [cx + nx * side * r, cy + ny * side * r],
+      cx: cx,
+      cy: cy,
+      r: r,
+      err: worst,
+      chord: chord
+    };
+  }
+
+  function emitSemi(fit) {
+    var expect = semiMid(fit.a, fit.pole, fit.cx, fit.cy, fit.r);
+    var signs = [1, -1];
+    var pick = 1;
+    var bestErr = 1e9;
+    var s, cubic, mid, err;
+    for (s = 0; s < signs.length; s++) {
+      cubic = quarterCubic(fit.a, fit.pole, fit.cx, fit.cy, fit.r, signs[s]);
+      mid = bezier(cubic.c[0], cubic.c[1], cubic.c[2], cubic.c[3], 0.5);
+      err = Math.hypot(mid[0] - expect[0], mid[1] - expect[1]);
+      if (err < bestErr) {
+        bestErr = err;
+        pick = signs[s];
+      }
+    }
+    if (bestErr > 2.4) return null;
+    return {
+      start: fit.a.slice(),
+      segs: [
+        quarterCubic(fit.a, fit.pole, fit.cx, fit.cy, fit.r, pick),
+        quarterCubic(fit.pole, fit.b, fit.cx, fit.cy, fit.r, pick),
+        { k: "L", p: fit.a.slice() }
+      ]
+    };
+  }
+
+  function semiMid(a, pole, cx, cy, r) {
+    var ax = a[0] - cx;
+    var ay = a[1] - cy;
+    var px = pole[0] - cx;
+    var py = pole[1] - cy;
+    var al = Math.hypot(ax, ay) || 1;
+    var pl = Math.hypot(px, py) || 1;
+    var mx = ax / al + px / pl;
+    var my = ay / al + py / pl;
+    var ml = Math.hypot(mx, my) || 1;
+    return [cx + mx / ml * r, cy + my / ml * r];
+  }
+
   function roundRectFit(ring) {
     var n = ring.length;
     if (n < 6) return null;
@@ -2066,6 +2196,8 @@
     if (poly) return poly;
     var stadium = stadiumFit(ring);
     if (stadium) return stadium;
+    var semi = semicircleFit(ring);
+    if (semi) return semi;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
     var oval = ovalFit(ring, opttolerance);
