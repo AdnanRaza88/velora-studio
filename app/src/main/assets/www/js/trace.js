@@ -1245,9 +1245,23 @@
     return [dx, dy, dr];
   }
 
+  function hasSharp(ring) {
+    var n = ring.length;
+    var i, a, b, c;
+    if (n < 4) return false;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      if (turnAt(a, b, c) > 0.62) return true;
+    }
+    return false;
+  }
+
   function circleFit(ring) {
     var n = ring.length;
     if (n < 8) return null;
+    if (hasSharp(ring)) return null;
     var cx = 0;
     var cy = 0;
     var i;
@@ -1367,6 +1381,7 @@
     var bw = maxX - minX;
     var bh = maxY - minY;
     if (bw < 10 || bh < 8) return null;
+    if (hasSharp(ring)) return null;
     var aspect0 = Math.max(bw, bh) / Math.min(bw, bh);
     if (aspect0 < 1.18 || aspect0 > 4.8) return null;
     var s00 = 0, s01 = 0, s02 = 0, s03 = 0, s11 = 0, s12 = 0, s13 = 0, s22 = 0, s23 = 0, s33 = 0;
@@ -1603,7 +1618,7 @@
     }
     if (n < 16) return null;
     var slack = ellipseSlack(ring);
-    var round = slack <= 0.075;
+    var round = slack <= 0.075 && !hasSharp(ring);
     var i, a, b, c;
     if (!round) {
       for (i = 0; i < n; i++) {
