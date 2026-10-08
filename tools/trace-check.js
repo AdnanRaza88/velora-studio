@@ -511,4 +511,21 @@ let minY = nums[1];
 for (let i = 1; i < nums.length; i += 2) if (nums[i] < minY) minY = nums[i];
 assert.ok(minY < 360, "bubble body " + minY + " " + bubblePath);
 
+function arrowNotch(x, y) {
+  const pts = [[16, 20], [120, 20], [120, 40], [148, 50], [120, 60], [120, 80], [16, 80], [40, 50]];
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+const arrowD = trace(raster(160, 100, arrowNotch), 160, 100);
+const arrowN = counts(arrowD);
+assert.strictEqual(arrowN.c, 0, "arrow cubics " + arrowD);
+assert.strictEqual(arrowN.l, 8, "arrow lines " + arrowD);
+const arrowXs = arrowD.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 0);
+const tipCount = arrowXs.filter((x) => x > 900).length;
+assert.strictEqual(tipCount, 1, "arrow tip " + arrowD);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });

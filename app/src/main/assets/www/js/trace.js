@@ -3175,7 +3175,7 @@
       for (i = 0; i < n; i++) {
         if (segs[i].k !== "L") continue;
         var shortLen = Math.hypot(segEnd(segs[i])[0] - starts[i][0], segEnd(segs[i])[1] - starts[i][1]);
-        if (shortLen < 0.4 || shortLen > 4.8) continue;
+        if (shortLen < 0.4 || shortLen > 6.4) continue;
         var a = i;
         var b = i;
         var shorts = 1;
@@ -3185,7 +3185,7 @@
           prev = (a + n - 1) % n;
           if (segs[prev].k !== "L") break;
           pl = Math.hypot(segEnd(segs[prev])[0] - starts[prev][0], segEnd(segs[prev])[1] - starts[prev][1]);
-          if (pl > 4.8) break;
+          if (pl > 6.4) break;
           a = prev;
           shorts++;
           span += pl;
@@ -3194,12 +3194,12 @@
           next = (b + 1) % n;
           if (segs[next].k !== "L") break;
           nl = Math.hypot(segEnd(segs[next])[0] - starts[next][0], segEnd(segs[next])[1] - starts[next][1]);
-          if (nl > 4.8) break;
+          if (nl > 6.4) break;
           b = next;
           shorts++;
           span += nl;
         }
-        if (span > 6.2) continue;
+        if (span > 7.6) continue;
         var inn = (a + n - 1) % n;
         var out = (b + 1) % n;
         if (inn === b || out === a || segs[inn].k !== "L" || segs[out].k !== "L") continue;
@@ -3227,7 +3227,7 @@
           k = (k + 1) % n;
           steps++;
         }
-        if (far > 4.4) continue;
+        if (far > 6.2) continue;
         var along = ((hit[0] - segEnd(segs[inn])[0]) * dx1 + (hit[1] - segEnd(segs[inn])[1]) * dy1) / innLen;
         if (along < -1.2 || along > 5.5) continue;
         segs[inn].p = [hit[0], hit[1]];
