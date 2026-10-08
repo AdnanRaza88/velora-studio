@@ -1951,7 +1951,7 @@
   function polygonFit(ring) {
     var n = ring.length;
     if (n < 8 || n > 96) return null;
-    var win = 5.4;
+    var win = n <= 18 ? 3.4 : 5.4;
     function step(i, dir) {
       var walked = 0;
       var j = i;
@@ -1966,33 +1966,57 @@
       return j;
     }
     var turns = new Array(n);
-    var i, best, k, d, neigh, peaks, span, bow, len, lens, lo, hi, segs, a, b;
+    var i, best, k, d, stepLen, peaks, span, bow, len, lens, lo, hi, segs, a, b, gap;
     for (i = 0; i < n; i++) turns[i] = turnAt(ring[step(i, -1)], ring[i], ring[step(i, 1)]);
     peaks = [];
     for (i = 0; i < n; i++) {
-      if (turns[i] < 0.36 || turns[i] > 1.15) continue;
+      if (turns[i] < 0.4 || turns[i] > 1.28) continue;
       best = true;
       k = (i + n - 1) % n;
       d = 0;
-      while (d < 3.8) {
-        neigh = ring[k];
-        d += Math.hypot(neigh[0] - ring[(k + 1) % n][0], neigh[1] - ring[(k + 1) % n][1]);
-        if (turns[k] > turns[i] + 0.08) best = false;
+      while (d < 4.2) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + 1) % n][0], ring[k][1] - ring[(k + 1) % n][1]);
+        if (d + stepLen > 4.2) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.06) best = false;
         k = (k + n - 1) % n;
         if (k === i) break;
       }
       k = (i + 1) % n;
       d = 0;
-      while (d < 3.8) {
-        neigh = ring[k];
-        d += Math.hypot(neigh[0] - ring[(k + n - 1) % n][0], neigh[1] - ring[(k + n - 1) % n][1]);
-        if (turns[k] > turns[i] + 0.08) best = false;
+      while (d < 4.2) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + n - 1) % n][0], ring[k][1] - ring[(k + n - 1) % n][1]);
+        if (d + stepLen > 4.2) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.06) best = false;
         k = (k + 1) % n;
         if (k === i) break;
       }
       if (best) peaks.push(i);
     }
-    if (peaks.length !== 8) return null;
+    if (peaks.length < 8 || peaks.length > 14) return null;
+    var kept = [];
+    for (i = 0; i < peaks.length; i++) {
+      if (!kept.length) {
+        kept.push(peaks[i]);
+        continue;
+      }
+      gap = Math.hypot(ring[peaks[i]][0] - ring[kept[kept.length - 1]][0], ring[peaks[i]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 5.1) {
+        if (turns[peaks[i]] > turns[kept[kept.length - 1]]) kept[kept.length - 1] = peaks[i];
+        continue;
+      }
+      kept.push(peaks[i]);
+    }
+    if (kept.length > 1) {
+      gap = Math.hypot(ring[kept[0]][0] - ring[kept[kept.length - 1]][0], ring[kept[0]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 5.1) {
+        if (turns[kept[kept.length - 1]] > turns[kept[0]]) kept[0] = kept[kept.length - 1];
+        kept.pop();
+      }
+    }
+    if (kept.length !== 8) return null;
+    peaks = kept;
     lens = [];
     for (i = 0; i < peaks.length; i++) {
       a = peaks[i];
@@ -2006,8 +2030,8 @@
       }
       bow = chordBow(span);
       len = Math.hypot(ring[b][0] - ring[a][0], ring[b][1] - ring[a][1]);
-      if (len < 7.5) return null;
-      if (bow > 1.15 && bow > len * 0.05) return null;
+      if (len < 5.6) return null;
+      if (bow > 1.35 && bow > len * 0.06) return null;
       lens.push(len);
     }
     lo = lens[0];
@@ -2016,7 +2040,7 @@
       if (lens[i] < lo) lo = lens[i];
       if (lens[i] > hi) hi = lens[i];
     }
-    if (lo < 7.5 || hi > lo * 1.42) return null;
+    if (lo < 5.6 || hi > lo * 1.45) return null;
     segs = [];
     for (i = 1; i < peaks.length; i++) segs.push({ k: "L", p: ring[peaks[i]].slice(), pts: [ring[peaks[i - 1]], ring[peaks[i]]] });
     segs.push({ k: "L", p: ring[peaks[0]].slice(), pts: [ring[peaks[peaks.length - 1]], ring[peaks[0]]] });
@@ -2031,12 +2055,12 @@
     }
     while (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
     if (ring.length < 3) return null;
+    var poly = polygonFit(ring);
+    if (poly) return poly;
     var stadium = stadiumFit(ring);
     if (stadium) return stadium;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
-    var poly = polygonFit(ring);
-    if (poly) return poly;
     var oval = ovalFit(ring, opttolerance);
     if (oval) return oval;
     var limit = alphamax;

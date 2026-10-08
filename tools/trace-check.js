@@ -241,4 +241,29 @@ const starN = counts(starD);
 assert.strictEqual(starN.c, 0, "star cubics " + starD);
 assert.ok(starN.l >= 10 && starN.l <= 14, "star lines " + starN.l + " " + starD);
 
+function octagon(cx, cy, r, rot) {
+  const pts = [];
+  for (let i = 0; i < 8; i++) {
+    const a = rot + i * Math.PI / 4;
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return (x, y) => {
+    let inside = false;
+    for (let i = 0, j = 7; i < 8; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+}
+[[18, -Math.PI / 2], [28, -Math.PI / 2], [30, -Math.PI / 2], [12, -Math.PI / 2], [20, Math.PI / 8], [16, Math.PI / 8]].forEach((spec) => {
+  const r = spec[0];
+  const rot = spec[1];
+  const tag = (rot < 0 ? "v" : "f") + r;
+  const oct = trace(raster(200, 200, octagon(100, 100, r, rot)), 200, 200);
+  const octN = counts(oct);
+  assert.strictEqual(octN.c, 0, "octagon cubics " + tag + " " + oct);
+  assert.strictEqual(octN.l, 8, "octagon lines " + tag + " " + oct);
+});
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
