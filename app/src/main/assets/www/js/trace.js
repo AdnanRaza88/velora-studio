@@ -1947,6 +1947,136 @@
     return [cx + mx / ml * r, cy + my / ml * r];
   }
 
+
+  function dCapFit(ring) {
+    var n = ring.length;
+    if (n < 12) return null;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 18 || bh < 18) return null;
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var caps = ["right", "left", "bottom", "top"];
+    var best = null;
+    var c;
+    for (c = 0; c < caps.length; c++) {
+      var cap = caps[c];
+      var horizontal = cap === "right" || cap === "left";
+      var r = (horizontal ? bh : bw) / 2;
+      var reach = (horizontal ? bw : bh) - r;
+      if (r < 8 || reach < r * 0.55) continue;
+      var ccx = cx;
+      var ccy = cy;
+      if (cap === "right") ccx = maxX - r;
+      else if (cap === "left") ccx = minX + r;
+      else if (cap === "bottom") ccy = maxY - r;
+      else ccy = minY + r;
+      var worst = 0;
+      var onFlat = 0;
+      var onArc = 0;
+      var onSide = 0;
+      for (i = 0; i < n; i++) {
+        var px = ring[i][0];
+        var py = ring[i][1];
+        var err;
+        var onCapSide = horizontal ? ((cap === "right" && px >= ccx - 1.2) || (cap === "left" && px <= ccx + 1.2)) : ((cap === "bottom" && py >= ccy - 1.2) || (cap === "top" && py <= ccy + 1.2));
+        if (onCapSide) {
+          err = Math.abs(Math.hypot(px - ccx, py - ccy) - r);
+          onArc++;
+        } else if (horizontal) {
+          var flatX = cap === "right" ? minX : maxX;
+          var wall = Math.abs(px - flatX);
+          var side = Math.min(Math.abs(py - minY), Math.abs(py - maxY));
+          err = Math.min(wall, side);
+          if (wall <= side + 0.4) onFlat++;
+          else onSide++;
+        } else {
+          var flatY = cap === "bottom" ? minY : maxY;
+          var wallY = Math.abs(py - flatY);
+          var sideX = Math.min(Math.abs(px - minX), Math.abs(px - maxX));
+          err = Math.min(wallY, sideX);
+          if (wallY <= sideX + 0.4) onFlat++;
+          else onSide++;
+        }
+        if (err > worst) worst = err;
+      }
+      if (onFlat < 2 || onArc < 4 || onSide < 1) continue;
+      if (worst > Math.max(1.85, r * 0.09)) continue;
+      if (!best || worst < best.worst) best = { cap: cap, worst: worst, ccx: ccx, ccy: ccy, r: r };
+    }
+    if (!best) return null;
+    var wind = 0;
+    var wj;
+    for (i = 0; i < n; i++) {
+      wj = (i + 1) % n;
+      wind += ring[i][0] * ring[wj][1] - ring[wj][0] * ring[i][1];
+    }
+    var sign = wind < 0 ? -1 : 1;
+    var segs = [];
+    var start;
+    if (best.cap === "right" || best.cap === "left") {
+      var wallX = best.cap === "right" ? minX : maxX;
+      var capX = best.ccx;
+      var topW = [wallX, minY];
+      var topC = [capX, minY];
+      var botC = [capX, maxY];
+      var botW = [wallX, maxY];
+      var pole = [best.cap === "right" ? maxX : minX, cy];
+      var arcSign = best.cap === "right" ? sign : -sign;
+      if ((best.cap === "right" && sign < 0) || (best.cap === "left" && sign > 0)) {
+        start = topW;
+        segs.push({ k: "L", p: topC.slice() });
+        segs.push(quarterCubic(topC, pole, capX, cy, best.r, arcSign));
+        segs.push(quarterCubic(pole, botC, capX, cy, best.r, arcSign));
+        segs.push({ k: "L", p: botW.slice() });
+        segs.push({ k: "L", p: topW.slice() });
+      } else {
+        start = botW;
+        segs.push({ k: "L", p: botC.slice() });
+        segs.push(quarterCubic(botC, pole, capX, cy, best.r, -arcSign));
+        segs.push(quarterCubic(pole, topC, capX, cy, best.r, -arcSign));
+        segs.push({ k: "L", p: topW.slice() });
+        segs.push({ k: "L", p: botW.slice() });
+      }
+    } else {
+      var wallY = best.cap === "bottom" ? minY : maxY;
+      var capY = best.ccy;
+      var leftW = [minX, wallY];
+      var leftC = [minX, capY];
+      var rightC = [maxX, capY];
+      var rightW = [maxX, wallY];
+      var vpole = [cx, best.cap === "bottom" ? maxY : minY];
+      var vSign = best.cap === "bottom" ? -sign : sign;
+      if ((best.cap === "bottom" && sign < 0) || (best.cap === "top" && sign > 0)) {
+        start = leftW;
+        segs.push({ k: "L", p: leftC.slice() });
+        segs.push(quarterCubic(leftC, vpole, cx, capY, best.r, vSign));
+        segs.push(quarterCubic(vpole, rightC, cx, capY, best.r, vSign));
+        segs.push({ k: "L", p: rightW.slice() });
+        segs.push({ k: "L", p: leftW.slice() });
+      } else {
+        start = rightW;
+        segs.push({ k: "L", p: rightC.slice() });
+        segs.push(quarterCubic(rightC, vpole, cx, capY, best.r, -vSign));
+        segs.push(quarterCubic(vpole, leftC, cx, capY, best.r, -vSign));
+        segs.push({ k: "L", p: leftW.slice() });
+        segs.push({ k: "L", p: rightW.slice() });
+      }
+    }
+    return { start: start, segs: segs };
+  }
+
   function roundRectFit(ring) {
     var n = ring.length;
     if (n < 6) return null;
@@ -2198,6 +2328,8 @@
     if (stadium) return stadium;
     var semi = semicircleFit(ring);
     if (semi) return semi;
+    var dcap = dCapFit(ring);
+    if (dcap) return dcap;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
     var oval = ovalFit(ring, opttolerance);

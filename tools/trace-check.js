@@ -353,6 +353,40 @@ function semiDisk(x, y, cx, cy, r, axis) {
   assert.strictEqual(vN.l, 1, "v-semi lines r" + r + " " + vSemi);
 });
 
+function dCap(x, y, ox, oy, body, r, cap) {
+  if (cap === "right" || cap === "left") {
+    const wall = cap === "right" ? ox : ox + r;
+    const end = cap === "right" ? ox + body : ox + r + body;
+    const top = oy;
+    const inBody = x >= Math.min(wall, end) && x <= Math.max(wall, end) && y >= top && y < top + 2 * r;
+    const ccx = cap === "right" ? ox + body : ox + r;
+    const dx = x - ccx;
+    const dy = y - (oy + r);
+    const toward = cap === "right" ? dx >= -0.5 : dx <= 0.5;
+    return inBody || (toward && dx * dx + dy * dy <= r * r);
+  }
+  const wall = cap === "bottom" ? oy : oy + r;
+  const end = cap === "bottom" ? oy + body : oy + r + body;
+  const inBody = y >= Math.min(wall, end) && y <= Math.max(wall, end) && x >= ox && x < ox + 2 * r;
+  const ccy = cap === "bottom" ? oy + body : oy + r;
+  const dx = x - (ox + r);
+  const dy = y - ccy;
+  const toward = cap === "bottom" ? dy >= -0.5 : dy <= 0.5;
+  return inBody || (toward && dx * dx + dy * dy <= r * r);
+}
+[36, 48].forEach((body) => {
+  const d = trace(raster(200, 140, (x, y) => dCap(x, y, 28, 36, body, 28, "right")), 200, 140);
+  const n = counts(d);
+  assert.strictEqual(n.c, 2, "dcap cubics b" + body + " " + d);
+  assert.strictEqual(n.l, 3, "dcap lines b" + body + " " + d);
+});
+[32, 44].forEach((body) => {
+  const d = trace(raster(140, 200, (x, y) => dCap(x, y, 40, 24, body, 26, "bottom")), 140, 200);
+  const n = counts(d);
+  assert.strictEqual(n.c, 2, "v-dcap cubics b" + body + " " + d);
+  assert.strictEqual(n.l, 3, "v-dcap lines b" + body + " " + d);
+});
+
 function house(x, y) {
   return (y >= 70 && y < 140 && x >= 30 && x < 130) || (y >= 30 && y < 70 && Math.abs(x - 80) <= (y - 30) * 1.25);
 }
