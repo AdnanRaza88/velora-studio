@@ -193,4 +193,37 @@ assert.strictEqual(twoN.c, 2, "two-fillet cubics " + two);
 assert.strictEqual(twoN.l, 4, "two-fillet lines " + two);
 assert.strictEqual(axisSides(two).axis, 4, "two-fillet axis " + two);
 
+function chamfer(x, y, x0, y0, x1, y1, cut) {
+  if (x < x0 || x >= x1 || y < y0 || y >= y1) return false;
+  if (x > x1 - cut && y < y0 + cut && (x - (x1 - cut)) + (y0 + cut - y) > cut) return false;
+  return true;
+}
+
+for (const cut of [12, 18, 24]) {
+  const ch = trace(raster(180, 150, (x, y) => chamfer(x, y, 24, 22, 156, 128, cut)), 180, 150);
+  const chN = counts(ch);
+  assert.strictEqual(chN.c, 0, "chamfer cubics c" + cut + " " + ch);
+  assert.strictEqual(chN.l, 5, "chamfer lines c" + cut + " " + ch);
+}
+
+function star(x, y) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const r = i % 2 === 0 ? 62 : 26;
+    pts.push([90 + Math.cos(a) * r, 90 + Math.sin(a) * r]);
+  }
+  let inside = false;
+  for (let i = 0, j = 9; i < 10; j = i++) {
+    const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+const starD = trace(raster(180, 180, star), 180, 180);
+const starN = counts(starD);
+assert.strictEqual(starN.c, 0, "star cubics " + starD);
+assert.ok(starN.l >= 10 && starN.l <= 14, "star lines " + starN.l + " " + starD);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });

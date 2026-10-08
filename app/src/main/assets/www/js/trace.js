@@ -2040,6 +2040,16 @@
     var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
     if (chord < 2.4 || chord > 26) return null;
     if (Math.abs(b[1] - a[1]) < 1.25 || Math.abs(b[0] - a[0]) < 1.25) return null;
+    var span = [a];
+    var idx = from;
+    var guard = 0;
+    while (idx !== to && guard <= n) {
+      idx = (idx + 1) % n;
+      span.push(ring[idx]);
+      guard++;
+    }
+    var bow = chordBow(span);
+    if (bow < Math.max(1.85, chord * 0.18)) return null;
     var h = 0.5523 * chord / Math.SQRT2;
     return {
       k: "C",
