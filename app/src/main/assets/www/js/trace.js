@@ -1947,6 +1947,82 @@
     return null;
   }
 
+
+  function polygonFit(ring) {
+    var n = ring.length;
+    if (n < 8 || n > 96) return null;
+    var win = 5.4;
+    function step(i, dir) {
+      var walked = 0;
+      var j = i;
+      var guard = 0;
+      var prev = ring[j];
+      while (walked < win && guard < n) {
+        j = (j + dir + n) % n;
+        walked += Math.hypot(ring[j][0] - prev[0], ring[j][1] - prev[1]);
+        prev = ring[j];
+        guard++;
+      }
+      return j;
+    }
+    var turns = new Array(n);
+    var i, best, k, d, neigh, peaks, span, bow, len, lens, lo, hi, segs, a, b;
+    for (i = 0; i < n; i++) turns[i] = turnAt(ring[step(i, -1)], ring[i], ring[step(i, 1)]);
+    peaks = [];
+    for (i = 0; i < n; i++) {
+      if (turns[i] < 0.36 || turns[i] > 1.15) continue;
+      best = true;
+      k = (i + n - 1) % n;
+      d = 0;
+      while (d < 3.8) {
+        neigh = ring[k];
+        d += Math.hypot(neigh[0] - ring[(k + 1) % n][0], neigh[1] - ring[(k + 1) % n][1]);
+        if (turns[k] > turns[i] + 0.08) best = false;
+        k = (k + n - 1) % n;
+        if (k === i) break;
+      }
+      k = (i + 1) % n;
+      d = 0;
+      while (d < 3.8) {
+        neigh = ring[k];
+        d += Math.hypot(neigh[0] - ring[(k + n - 1) % n][0], neigh[1] - ring[(k + n - 1) % n][1]);
+        if (turns[k] > turns[i] + 0.08) best = false;
+        k = (k + 1) % n;
+        if (k === i) break;
+      }
+      if (best) peaks.push(i);
+    }
+    if (peaks.length !== 8) return null;
+    lens = [];
+    for (i = 0; i < peaks.length; i++) {
+      a = peaks[i];
+      b = peaks[(i + 1) % peaks.length];
+      span = [ring[a]];
+      k = a;
+      while (k !== b) {
+        k = (k + 1) % n;
+        span.push(ring[k]);
+        if (span.length > n) return null;
+      }
+      bow = chordBow(span);
+      len = Math.hypot(ring[b][0] - ring[a][0], ring[b][1] - ring[a][1]);
+      if (len < 7.5) return null;
+      if (bow > 1.15 && bow > len * 0.05) return null;
+      lens.push(len);
+    }
+    lo = lens[0];
+    hi = lens[0];
+    for (i = 1; i < lens.length; i++) {
+      if (lens[i] < lo) lo = lens[i];
+      if (lens[i] > hi) hi = lens[i];
+    }
+    if (lo < 7.5 || hi > lo * 1.42) return null;
+    segs = [];
+    for (i = 1; i < peaks.length; i++) segs.push({ k: "L", p: ring[peaks[i]].slice(), pts: [ring[peaks[i - 1]], ring[peaks[i]]] });
+    segs.push({ k: "L", p: ring[peaks[0]].slice(), pts: [ring[peaks[peaks.length - 1]], ring[peaks[0]]] });
+    return { start: ring[peaks[0]].slice(), segs: segs };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -1959,6 +2035,8 @@
     if (stadium) return stadium;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
+    var poly = polygonFit(ring);
+    if (poly) return poly;
     var oval = ovalFit(ring, opttolerance);
     if (oval) return oval;
     var limit = alphamax;
