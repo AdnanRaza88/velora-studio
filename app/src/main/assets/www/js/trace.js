@@ -2242,7 +2242,115 @@
     return { end: k, span: span, along: along, bow: chordBow(span) };
   }
 
+  function circumcircle(a, b, c) {
+    var d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]));
+    if (Math.abs(d) < 1e-3) return null;
+    var a2 = a[0] * a[0] + a[1] * a[1];
+    var b2 = b[0] * b[0] + b[1] * b[1];
+    var c2 = c[0] * c[0] + c[1] * c[1];
+    var cx = (a2 * (b[1] - c[1]) + b2 * (c[1] - a[1]) + c2 * (a[1] - b[1])) / d;
+    var cy = (a2 * (c[0] - b[0]) + b2 * (a[0] - c[0]) + c2 * (b[0] - a[0])) / d;
+    var r = Math.hypot(a[0] - cx, a[1] - cy);
+    if (!(r > 8 && r < 900)) return null;
+    return { cx: cx, cy: cy, r: r };
+  }
+
+  function cuspPairs(ring) {
+    var n = ring.length;
+    var turns = [];
+    var i, prev, next, gap;
+    for (i = 0; i < n; i++) {
+      prev = ring[(i + n - 1) % n];
+      next = ring[(i + 1) % n];
+      turns.push(turnAt(prev, ring[i], next));
+    }
+    var peaks = [];
+    for (i = 0; i < n; i++) {
+      if (turns[i] < 0.62) continue;
+      if (turns[i] + 0.04 < turns[(i + n - 1) % n] || turns[i] + 0.04 < turns[(i + 1) % n]) continue;
+      if (!peaks.length || (i - peaks[peaks.length - 1]) > 4) peaks.push(i);
+      else if (turns[i] > turns[peaks[peaks.length - 1]]) peaks[peaks.length - 1] = i;
+    }
+    if (peaks.length > 1 && (peaks[0] + n - peaks[peaks.length - 1]) <= 4) {
+      if (turns[peaks[0]] > turns[peaks[peaks.length - 1]]) peaks.pop();
+      else peaks.shift();
+    }
+    if (peaks.length !== 2) return null;
+    gap = (peaks[1] - peaks[0] + n) % n;
+    if (gap < 6 || n - gap < 6) return null;
+    if (turns[peaks[0]] < 0.78 || turns[peaks[1]] < 0.78) return null;
+    return peaks;
+  }
+
+  function spanPoints(ring, from, to) {
+    var pts = [ring[from]];
+    var i = from;
+    var guard = 0;
+    while (i !== to && guard < ring.length) {
+      i = (i + 1) % ring.length;
+      pts.push(ring[i]);
+      guard++;
+    }
+    return pts;
+  }
+
+  function scoreArc(pts) {
+    var a = pts[0];
+    var b = pts[pts.length - 1];
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var chord = Math.hypot(dx, dy);
+    if (chord < 8) return null;
+    var bowAt = 1;
+    var bow = 0;
+    var i, cross;
+    for (i = 1; i < pts.length - 1; i++) {
+      cross = Math.abs((pts[i][0] - a[0]) * dy - (pts[i][1] - a[1]) * dx) / chord;
+      if (cross > bow) {
+        bow = cross;
+        bowAt = i;
+      }
+    }
+    if (bow < 3.2) return null;
+    var fit = circumcircle(a, b, pts[bowAt]);
+    if (!fit) return null;
+    var worst = 0;
+    var err;
+    for (i = 0; i < pts.length; i++) {
+      err = Math.abs(Math.hypot(pts[i][0] - fit.cx, pts[i][1] - fit.cy) - fit.r);
+      if (err > worst) worst = err;
+    }
+    if (worst > Math.max(2.6, fit.r * 0.08)) return null;
+    var sign = arcSign(pts, a, b, fit.cx, fit.cy);
+    if (!sign) return null;
+    var sweep = arcSweep(a, b, fit.cx, fit.cy, sign);
+    if (sweep < 0.55 || sweep > 4.7) return null;
+    fit.sign = sign;
+    fit.err = worst;
+    fit.sweep = sweep;
+    return fit;
+  }
+
+  function crescentFit(ring) {
+    var n = ring.length;
+    if (n < 16 || n > 720) return null;
+    var peaks = cuspPairs(ring);
+    if (!peaks) return null;
+    var a = peaks[0];
+    var b = peaks[1];
+    var fa = scoreArc(spanPoints(ring, a, b));
+    var fb = scoreArc(spanPoints(ring, b, a));
+    if (!fa || !fb) return null;
+    var apart = Math.hypot(fa.cx - fb.cx, fa.cy - fb.cy);
+    if (apart < Math.max(4.5, Math.min(fa.r, fb.r) * 0.12)) return null;
+    var cubics = arcCubics(ring[a], ring[b], fa.cx, fa.cy, fa.r, fa.sign);
+    var back = arcCubics(ring[b], ring[a], fb.cx, fb.cy, fb.r, fb.sign);
+    if (cubics.length < 1 || cubics.length > 3 || back.length < 1 || back.length > 3) return null;
+    return { start: ring[a].slice(), segs: cubics.concat(back) };
+  }
+
   function segmentFit(ring) {
+
     var n = ring.length;
     if (n < 14 || n > 720) return null;
     var best = null;
@@ -2763,6 +2871,8 @@
     if (wedge) return wedge;
     var segment = segmentFit(ring);
     if (segment) return segment;
+    var crescent = crescentFit(ring);
+    if (crescent) return crescent;
     var dcap = dCapFit(ring);
     if (dcap) return dcap;
     var rounded = roundRectFit(ring);

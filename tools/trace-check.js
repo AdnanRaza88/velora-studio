@@ -466,4 +466,20 @@ const rightN = counts(rightPie);
 assert.strictEqual(rightN.l, 2, "right pie lines " + rightPie);
 assert.strictEqual(rightN.c, 1, "right pie cubics " + rightPie);
 
+function crescent(x, y, cx, cy, r, ox, oy, r2) {
+  const dx = x - cx;
+  const dy = y - cy;
+  const dx2 = x - ox;
+  const dy2 = y - oy;
+  return dx * dx + dy * dy <= r * r && dx2 * dx2 + dy2 * dy2 > r2 * r2;
+}
+const moon = trace(raster(160, 160, (x, y) => crescent(x, y, 80, 80, 48, 98, 74, 36)), 160, 160);
+const moonN = counts(moon);
+assert.strictEqual(moonN.l, 0, "crescent lines " + moon);
+assert.ok(moonN.c >= 2 && moonN.c <= 4, "crescent cubics " + moonN.c + " " + moon);
+const moonV = trace(raster(160, 170, (x, y) => crescent(x, y, 80, 88, 50, 80, 108, 34)), 160, 170);
+const moonVN = counts(moonV);
+assert.strictEqual(moonVN.l, 0, "vertical crescent lines " + moonV);
+assert.ok(moonVN.c >= 2 && moonVN.c <= 4, "vertical crescent cubics " + moonVN.c + " " + moonV);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
