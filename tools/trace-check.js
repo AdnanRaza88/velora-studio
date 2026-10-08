@@ -131,4 +131,31 @@ for (const r of [8, 14, 22]) {
   assert.strictEqual(sides.axis, 4, "round-rect axis r" + r + " " + rr);
 }
 
+
+function pill(x, y, x0, x1, cy, r) {
+  const cx = Math.max(x0, Math.min(x, x1));
+  return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
+}
+
+function vp(x, y, y0, y1, cx, r) {
+  const cy = Math.max(y0, Math.min(y, y1));
+  return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
+}
+
+for (const r of [14, 22, 28]) {
+  const pillD = trace(raster(220, 120, (x, y) => pill(x, y, 50, 170, 60, r)), 220, 120);
+  const pillN = counts(pillD);
+  const pillSides = axisSides(pillD);
+  assert.strictEqual(pillN.c, 4, "stadium cubics r" + r + " " + pillD);
+  assert.strictEqual(pillN.l, 2, "stadium lines r" + r + " " + pillD);
+  assert.strictEqual(pillSides.axis, 2, "stadium axis r" + r + " " + pillD);
+}
+
+const vPill = trace(raster(120, 220, (x, y) => vp(x, y, 50, 170, 60, 22)), 120, 220);
+const vN = counts(vPill);
+const vSides = axisSides(vPill);
+assert.strictEqual(vN.c, 4, "v-stadium cubics " + vPill);
+assert.strictEqual(vN.l, 2, "v-stadium lines " + vPill);
+assert.strictEqual(vSides.axis, 2, "v-stadium axis " + vPill);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });

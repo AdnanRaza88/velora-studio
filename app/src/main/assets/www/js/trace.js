@@ -1686,6 +1686,137 @@
   }
 
 
+
+  function stadiumFit(ring) {
+    var n = ring.length;
+    if (n < 12) return null;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 18 || bh < 18) return null;
+    var horizontal = bw >= bh * 1.28;
+    var vertical = bh >= bw * 1.28;
+    if (!horizontal && !vertical) return null;
+    var r = (horizontal ? bh : bw) / 2;
+    if (r < 8) return null;
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var reach = (horizontal ? bw : bh) / 2 - r;
+    if (reach < r * 0.45) return null;
+    var c0 = horizontal ? cx - reach : cy - reach;
+    var c1 = horizontal ? cx + reach : cy + reach;
+    var worst = 0;
+    var onSide = 0;
+    for (i = 0; i < n; i++) {
+      var err;
+      if (horizontal) {
+        if (ring[i][0] >= c0 - 1.2 && ring[i][0] <= c1 + 1.2) {
+          err = Math.min(Math.abs(ring[i][1] - minY), Math.abs(ring[i][1] - maxY));
+          onSide++;
+        } else {
+          var ccx = ring[i][0] < cx ? c0 : c1;
+          err = Math.abs(Math.hypot(ring[i][0] - ccx, ring[i][1] - cy) - r);
+        }
+      } else {
+        if (ring[i][1] >= c0 - 1.2 && ring[i][1] <= c1 + 1.2) {
+          err = Math.min(Math.abs(ring[i][0] - minX), Math.abs(ring[i][0] - maxX));
+          onSide++;
+        } else {
+          var ccy = ring[i][1] < cy ? c0 : c1;
+          err = Math.abs(Math.hypot(ring[i][0] - cx, ring[i][1] - ccy) - r);
+        }
+      }
+      if (err > worst) worst = err;
+    }
+    if (onSide < 2) return null;
+    if (worst > Math.max(1.85, r * 0.09)) return null;
+    var wind = 0;
+    var wj;
+    for (i = 0; i < n; i++) {
+      wj = (i + 1) % n;
+      wind += ring[i][0] * ring[wj][1] - ring[wj][0] * ring[i][1];
+    }
+    var sign = wind < 0 ? -1 : 1;
+    var segs = [];
+    var start;
+    if (horizontal) {
+      var topL = [c0, minY];
+      var topR = [c1, minY];
+      var botR = [c1, maxY];
+      var botL = [c0, maxY];
+      var right = [c1 + r, cy];
+      var left = [c0 - r, cy];
+      if (sign < 0) {
+        start = topL;
+        segs.push({ k: "L", p: topR.slice() });
+        segs.push(quarterCubic(topR, right, c1, cy, r, sign));
+        segs.push(quarterCubic(right, botR, c1, cy, r, sign));
+        segs.push({ k: "L", p: botL.slice() });
+        segs.push(quarterCubic(botL, left, c0, cy, r, sign));
+        segs.push(quarterCubic(left, topL, c0, cy, r, sign));
+      } else {
+        start = topR;
+        segs.push({ k: "L", p: topL.slice() });
+        segs.push(quarterCubic(topL, left, c0, cy, r, sign));
+        segs.push(quarterCubic(left, botL, c0, cy, r, sign));
+        segs.push({ k: "L", p: botR.slice() });
+        segs.push(quarterCubic(botR, right, c1, cy, r, sign));
+        segs.push(quarterCubic(right, topR, c1, cy, r, sign));
+      }
+    } else {
+      var leftT = [minX, c0];
+      var leftB = [minX, c1];
+      var rightB = [maxX, c1];
+      var rightT = [maxX, c0];
+      var bottom = [cx, c1 + r];
+      var top = [cx, c0 - r];
+      if (sign < 0) {
+        start = leftT;
+        segs.push({ k: "L", p: leftB.slice() });
+        segs.push(quarterCubic(leftB, bottom, cx, c1, r, -sign));
+        segs.push(quarterCubic(bottom, rightB, cx, c1, r, -sign));
+        segs.push({ k: "L", p: rightT.slice() });
+        segs.push(quarterCubic(rightT, top, cx, c0, r, -sign));
+        segs.push(quarterCubic(top, leftT, cx, c0, r, -sign));
+      } else {
+        start = leftB;
+        segs.push({ k: "L", p: leftT.slice() });
+        segs.push(quarterCubic(leftT, top, cx, c0, r, -sign));
+        segs.push(quarterCubic(top, rightT, cx, c0, r, -sign));
+        segs.push({ k: "L", p: rightB.slice() });
+        segs.push(quarterCubic(rightB, bottom, cx, c1, r, -sign));
+        segs.push(quarterCubic(bottom, leftB, cx, c1, r, -sign));
+      }
+    }
+    return { start: start, segs: segs };
+  }
+
+  function quarterCubic(a, b, cx, cy, r, sign) {
+    var kappa = 0.5522847498;
+    var ax = (a[0] - cx) / r;
+    var ay = (a[1] - cy) / r;
+    var bx = (b[0] - cx) / r;
+    var by = (b[1] - cy) / r;
+    var tax = ay * sign;
+    var tay = -ax * sign;
+    var tbx = by * sign;
+    var tby = -bx * sign;
+    return {
+      k: "C",
+      c: [a.slice(), [a[0] + kappa * r * tax, a[1] + kappa * r * tay], [b[0] - kappa * r * tbx, b[1] - kappa * r * tby], b.slice()]
+    };
+  }
+
   function roundRectFit(ring) {
     var n = ring.length;
     if (n < 8) return null;
@@ -1796,6 +1927,8 @@
     }
     while (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
     if (ring.length < 3) return null;
+    var stadium = stadiumFit(ring);
+    if (stadium) return stadium;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
     var oval = ovalFit(ring, opttolerance);
