@@ -2107,6 +2107,287 @@
     return { start: start, segs: segs };
   }
 
+  function arcCircle(pts) {
+    var n = pts.length;
+    if (n < 6) return null;
+    var cx = 0;
+    var cy = 0;
+    var i;
+    for (i = 0; i < n; i++) {
+      cx += pts[i][0];
+      cy += pts[i][1];
+    }
+    cx /= n;
+    cy /= n;
+    var r = 0;
+    for (i = 0; i < n; i++) r += Math.hypot(pts[i][0] - cx, pts[i][1] - cy);
+    r /= n;
+    if (r < 8 || r > 480) return null;
+    var step, dx, dy, dist, ex, ey, err, j00, j01, j02, j11, j12, j22, g0, g1, g2, delta;
+    for (step = 0; step < 6; step++) {
+      j00 = 0;
+      j01 = 0;
+      j02 = 0;
+      j11 = 0;
+      j12 = 0;
+      j22 = 0;
+      g0 = 0;
+      g1 = 0;
+      g2 = 0;
+      for (i = 0; i < n; i++) {
+        dx = pts[i][0] - cx;
+        dy = pts[i][1] - cy;
+        dist = Math.hypot(dx, dy) || 1e-6;
+        ex = dx / dist;
+        ey = dy / dist;
+        err = dist - r;
+        j00 += ex * ex;
+        j01 += ex * ey;
+        j02 += ex;
+        j11 += ey * ey;
+        j12 += ey;
+        j22 += 1;
+        g0 += ex * err;
+        g1 += ey * err;
+        g2 += err;
+      }
+      delta = solve3(j00, j01, j02, j11, j12, j22, g0, g1, g2);
+      if (!delta) break;
+      if (Math.abs(delta[2]) > r * 0.4) break;
+      cx += delta[0];
+      cy += delta[1];
+      r += delta[2];
+      if (r < 6) return null;
+    }
+    return { cx: cx, cy: cy, r: r };
+  }
+
+  function arcSweep(a, b, cx, cy, sign) {
+    var a0 = Math.atan2(a[1] - cy, a[0] - cx);
+    var a1 = Math.atan2(b[1] - cy, b[0] - cx);
+    var sweep = a1 - a0;
+    if (sign > 0) {
+      while (sweep <= 0.04) sweep += Math.PI * 2;
+    } else {
+      while (sweep >= -0.04) sweep -= Math.PI * 2;
+    }
+    return Math.abs(sweep);
+  }
+
+  function arcCubics(a, b, cx, cy, r, sign) {
+    var a0 = Math.atan2(a[1] - cy, a[0] - cx);
+    var left = arcSweep(a, b, cx, cy, sign);
+    var ang = a0;
+    var segs = [];
+    var guard = 0;
+    var step, nxt, p0, p1, k, t0x, t0y, t1x, t1y;
+    while (left > 0.07 && guard < 5) {
+      step = Math.min(left, Math.PI / 2);
+      nxt = ang + (sign > 0 ? step : -step);
+      p0 = [cx + Math.cos(ang) * r, cy + Math.sin(ang) * r];
+      p1 = [cx + Math.cos(nxt) * r, cy + Math.sin(nxt) * r];
+      if (!segs.length) p0 = a.slice();
+      if (left - step <= 0.07) p1 = b.slice();
+      k = (4 / 3) * Math.tan(step / 4);
+      t0x = -Math.sin(ang) * sign;
+      t0y = Math.cos(ang) * sign;
+      t1x = -Math.sin(nxt) * sign;
+      t1y = Math.cos(nxt) * sign;
+      segs.push({
+        k: "C",
+        c: [p0, [p0[0] + k * r * t0x, p0[1] + k * r * t0y], [p1[0] - k * r * t1x, p1[1] - k * r * t1y], p1]
+      });
+      ang = nxt;
+      left -= step;
+      guard++;
+    }
+    return segs;
+  }
+
+  function arcSign(arc, a, b, cx, cy) {
+    var vx = b[0] - a[0];
+    var vy = b[1] - a[1];
+    var side = 0;
+    var t;
+    for (t = 0; t < arc.length; t++) {
+      side += (arc[t][0] - a[0]) * vy - (arc[t][1] - a[1]) * vx;
+    }
+    if (Math.abs(side) < 1) return 0;
+    var cross = (a[0] - cx) * (b[1] - cy) - (a[1] - cy) * (b[0] - cx);
+    if (Math.abs(cross) < 0.4) return side > 0 ? -1 : 1;
+    return (side > 0) === (cross > 0) ? 1 : -1;
+  }
+
+  function straightRun(ring, i, dir) {
+    var n = ring.length;
+    var span = [ring[i]];
+    var along = 0;
+    var k = i;
+    var guard = 0;
+    var nxt, step, bow;
+    while (guard < n - 4) {
+      nxt = (k + dir + n) % n;
+      step = Math.hypot(ring[nxt][0] - ring[k][0], ring[nxt][1] - ring[k][1]);
+      span.push(ring[nxt]);
+      along += step;
+      bow = chordBow(span);
+      if (bow > 2.2) {
+        span.pop();
+        break;
+      }
+      k = nxt;
+      guard++;
+      if (along > 280) break;
+    }
+    return { end: k, span: span, along: along, bow: chordBow(span) };
+  }
+
+  function segmentFit(ring) {
+    var n = ring.length;
+    if (n < 14 || n > 720) return null;
+    var best = null;
+    var i, span, along, k, nxt, step, bow, fit;
+    for (i = 0; i < n; i++) {
+      span = [ring[i]];
+      along = 0;
+      k = i;
+      while (span.length < n - 6) {
+        nxt = (k + 1) % n;
+        step = Math.hypot(ring[nxt][0] - ring[k][0], ring[nxt][1] - ring[k][1]);
+        span.push(ring[nxt]);
+        along += step;
+        bow = chordBow(span);
+        if (bow > 2.15) break;
+        k = nxt;
+        if (along >= 14 && bow <= 1.9) {
+          fit = scoreSegment(ring, i, k, along);
+          if (fit && (!best || fit.chord > best.chord + 0.8 || (Math.abs(fit.chord - best.chord) <= 0.8 && fit.err < best.err))) best = fit;
+        }
+        if (along > 340) break;
+      }
+    }
+    if (!best) return null;
+    return emitSegment(best);
+  }
+
+  function scoreSegment(ring, i, k, chordLen) {
+    var a = ring[i];
+    var b = ring[k];
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (chord < 14 || chordLen > chord * 1.22) return null;
+    var arc = [];
+    var j = k;
+    var guard = 0;
+    var arcLen = 0;
+    while (j !== i && guard < ring.length) {
+      var nxt = (j + 1) % ring.length;
+      arcLen += Math.hypot(ring[nxt][0] - ring[j][0], ring[nxt][1] - ring[j][1]);
+      arc.push(ring[j]);
+      j = nxt;
+      guard++;
+    }
+    if (arc.length < 6 || arcLen < chord * 0.7) return null;
+    var samples = arc.concat([a]);
+    var fit = arcCircle(samples);
+    if (!fit) return null;
+    var worst = 0;
+    var t, err, turn;
+    for (t = 0; t < arc.length; t++) {
+      err = Math.abs(Math.hypot(arc[t][0] - fit.cx, arc[t][1] - fit.cy) - fit.r);
+      if (err > worst) worst = err;
+    }
+    err = Math.abs(Math.hypot(a[0] - fit.cx, a[1] - fit.cy) - fit.r);
+    if (err > worst) worst = err;
+    err = Math.abs(Math.hypot(b[0] - fit.cx, b[1] - fit.cy) - fit.r);
+    if (err > worst) worst = err;
+    if (worst > Math.max(2.35, fit.r * 0.08)) return null;
+    var sign = arcSign(arc, b, a, fit.cx, fit.cy);
+    if (!sign) return null;
+    var sweep = arcSweep(b, a, fit.cx, fit.cy, sign);
+    if (sweep < 0.58 || sweep > 2.75) return null;
+    var depth = Math.abs((a[0] - fit.cx) * (b[1] - a[1]) - (a[1] - fit.cy) * (b[0] - a[0])) / chord;
+    if (depth < fit.r * 0.08 || depth > fit.r * 0.82) return null;
+    var expect = sweep * fit.r;
+    if (arcLen < expect * 0.62 || arcLen > expect * 1.45) return null;
+    return { a: a, b: b, cx: fit.cx, cy: fit.cy, r: fit.r, sign: sign, err: worst, chord: chord, sweep: sweep };
+  }
+
+  function emitSegment(fit) {
+    var cubics = arcCubics(fit.b, fit.a, fit.cx, fit.cy, fit.r, fit.sign);
+    if (!cubics.length || cubics.length > 3) return null;
+    return {
+      start: fit.a.slice(),
+      segs: [{ k: "L", p: fit.b.slice() }].concat(cubics)
+    };
+  }
+
+  function wedgeFit(ring) {
+    var n = ring.length;
+    if (n < 8 || n > 720) return null;
+    var best = null;
+    var i, back, fore, fit;
+    for (i = 0; i < n; i++) {
+      back = straightRun(ring, i, -1);
+      fore = straightRun(ring, i, 1);
+      if (back.along < 10 || fore.along < 10) continue;
+      if (back.bow > 1.9 || fore.bow > 1.9) continue;
+      fit = scoreWedge(ring, i, back.end, fore.end);
+      if (fit && (!best || fit.err < best.err - 0.04 || (Math.abs(fit.err - best.err) <= 0.04 && fit.r > best.r))) best = fit;
+    }
+    if (!best) return null;
+    return emitWedge(best);
+  }
+
+  function scoreWedge(ring, apex, back, fore) {
+    var o = ring[apex];
+    var a = ring[fore];
+    var b = ring[back];
+    var ra = Math.hypot(a[0] - o[0], a[1] - o[1]);
+    var rb = Math.hypot(b[0] - o[0], b[1] - o[1]);
+    if (ra < 12 || rb < 12) return null;
+    if (Math.abs(ra - rb) > Math.max(3.2, Math.min(ra, rb) * 0.14)) return null;
+    var r = (ra + rb) / 2;
+    var dot = ((a[0] - o[0]) * (b[0] - o[0]) + (a[1] - o[1]) * (b[1] - o[1])) / (ra * rb);
+    if (dot > 0.9 || dot < -0.2) return null;
+    var arc = [];
+    var j = fore;
+    var guard = 0;
+    var arcLen = 0;
+    while (j !== back && guard < ring.length) {
+      var nxt = (j + 1) % ring.length;
+      arcLen += Math.hypot(ring[nxt][0] - ring[j][0], ring[nxt][1] - ring[j][1]);
+      if (j !== fore) arc.push(ring[j]);
+      j = nxt;
+      guard++;
+    }
+    if (arc.length < 4 || arcLen < r * 0.35) return null;
+    var worst = 0;
+    var t, err, turn;
+    for (t = 0; t < arc.length; t++) {
+      err = Math.abs(Math.hypot(arc[t][0] - o[0], arc[t][1] - o[1]) - r);
+      if (err > worst) worst = err;
+      if (t > 0 && t < arc.length - 1) {
+        turn = turnAt(arc[t - 1], arc[t], arc[t + 1]);
+        if (turn > 0.9) return null;
+      }
+    }
+    if (worst > Math.max(2.4, r * 0.09)) return null;
+    var sign = arcSign(arc.length ? arc : [a], a, b, o[0], o[1]);
+    if (!sign) return null;
+    var sweep = arcSweep(a, b, o[0], o[1], sign);
+    if (sweep < 0.4 || sweep > 2.7) return null;
+    return { o: o, a: a, b: b, cx: o[0], cy: o[1], r: r, sign: sign, err: worst };
+  }
+
+  function emitWedge(fit) {
+    var cubics = arcCubics(fit.a, fit.b, fit.cx, fit.cy, fit.r, fit.sign);
+    if (!cubics.length || cubics.length > 3) return null;
+    return {
+      start: fit.o.slice(),
+      segs: [{ k: "L", p: fit.a.slice() }].concat(cubics).concat([{ k: "L", p: fit.o.slice() }])
+    };
+  }
+
   function roundRectFit(ring) {
     var n = ring.length;
     if (n < 6) return null;
@@ -2478,6 +2759,10 @@
     if (stadium) return stadium;
     var semi = semicircleFit(ring);
     if (semi) return semi;
+    var wedge = wedgeFit(ring);
+    if (wedge) return wedge;
+    var segment = segmentFit(ring);
+    if (segment) return segment;
     var dcap = dCapFit(ring);
     if (dcap) return dcap;
     var rounded = roundRectFit(ring);

@@ -431,4 +431,39 @@ const chevShiftN = counts(chevShift);
 assert.strictEqual(chevShiftN.c, 0, "chevron shift cubics " + chevShift);
 assert.ok(chevShiftN.l >= 6 && chevShiftN.l <= 7, "chevron shift lines " + chevShiftN.l + " " + chevShift);
 
+const segmentD = trace(raster(180, 140, (x, y) => {
+  const dx = x - 90;
+  const dy = y - 90;
+  return dx * dx + dy * dy <= 70 * 70 && y < 70;
+}), 180, 140);
+const segmentN = counts(segmentD);
+assert.strictEqual(segmentN.l, 1, "segment lines " + segmentD);
+assert.ok(segmentN.c >= 1 && segmentN.c <= 2, "segment cubics " + segmentN.c + " " + segmentD);
+const segmentDeep = trace(raster(180, 160, (x, y) => {
+  const dx = x - 90;
+  const dy = y - 100;
+  return dx * dx + dy * dy <= 64 * 64 && y < 78;
+}), 180, 160);
+const deepN = counts(segmentDeep);
+assert.strictEqual(deepN.l, 1, "deep segment lines " + segmentDeep);
+assert.ok(deepN.c >= 1 && deepN.c <= 2, "deep segment cubics " + deepN.c + " " + segmentDeep);
+function pie(x, y, cx, cy, r, a0, a1) {
+  const dx = x - cx;
+  const dy = y - cy;
+  const ang = Math.atan2(dy, dx);
+  return dx * dx + dy * dy <= r * r && ang >= a0 && ang <= a1;
+}
+const wedge = trace(raster(180, 180, (x, y) => pie(x, y, 40, 90, 80, -0.5, 0.55)), 180, 180);
+const wedgeN = counts(wedge);
+assert.strictEqual(wedgeN.l, 2, "wedge lines " + wedge);
+assert.strictEqual(wedgeN.c, 1, "wedge cubics " + wedge);
+const rightPie = trace(raster(160, 160, (x, y) => {
+  const dx = x - 40;
+  const dy = y - 80;
+  return dx * dx + dy * dy <= 70 * 70 && dx >= 0 && dy <= 0;
+}), 160, 160);
+const rightN = counts(rightPie);
+assert.strictEqual(rightN.l, 2, "right pie lines " + rightPie);
+assert.strictEqual(rightN.c, 1, "right pie cubics " + rightPie);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
