@@ -412,4 +412,23 @@ const stairN = counts(stairDiamond);
 assert.strictEqual(stairN.c, 0, "stair diamond cubics " + stairDiamond);
 assert.strictEqual(stairN.l, 4, "stair diamond lines " + stairDiamond);
 
+function insidePoly(pts, x, y) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+[0].forEach((shift) => {
+  const chev = trace(raster(180, 140, (x, y) => insidePoly([[30, 28], [112, 28], [150, 70], [112, 112], [30, 112], [68, 70]], x, y)), 180, 140);
+  const chevN = counts(chev);
+  assert.strictEqual(chevN.c, 0, "chevron cubics " + chev);
+  assert.strictEqual(chevN.l, 6, "chevron lines " + chev);
+});
+const chevShift = trace(raster(180, 140, (x, y) => insidePoly([[31, 28], [112, 28], [150, 70], [112, 112], [30, 112], [68, 70]], x, y)), 180, 140);
+const chevShiftN = counts(chevShift);
+assert.strictEqual(chevShiftN.c, 0, "chevron shift cubics " + chevShift);
+assert.ok(chevShiftN.l >= 6 && chevShiftN.l <= 7, "chevron shift lines " + chevShiftN.l + " " + chevShift);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });

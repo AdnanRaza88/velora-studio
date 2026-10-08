@@ -1207,6 +1207,36 @@
     return axisJoin(ring, from) && axisJoin(ring, to);
   }
 
+  function lineChord(span) {
+    if (!span || span.length < 3) return false;
+    var a = span[0];
+    var b = span[span.length - 1];
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (chord < 14) return false;
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var maxAbs = 0;
+    var changes = 0;
+    var prev = 0;
+    var peakTurn = 0;
+    var i, cross, dist, sign, turn;
+    for (i = 1; i < span.length - 1; i++) {
+      cross = (span[i][0] - a[0]) * dy - (span[i][1] - a[1]) * dx;
+      dist = cross / chord;
+      if (Math.abs(dist) > maxAbs) maxAbs = Math.abs(dist);
+      sign = dist > 0.35 ? 1 : dist < -0.35 ? -1 : 0;
+      if (sign && prev && sign !== prev) changes++;
+      if (sign) prev = sign;
+      turn = turnAt(span[i - 1], span[i], span[Math.min(i + 1, span.length - 1)]);
+      if (turn > peakTurn) peakTurn = turn;
+      if (turn > 0.62 && Math.abs(dist) > 1.7) return false;
+    }
+    if (maxAbs > 2.15) return false;
+    if (changes >= 1) return true;
+    if (peakTurn < 0.38 && maxAbs <= 1.9) return true;
+    return maxAbs <= 1.25;
+  }
+
   function stairLine(span) {
     if (!span || span.length < 3) return false;
     var a = span[0];
@@ -2532,8 +2562,8 @@
       } while (idx !== to && guard <= ring.length);
       if (span.length < 2) continue;
       var fillet = cornerFillet(ring, from, to);
-      if (fillet) segs.push(fillet);
-      else if (stairLine(span) || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+      if (lineChord(span) || stairLine(span) || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
+      else if (fillet) segs.push(fillet);
       else if (span.length >= 3 && span.length <= 6 && !flatSpan(span)) {
         var best = 1;
         var bestTurn = 0;
