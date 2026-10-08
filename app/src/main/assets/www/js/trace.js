@@ -1685,6 +1685,109 @@
     return { start: ring[uniq[0]], segs: segs };
   }
 
+
+  function roundRectFit(ring) {
+    var n = ring.length;
+    if (n < 8) return null;
+    var kind = new Array(n);
+    var i, dx, dy, ax, ay;
+    for (i = 0; i < n; i++) {
+      var nxt = ring[(i + 1) % n];
+      dx = nxt[0] - ring[i][0];
+      dy = nxt[1] - ring[i][1];
+      ax = Math.abs(dx);
+      ay = Math.abs(dy);
+      if (ax >= 4 && ax >= ay * 2.6) kind[i] = "h";
+      else if (ay >= 4 && ay >= ax * 2.6) kind[i] = "v";
+      else kind[i] = "c";
+    }
+    var runs = [];
+    var seen = new Array(n);
+    for (i = 0; i < n; i++) {
+      if (kind[i] === "c" || seen[i]) continue;
+      var run = [i];
+      seen[i] = 1;
+      var j = (i + 1) % n;
+      while (kind[j] === kind[i] && !seen[j]) {
+        seen[j] = 1;
+        run.push(j);
+        j = (j + 1) % n;
+      }
+      var back = (i + n - 1) % n;
+      while (kind[back] === kind[i] && !seen[back]) {
+        seen[back] = 1;
+        run.unshift(back);
+        back = (back + n - 1) % n;
+      }
+      var a = ring[run[0]];
+      var b = ring[(run[run.length - 1] + 1) % n];
+      var along = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (along < 16) continue;
+      var levels = [];
+      var k;
+      for (k = 0; k < run.length; k++) levels.push(kind[i] === "h" ? ring[run[k]][1] : ring[run[k]][0]);
+      levels.push(kind[i] === "h" ? b[1] : b[0]);
+      levels.sort(function (p, q) { return p - q; });
+      runs.push({
+        start: run[0],
+        end: (run[run.length - 1] + 1) % n,
+        axis: kind[i],
+        along: along,
+        level: levels[levels.length >> 1]
+      });
+    }
+    if (runs.length !== 4) return null;
+    var left = runs.slice();
+    var ordered = [left.shift()];
+    while (left.length) {
+      var end = ordered[ordered.length - 1].end;
+      var best = -1;
+      var bestGap = n;
+      for (i = 0; i < left.length; i++) {
+        var gap = (left[i].start - end + n) % n;
+        if (gap < bestGap) {
+          bestGap = gap;
+          best = i;
+        }
+      }
+      if (best < 0 || bestGap > 6) return null;
+      ordered.push(left.splice(best, 1)[0]);
+    }
+    var segs = [];
+    var start = null;
+    var winds = [];
+    for (i = 0; i < 4; i++) {
+      var side = ordered[i];
+      var next = ordered[(i + 1) % 4];
+      if (side.axis === next.axis) return null;
+      var a = side.axis === "h" ? [ring[side.end][0], side.level] : [side.level, ring[side.end][1]];
+      var origin = side.axis === "h" ? [ring[side.start][0], side.level] : [side.level, ring[side.start][1]];
+      var b = next.axis === "h" ? [ring[next.start][0], next.level] : [next.level, ring[next.start][1]];
+      var dest = next.axis === "h" ? [ring[next.end][0], next.level] : [next.level, ring[next.end][1]];
+      var inDir = norm(a[0] - origin[0], a[1] - origin[1]);
+      var outDir = norm(dest[0] - b[0], dest[1] - b[1]);
+      if (Math.abs(inDir[0] * outDir[0] + inDir[1] * outDir[1]) > 0.25) return null;
+      winds.push(inDir[0] * outDir[1] - inDir[1] * outDir[0]);
+      var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (chord < 6 || chord > 48) return null;
+      if (chord > Math.min(side.along, next.along) * 0.72) return null;
+      var hit = lineCross(origin, a, b, dest);
+      if (!hit) return null;
+      var inset = Math.hypot(hit[0] - (a[0] + b[0]) * 0.5, hit[1] - (a[1] + b[1]) * 0.5);
+      if (inset < 2.2) return null;
+      var h = 0.5522847498 * chord / Math.SQRT2;
+      if (!start) start = origin.slice();
+      segs.push({ k: "L", p: a.slice() });
+      segs.push({
+        k: "C",
+        c: [a.slice(), [a[0] + inDir[0] * h, a[1] + inDir[1] * h], [b[0] - outDir[0] * h, b[1] - outDir[1] * h], b.slice()]
+      });
+    }
+    if (winds[0] > 0.7 && winds[1] > 0.7 && winds[2] > 0.7 && winds[3] > 0.7) return { start: start, segs: segs };
+    if (winds[0] < -0.7 && winds[1] < -0.7 && winds[2] < -0.7 && winds[3] < -0.7) return { start: start, segs: segs };
+    return null;
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -1693,6 +1796,8 @@
     }
     while (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
     if (ring.length < 3) return null;
+    var rounded = roundRectFit(ring);
+    if (rounded) return rounded;
     var oval = ovalFit(ring, opttolerance);
     if (oval) return oval;
     var limit = alphamax;

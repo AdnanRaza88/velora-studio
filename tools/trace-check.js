@@ -86,4 +86,49 @@ const pentN = counts(pent);
 assert.strictEqual(pentN.c, 0, "pent cubics " + pent);
 assert.ok(pentN.l >= 5, "pent lines " + pent);
 
+
+function roundRect(x, y, x0, y0, x1, y1, r) {
+  const cx = Math.max(x0 + r, Math.min(x, x1 - r));
+  const cy = Math.max(y0 + r, Math.min(y, y1 - r));
+  const dx = x - cx;
+  const dy = y - cy;
+  if (x >= x0 + r && x <= x1 - r) return y >= y0 && y <= y1;
+  if (y >= y0 + r && y <= y1 - r) return x >= x0 && x <= x1;
+  return dx * dx + dy * dy <= r * r;
+}
+
+function axisSides(d) {
+  const parts = d.split(/(?=[MLC])/);
+  let x = 0;
+  let y = 0;
+  let axis = 0;
+  let lines = 0;
+  for (const part of parts) {
+    const kind = part[0];
+    const n = part.slice(1).trim().split(/\s+/).map(Number);
+    if (kind === "M") {
+      x = n[0];
+      y = n[1];
+    } else if (kind === "L") {
+      lines++;
+      if (Math.abs(n[0] - x) < 9 || Math.abs(n[1] - y) < 9) axis++;
+      x = n[0];
+      y = n[1];
+    } else if (kind === "C") {
+      x = n[4];
+      y = n[5];
+    }
+  }
+  return { lines, axis };
+}
+
+for (const r of [8, 14, 22]) {
+  const rr = trace(raster(200, 140, (x, y) => roundRect(x, y, 28, 24, 172, 116, r)), 200, 140);
+  const n = counts(rr);
+  const sides = axisSides(rr);
+  assert.strictEqual(n.c, 4, "round-rect cubics r" + r + " " + rr);
+  assert.strictEqual(n.l, 4, "round-rect lines r" + r + " " + rr);
+  assert.strictEqual(sides.axis, 4, "round-rect axis r" + r + " " + rr);
+}
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
