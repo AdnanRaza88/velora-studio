@@ -482,4 +482,18 @@ const moonVN = counts(moonV);
 assert.strictEqual(moonVN.l, 0, "vertical crescent lines " + moonV);
 assert.ok(moonVN.c >= 2 && moonVN.c <= 4, "vertical crescent cubics " + moonVN.c + " " + moonV);
 
+function heart(x, y, cx, cy, s) {
+  const nx = (x - cx) / s;
+  const ny = (y - cy) / s;
+  return Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * ny * ny * ny < 0;
+}
+const heartPath = trace(raster(140, 140, (x, y) => heart(x, y, 70, 62, 36)), 140, 140);
+const heartN = counts(heartPath);
+assert.strictEqual(heartN.l, 0, "heart lines " + heartPath);
+assert.ok(heartN.c >= 2 && heartN.c <= 6, "heart cubics " + heartN.c + " " + heartPath);
+const heartUp = trace(raster(130, 150, (x, y) => heart(x, 148 - y, 64, 78, 32)), 130, 150);
+const heartUpN = counts(heartUp);
+assert.strictEqual(heartUpN.l, 0, "tip-up heart lines " + heartUp);
+assert.ok(heartUpN.c >= 2 && heartUpN.c <= 6, "tip-up heart cubics " + heartUpN.c + " " + heartUp);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });

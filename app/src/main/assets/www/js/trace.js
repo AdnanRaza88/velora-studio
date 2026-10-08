@@ -2331,6 +2331,120 @@
     return fit;
   }
 
+  function heartFit(ring) {
+    var n = ring.length;
+    if (n < 12 || n > 900) return null;
+    var shoelace = 0;
+    var i, j;
+    for (i = 0; i < n; i++) {
+      j = (i + 1) % n;
+      shoelace += ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1];
+    }
+    if (Math.abs(shoelace) < 40) return null;
+    var wind = shoelace > 0 ? 1 : -1;
+    var turns = new Array(n);
+    var signed = new Array(n);
+    var a, b, c, v1x, v1y, v2x, v2y, cross, dot;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      v1x = b[0] - a[0];
+      v1y = b[1] - a[1];
+      v2x = c[0] - b[0];
+      v2y = c[1] - b[1];
+      cross = v1x * v2y - v1y * v2x;
+      dot = v1x * v2x + v1y * v2y;
+      signed[i] = Math.atan2(cross, dot);
+      turns[i] = Math.abs(signed[i]);
+    }
+    var peaks = [];
+    var best, k, d, stepLen;
+    for (i = 0; i < n; i++) {
+      if (turns[i] < 0.7) continue;
+      best = true;
+      k = (i + n - 1) % n;
+      d = 0;
+      while (d < 6) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + 1) % n][0], ring[k][1] - ring[(k + 1) % n][1]);
+        if (d + stepLen > 6) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.04) best = false;
+        k = (k + n - 1) % n;
+      }
+      k = (i + 1) % n;
+      d = 0;
+      while (d < 6) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + n - 1) % n][0], ring[k][1] - ring[(k + n - 1) % n][1]);
+        if (d + stepLen > 6) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.04) best = false;
+        k = (k + 1) % n;
+      }
+      if (best) peaks.push(i);
+    }
+    var kept = [];
+    var gap;
+    for (i = 0; i < peaks.length; i++) {
+      if (!kept.length) {
+        kept.push(peaks[i]);
+        continue;
+      }
+      gap = Math.hypot(ring[peaks[i]][0] - ring[kept[kept.length - 1]][0], ring[peaks[i]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 7) {
+        if (turns[peaks[i]] > turns[kept[kept.length - 1]]) kept[kept.length - 1] = peaks[i];
+        continue;
+      }
+      kept.push(peaks[i]);
+    }
+    if (kept.length > 1) {
+      gap = Math.hypot(ring[kept[0]][0] - ring[kept[kept.length - 1]][0], ring[kept[0]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 7) {
+        if (turns[kept[kept.length - 1]] > turns[kept[0]]) kept[0] = kept[kept.length - 1];
+        kept.pop();
+      }
+    }
+    if (kept.length !== 2) return null;
+    if (signed[kept[0]] * wind > 0 && signed[kept[1]] * wind < 0) {
+      a = 0;
+      b = 1;
+    } else if (signed[kept[1]] * wind > 0 && signed[kept[0]] * wind < 0) {
+      a = 1;
+      b = 0;
+    } else return null;
+    if (turns[kept[a]] < 0.85 || turns[kept[b]] < 0.7) return null;
+    var tip = ring[kept[a]];
+    var cleft = ring[kept[b]];
+    var minX = ring[0][0];
+    var maxX = ring[0][0];
+    var minY = ring[0][1];
+    var maxY = ring[0][1];
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 16 || bh < 16) return null;
+    if (bh < bw * 0.72 || bh > bw * 1.55) return null;
+    if (Math.min(Math.abs(tip[1] - minY), Math.abs(tip[1] - maxY)) > 3.2) return null;
+    var farY = Math.abs(tip[1] - minY) < Math.abs(tip[1] - maxY) ? maxY : minY;
+    if (Math.abs(cleft[1] - farY) > bh * 0.42) return null;
+    if (cleft[0] < minX + bw * 0.28 || cleft[0] > maxX - bw * 0.28) return null;
+    if (Math.abs(cleft[0] - tip[0]) > bw * 0.22) return null;
+    var lobeA = spanPoints(ring, kept[0], kept[1]);
+    var lobeB = spanPoints(ring, kept[1], kept[0]);
+    if (chordBow(lobeA) < 6 || chordBow(lobeB) < 6) return null;
+    var segsA = fitSpan(lobeA, 2.4, 0);
+    var segsB = fitSpan(lobeB, 2.4, 0);
+    if (segsA.length < 1 || segsA.length > 3 || segsB.length < 1 || segsB.length > 3) return null;
+    for (i = 0; i < segsA.length; i++) if (segsA[i].k !== "C") return null;
+    for (i = 0; i < segsB.length; i++) if (segsB[i].k !== "C") return null;
+    return { start: ring[kept[0]].slice(), segs: segsA.concat(segsB) };
+  }
+
   function crescentFit(ring) {
     var n = ring.length;
     if (n < 16 || n > 720) return null;
@@ -2873,6 +2987,8 @@
     if (segment) return segment;
     var crescent = crescentFit(ring);
     if (crescent) return crescent;
+    var heart = heartFit(ring);
+    if (heart) return heart;
     var dcap = dCapFit(ring);
     if (dcap) return dcap;
     var rounded = roundRectFit(ring);
