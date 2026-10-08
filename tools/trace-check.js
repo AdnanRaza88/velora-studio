@@ -395,4 +395,21 @@ const houseN = counts(houseD);
 assert.strictEqual(houseN.c, 0, "house cubics " + houseD);
 assert.strictEqual(houseN.l, 5, "house lines " + houseD);
 
+function diamond(x, y, cx, cy, r) {
+  return Math.abs(x - cx) + Math.abs(y - cy) <= r;
+}
+[32, 46, 58].forEach((r) => {
+  const d = trace(raster(180, 180, (x, y) => diamond(x, y, 90, 90, r)), 180, 180);
+  const n = counts(d);
+  assert.strictEqual(n.c, 0, "diamond cubics r" + r + " " + d);
+  assert.strictEqual(n.l, 4, "diamond lines r" + r + " " + d);
+});
+const stairDiamond = trace(raster(180, 180, (x, y) => {
+  const d = Math.abs(x - 90) + Math.abs(y - 90);
+  return d <= 46 || (d <= 49 && ((x * 3 + y) % 5) < 3);
+}), 180, 180);
+const stairN = counts(stairDiamond);
+assert.strictEqual(stairN.c, 0, "stair diamond cubics " + stairDiamond);
+assert.strictEqual(stairN.l, 4, "stair diamond lines " + stairDiamond);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
