@@ -2105,6 +2105,33 @@
         }
       }
     }
+    var missed = true;
+    var missGuard = 0;
+    var missAt, missIdx, missFrom, missTo, missBow, missPrev, missHere, missNext;
+    while (missed && missGuard < 8) {
+      missed = false;
+      missGuard++;
+      for (ci = 0; ci < corners.length && !missed; ci++) {
+        missFrom = corners[ci];
+        missTo = corners[(ci + 1) % corners.length];
+        missIdx = (missFrom + 1) % ring.length;
+        missAt = 0;
+        while (missIdx !== missTo && missAt < ring.length) {
+          missPrev = ring[(missIdx + ring.length - 1) % ring.length];
+          missHere = ring[missIdx];
+          missNext = ring[(missIdx + 1) % ring.length];
+          missBow = distPointSeg(missHere, ring[missFrom], ring[missTo]);
+          if (missBow > 1.8 && realCorner(missPrev, missHere, missNext, Math.min(limit, 0.72))) {
+            corners.push(missIdx);
+            corners.sort(function (a, b) { return a - b; });
+            missed = true;
+            break;
+          }
+          missIdx = (missIdx + 1) % ring.length;
+          missAt++;
+        }
+      }
+    }
     var segs = [];
     var start = ring[corners[0]];
     for (i = 0; i < corners.length; i++) {

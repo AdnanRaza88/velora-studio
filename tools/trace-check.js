@@ -317,4 +317,12 @@ function hexagon(cx, cy, r, rot) {
   assert.strictEqual(octN.l, 8, "octagon lines " + tag + " " + oct);
 });
 
+function house(x, y) {
+  return (y >= 70 && y < 140 && x >= 30 && x < 130) || (y >= 30 && y < 70 && Math.abs(x - 80) <= (y - 30) * 1.25);
+}
+const houseD = trace(raster(160, 160, house), 160, 160);
+const houseN = counts(houseD);
+assert.strictEqual(houseN.c, 0, "house cubics " + houseD);
+assert.strictEqual(houseN.l, 5, "house lines " + houseD);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
