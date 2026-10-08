@@ -1970,7 +1970,7 @@
     for (i = 0; i < n; i++) turns[i] = turnAt(ring[step(i, -1)], ring[i], ring[step(i, 1)]);
     peaks = [];
     for (i = 0; i < n; i++) {
-      if (turns[i] < 0.4 || turns[i] > 1.28) continue;
+      if (turns[i] < 0.4 || turns[i] > 1.45) continue;
       best = true;
       k = (i + n - 1) % n;
       d = 0;
@@ -1994,7 +1994,7 @@
       }
       if (best) peaks.push(i);
     }
-    if (peaks.length < 6 || peaks.length > 16) return null;
+    if (peaks.length < 5 || peaks.length > 16) return null;
     var kept = [];
     for (i = 0; i < peaks.length; i++) {
       if (!kept.length) {
@@ -2015,12 +2015,12 @@
         kept.pop();
       }
     }
-    if (kept.length !== 6 && kept.length !== 8) return null;
+    if (kept.length !== 5 && kept.length !== 6 && kept.length !== 8) return null;
     peaks = kept;
-    var turnLo = peaks.length === 6 ? 0.52 : 0.48;
-    var turnHi = peaks.length === 6 ? 1.22 : 0.95;
-    var bowCap = peaks.length === 6 ? 1.85 : 1.35;
-    var bowRatio = peaks.length === 6 ? 0.11 : 0.06;
+    var turnLo = peaks.length === 5 ? 0.64 : peaks.length === 6 ? 0.52 : 0.48;
+    var turnHi = peaks.length === 5 ? 1.45 : peaks.length === 6 ? 1.22 : 0.95;
+    var bowCap = peaks.length === 5 ? 2.05 : peaks.length === 6 ? 1.85 : 1.35;
+    var bowRatio = peaks.length === 5 ? 0.13 : peaks.length === 6 ? 0.11 : 0.06;
     for (i = 0; i < peaks.length; i++) {
       if (turns[peaks[i]] < turnLo || turns[peaks[i]] > turnHi) return null;
     }

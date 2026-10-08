@@ -45,6 +45,7 @@ Brief (+ optional attachment)
 - [x] Trace octagon fit: eight nearly equal straight sides whose window turn sits near 45 degrees emit eight lines before the oval fit, so a vertex-on-axis octagon is not a kappa circle; a flat octagon, circle, ellipse, square, rounded rectangle, pentagon, hexagon, and stadium stay
 - [x] Trace octagon corners: a stair-split or smaller regular octagon still emits eight lines before the rounded-rect and oval fits, so a vertex-on-axis octagon is not six segments and a 12px octagon is not a kappa circle; a flat octagon, circle, ellipse, square, rounded rectangle, pentagon, hexagon, and stadium stay
 - [x] Trace hexagon corners: six nearly equal sides emit six lines before the oval fit, including a 7-point ring and a stair-split 40px hexagon, so a small hexagon is not four kappa cubics; a circle, ellipse, octagon, pentagon, square, rounded rectangle, and stadium stay
+- [x] Trace pentagon corners: five nearly equal sides emit five lines before the oval fit, including a stair-split 22px pentagon, so a small pentagon is not two cubics on one side; a circle, ellipse, hexagon, octagon, square, rounded rectangle, and stadium stay
 - [x] Multi-ink trace: up to four separated fills (figure, accent, ink2, ink3), light paper ignored, seams overlapped one pixel; device raster sends packed RGB; single-ink stays binary; ink clusters and pixel assignment use OKLab so close logo hues stay apart
 
 ## Phase 4 — Editor (Illustrator-mapped)

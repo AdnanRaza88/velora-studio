@@ -241,6 +241,32 @@ const starN = counts(starD);
 assert.strictEqual(starN.c, 0, "star cubics " + starD);
 assert.ok(starN.l >= 10 && starN.l <= 14, "star lines " + starN.l + " " + starD);
 
+
+function pentagon(cx, cy, r, rot) {
+  const pts = [];
+  for (let i = 0; i < 5; i++) {
+    const a = rot + i * 2 * Math.PI / 5;
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+  }
+  return (x, y) => {
+    let inside = false;
+    for (let i = 0, j = 4; i < 5; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+}
+[[15, -Math.PI / 2], [22, 0.3], [28, -Math.PI / 2], [33, 0.3], [41, 0.3], [18, Math.PI / 5], [36, Math.PI / 10], [16, -Math.PI / 2], [24, Math.PI / 5]].forEach((spec) => {
+  const r = spec[0];
+  const rot = spec[1];
+  const tag = "p" + r;
+  const pent = trace(raster(200, 200, pentagon(100, 100, r, rot)), 200, 200);
+  const pentN = counts(pent);
+  assert.strictEqual(pentN.c, 0, "pentagon cubics " + tag + " " + pent);
+  assert.strictEqual(pentN.l, 5, "pentagon lines " + tag + " " + pent);
+});
+
 function octagon(cx, cy, r, rot) {
   const pts = [];
   for (let i = 0; i < 8; i++) {
