@@ -158,4 +158,39 @@ assert.strictEqual(vN.c, 4, "v-stadium cubics " + vPill);
 assert.strictEqual(vN.l, 2, "v-stadium lines " + vPill);
 assert.strictEqual(vSides.axis, 2, "v-stadium axis " + vPill);
 
+
+function boxCorner(x, y, x0, y0, x1, y1, corners) {
+  if (x < x0 || x >= x1 || y < y0 || y >= y1) return false;
+  for (const c of corners) {
+    const cx = c.right ? x1 - c.r : x0 + c.r;
+    const cy = c.bottom ? y1 - c.r : y0 + c.r;
+    const inX = c.right ? x > x1 - c.r : x < x0 + c.r;
+    const inY = c.bottom ? y > y1 - c.r : y < y0 + c.r;
+    if (inX && inY) {
+      const dx = x - cx;
+      const dy = y - cy;
+      return dx * dx + dy * dy <= c.r * c.r;
+    }
+  }
+  return true;
+}
+
+for (const r of [10, 16, 22]) {
+  const one = trace(raster(180, 150, (x, y) => boxCorner(x, y, 28, 24, 152, 126, [{ r: r, right: true, bottom: true }])), 180, 150);
+  const oneN = counts(one);
+  const oneSides = axisSides(one);
+  assert.strictEqual(oneN.c, 1, "one-fillet cubics r" + r + " " + one);
+  assert.strictEqual(oneN.l, 4, "one-fillet lines r" + r + " " + one);
+  assert.strictEqual(oneSides.axis, 4, "one-fillet axis r" + r + " " + one);
+}
+
+const two = trace(raster(200, 150, (x, y) => boxCorner(x, y, 24, 22, 176, 128, [
+  { r: 18, right: true, bottom: false },
+  { r: 18, right: false, bottom: true }
+])), 200, 150);
+const twoN = counts(two);
+assert.strictEqual(twoN.c, 2, "two-fillet cubics " + two);
+assert.strictEqual(twoN.l, 4, "two-fillet lines " + two);
+assert.strictEqual(axisSides(two).axis, 4, "two-fillet axis " + two);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });

@@ -1819,7 +1819,7 @@
 
   function roundRectFit(ring) {
     var n = ring.length;
-    if (n < 8) return null;
+    if (n < 6) return null;
     var kind = new Array(n);
     var i, dx, dy, ax, ay;
     for (i = 0; i < n; i++) {
@@ -1881,12 +1881,13 @@
           best = i;
         }
       }
-      if (best < 0 || bestGap > 6) return null;
+      if (best < 0 || bestGap > 8) return null;
       ordered.push(left.splice(best, 1)[0]);
     }
     var segs = [];
     var start = null;
     var winds = [];
+    var fillets = 0;
     for (i = 0; i < 4; i++) {
       var side = ordered[i];
       var next = ordered[(i + 1) % 4];
@@ -1899,21 +1900,28 @@
       var outDir = norm(dest[0] - b[0], dest[1] - b[1]);
       if (Math.abs(inDir[0] * outDir[0] + inDir[1] * outDir[1]) > 0.25) return null;
       winds.push(inDir[0] * outDir[1] - inDir[1] * outDir[0]);
-      var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (chord < 6 || chord > 48) return null;
-      if (chord > Math.min(side.along, next.along) * 0.72) return null;
       var hit = lineCross(origin, a, b, dest);
       if (!hit) return null;
+      var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
       var inset = Math.hypot(hit[0] - (a[0] + b[0]) * 0.5, hit[1] - (a[1] + b[1]) * 0.5);
+      if (!start) start = origin.slice();
+      if (chord < 4.6) {
+        if (Math.hypot(hit[0] - origin[0], hit[1] - origin[1]) < 1.4) return null;
+        segs.push({ k: "L", p: hit.slice() });
+        continue;
+      }
+      if (chord > 48) return null;
+      if (chord > Math.min(side.along, next.along) * 0.85) return null;
       if (inset < 2.2) return null;
       var h = 0.5522847498 * chord / Math.SQRT2;
-      if (!start) start = origin.slice();
       segs.push({ k: "L", p: a.slice() });
       segs.push({
         k: "C",
         c: [a.slice(), [a[0] + inDir[0] * h, a[1] + inDir[1] * h], [b[0] - outDir[0] * h, b[1] - outDir[1] * h], b.slice()]
       });
+      fillets++;
     }
+    if (!fillets) return null;
     if (winds[0] > 0.7 && winds[1] > 0.7 && winds[2] > 0.7 && winds[3] > 0.7) return { start: start, segs: segs };
     if (winds[0] < -0.7 && winds[1] < -0.7 && winds[2] < -0.7 && winds[3] < -0.7) return { start: start, segs: segs };
     return null;
