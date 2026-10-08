@@ -1828,8 +1828,8 @@
       dy = nxt[1] - ring[i][1];
       ax = Math.abs(dx);
       ay = Math.abs(dy);
-      if (ax >= 4 && ax >= ay * 2.6) kind[i] = "h";
-      else if (ay >= 4 && ay >= ax * 2.6) kind[i] = "v";
+      if (ax >= 4 && ay <= 1.8 && ax >= ay * 2.6) kind[i] = "h";
+      else if (ay >= 4 && ax <= 1.8 && ay >= ax * 2.6) kind[i] = "v";
       else kind[i] = "c";
     }
     var runs = [];

@@ -317,6 +317,23 @@ function hexagon(cx, cy, r, rot) {
   assert.strictEqual(octN.l, 8, "octagon lines " + tag + " " + oct);
 });
 
+function trap(pts) {
+  return (x, y) => {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+}
+[[[40, 40], [120, 40], [140, 120], [20, 120]], [[30, 50], [150, 50], [130, 130], [50, 130]], [[50, 35], [140, 35], [160, 125], [30, 125]], [[55, 30], [125, 30], [155, 140], [25, 140]]].forEach((pts, i) => {
+  const d = trace(raster(200, 180, trap(pts)), 200, 180);
+  const n = counts(d);
+  assert.strictEqual(n.c, 0, "trap cubics t" + i + " " + d);
+  assert.strictEqual(n.l, 4, "trap lines t" + i + " " + d);
+});
+
 function house(x, y) {
   return (y >= 70 && y < 140 && x >= 30 && x < 130) || (y >= 30 && y < 70 && Math.abs(x - 80) <= (y - 30) * 1.25);
 }
