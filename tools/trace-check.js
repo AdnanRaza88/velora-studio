@@ -193,6 +193,21 @@ assert.strictEqual(twoN.c, 2, "two-fillet cubics " + two);
 assert.strictEqual(twoN.l, 4, "two-fillet lines " + two);
 assert.strictEqual(axisSides(two).axis, 4, "two-fillet axis " + two);
 
+function chamferBox(x, y, x0, y0, x1, y1, cut) {
+  if (x < x0 || y < y0 || x > x1 || y > y1) return false;
+  if (x < x0 + cut && y < y0 + cut && (x0 + cut - x) + (y0 + cut - y) > cut) return false;
+  if (x > x1 - cut && y < y0 + cut && (x - (x1 - cut)) + (y0 + cut - y) > cut) return false;
+  if (x < x0 + cut && y > y1 - cut && (x0 + cut - x) + (y - (y1 - cut)) > cut) return false;
+  if (x > x1 - cut && y > y1 - cut && (x - (x1 - cut)) + (y - (y1 - cut)) > cut) return false;
+  return true;
+}
+[12, 18].forEach((cut) => {
+  const box = trace(raster(180, 160, (x, y) => chamferBox(x, y, 28, 24, 152, 136, cut)), 180, 160);
+  const boxN = counts(box);
+  assert.strictEqual(boxN.c, 0, "chamfer-box cubics c" + cut + " " + box);
+  assert.strictEqual(boxN.l, 8, "chamfer-box lines c" + cut + " " + box);
+});
+
 function chamfer(x, y, x0, y0, x1, y1, cut) {
   if (x < x0 || x >= x1 || y < y0 || y >= y1) return false;
   if (x > x1 - cut && y < y0 + cut && (x - (x1 - cut)) + (y0 + cut - y) > cut) return false;

@@ -1908,11 +1908,31 @@
       if (chord < 4.6) {
         if (Math.hypot(hit[0] - origin[0], hit[1] - origin[1]) < 1.4) return null;
         segs.push({ k: "L", p: hit.slice() });
+        fillets++;
         continue;
       }
       if (chord > 48) return null;
       if (chord > Math.min(side.along, next.along) * 0.85) return null;
       if (inset < 2.2) return null;
+      var span = [ring[side.end]];
+      var idx = side.end;
+      var guard = 0;
+      while (idx !== next.start && guard <= n) {
+        idx = (idx + 1) % n;
+        span.push(ring[idx]);
+        guard++;
+      }
+      var bow = chordBow(span);
+      var prevPt = ring[(side.end + n - 1) % n];
+      var nextPt = ring[(next.start + 1) % n];
+      var driftIn = side.axis === "h" ? Math.abs(prevPt[1] - side.level) : Math.abs(prevPt[0] - side.level);
+      var driftOut = next.axis === "h" ? Math.abs(nextPt[1] - next.level) : Math.abs(nextPt[0] - next.level);
+      if (chord >= 14 && bow < 0.55 && driftIn < 0.45 && driftOut < 0.45) {
+        segs.push({ k: "L", p: a.slice() });
+        segs.push({ k: "L", p: b.slice() });
+        fillets++;
+        continue;
+      }
       var h = 0.5522847498 * chord / Math.SQRT2;
       segs.push({ k: "L", p: a.slice() });
       segs.push({
