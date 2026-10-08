@@ -1236,6 +1236,124 @@
   }
 
 
+  function solve3(a00, a01, a02, a11, a12, a22, b0, b1, b2) {
+    var det = a00 * (a11 * a22 - a12 * a12) - a01 * (a01 * a22 - a12 * a02) + a02 * (a01 * a12 - a11 * a02);
+    if (Math.abs(det) < 1e-8) return null;
+    var dx = (b0 * (a11 * a22 - a12 * a12) - a01 * (b1 * a22 - a12 * b2) + a02 * (b1 * a12 - a11 * b2)) / det;
+    var dy = (a00 * (b1 * a22 - a12 * b2) - b0 * (a01 * a22 - a12 * a02) + a02 * (a01 * b2 - b1 * a02)) / det;
+    var dr = (a00 * (a11 * b2 - b1 * a12) - a01 * (a01 * b2 - b1 * a02) + b0 * (a01 * a12 - a11 * a02)) / det;
+    return [dx, dy, dr];
+  }
+
+  function circleFit(ring) {
+    var n = ring.length;
+    if (n < 8) return null;
+    var cx = 0;
+    var cy = 0;
+    var i;
+    for (i = 0; i < n; i++) {
+      cx += ring[i][0];
+      cy += ring[i][1];
+    }
+    cx /= n;
+    cy /= n;
+    var r = 0;
+    for (i = 0; i < n; i++) r += Math.hypot(ring[i][0] - cx, ring[i][1] - cy);
+    r /= n;
+    if (r < 3.4 || r > 480) return null;
+    var step, dx, dy, dist, ex, ey, err, j00, j01, j02, j11, j12, j22, g0, g1, g2, delta;
+    for (step = 0; step < 5; step++) {
+      j00 = 0;
+      j01 = 0;
+      j02 = 0;
+      j11 = 0;
+      j12 = 0;
+      j22 = 0;
+      g0 = 0;
+      g1 = 0;
+      g2 = 0;
+      for (i = 0; i < n; i++) {
+        dx = ring[i][0] - cx;
+        dy = ring[i][1] - cy;
+        dist = Math.hypot(dx, dy) || 1e-6;
+        ex = dx / dist;
+        ey = dy / dist;
+        err = dist - r;
+        j00 += ex * ex;
+        j01 += ex * ey;
+        j02 += ex;
+        j11 += ey * ey;
+        j12 += ey;
+        j22 += 1;
+        g0 += ex * err;
+        g1 += ey * err;
+        g2 += err;
+      }
+      delta = solve3(j00, j01, j02, j11, j12, j22, g0, g1, g2);
+      if (!delta) break;
+      if (Math.abs(delta[2]) > r * 0.35) break;
+      cx += delta[0];
+      cy += delta[1];
+      r += delta[2];
+      if (r < 3.2) return null;
+    }
+    var worst = 0;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    for (i = 0; i < n; i++) {
+      err = Math.abs(Math.hypot(ring[i][0] - cx, ring[i][1] - cy) - r);
+      if (err > worst) worst = err;
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 6.5 || bh < 6.5) return null;
+    if (Math.max(bw, bh) / Math.min(bw, bh) > 1.16) return null;
+    var allow = Math.max(0.78, r * 0.062);
+    if (worst > allow || worst > 1.35) return null;
+    return { cx: cx, cy: cy, r: r, worst: worst };
+  }
+
+  function kappaCircle(fit, sign) {
+    var kappa = 0.5522847498;
+    var cx = fit.cx;
+    var cy = fit.cy;
+    var r = fit.r;
+    var poles = sign < 0
+      ? [[cx + r, cy], [cx, cy + r], [cx - r, cy], [cx, cy - r]]
+      : [[cx + r, cy], [cx, cy - r], [cx - r, cy], [cx, cy + r]];
+    var segs = [];
+    var i;
+    for (i = 0; i < 4; i++) {
+      var a = poles[i];
+      var b = poles[(i + 1) % 4];
+      var rax = (a[0] - cx) / r;
+      var ray = (a[1] - cy) / r;
+      var rbx = (b[0] - cx) / r;
+      var rby = (b[1] - cy) / r;
+      var tax = ray * sign;
+      var tay = -rax * sign;
+      var tbx = rby * sign;
+      var tby = -rbx * sign;
+      segs.push({
+        k: "C",
+        c: [
+          a,
+          [a[0] + kappa * r * tax, a[1] + kappa * r * tay],
+          [b[0] - kappa * r * tbx, b[1] - kappa * r * tby],
+          b
+        ],
+        pts: [a, b]
+      });
+    }
+    return { start: poles[0], segs: segs };
+  }
+
   function ellipseSlack(ring) {
     var minX = ring[0][0];
     var maxX = minX;
@@ -1323,6 +1441,18 @@
 
   function ovalFit(ring, tol) {
     var n = ring.length;
+    if (n >= 8) {
+      var fitted = circleFit(ring);
+      if (fitted) {
+        var wind = 0;
+        var wi;
+        for (wi = 0; wi < n; wi++) {
+          var wj = (wi + 1) % n;
+          wind += ring[wi][0] * ring[wj][1] - ring[wj][0] * ring[wi][1];
+        }
+        return kappaCircle(fitted, wind < 0 ? -1 : 1);
+      }
+    }
     if (n < 16) return null;
     var slack = ellipseSlack(ring);
     var round = slack <= 0.075;
