@@ -496,4 +496,19 @@ const heartUpN = counts(heartUp);
 assert.strictEqual(heartUpN.l, 0, "tip-up heart lines " + heartUp);
 assert.ok(heartUpN.c >= 2 && heartUpN.c <= 6, "tip-up heart cubics " + heartUpN.c + " " + heartUp);
 
+function bubble(x, y, cx, cy, rx, ry, tipY) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1) return true;
+  return y >= cy + ry * 0.55 && y <= tipY && Math.abs(x - cx) <= (tipY - y) * 0.42 + 1;
+}
+const bubblePath = trace(raster(140, 140, (x, y) => bubble(x, y, 70, 58, 40, 28, 112)), 140, 140);
+const bubbleN = counts(bubblePath);
+assert.ok(bubbleN.c >= 4, "bubble cubics " + bubbleN.c + " " + bubblePath);
+assert.ok(bubbleN.l <= 4, "bubble lines " + bubblePath);
+const nums = bubblePath.match(/-?\d+(?:\.\d+)?/g).map(Number);
+let minY = nums[1];
+for (let i = 1; i < nums.length; i += 2) if (nums[i] < minY) minY = nums[i];
+assert.ok(minY < 360, "bubble body " + minY + " " + bubblePath);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });

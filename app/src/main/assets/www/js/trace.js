@@ -2331,6 +2331,7 @@
     return fit;
   }
 
+
   function heartFit(ring) {
     var n = ring.length;
     if (n < 12 || n > 900) return null;
@@ -2583,6 +2584,10 @@
       guard++;
     }
     if (arc.length < 4 || arcLen < r * 0.35) return null;
+    var peri = 0;
+    var pi;
+    for (pi = 0; pi < ring.length; pi++) peri += Math.hypot(ring[(pi + 1) % ring.length][0] - ring[pi][0], ring[(pi + 1) % ring.length][1] - ring[pi][1]);
+    if (peri - arcLen > ra + rb + Math.max(6, r * 0.28)) return null;
     var worst = 0;
     var t, err, turn;
     for (t = 0; t < arc.length; t++) {
@@ -3130,7 +3135,8 @@
       guard++;
     }
     var bow = chordBow(span);
-    if (bow < Math.max(1.85, chord * 0.18)) return null;
+    if (bow < Math.max(1.85, chord * 0.18) || bow > Math.max(8.5, chord * 0.55)) return null;
+    if (span.length > 8) return null;
     var h = 0.5523 * chord / Math.SQRT2;
     return {
       k: "C",
