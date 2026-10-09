@@ -4434,7 +4434,7 @@ if (n < 6 || n > 40) return null;
       for (i = 0; i < n; i++) {
         if (segs[i].k !== "L") continue;
         var shortLen = Math.hypot(segEnd(segs[i])[0] - starts[i][0], segEnd(segs[i])[1] - starts[i][1]);
-        if (shortLen < 0.4 || shortLen > 6.4) continue;
+        if (shortLen < 0.4 || shortLen > 7.5) continue;
         var a = i;
         var b = i;
         var shorts = 1;
@@ -4486,7 +4486,12 @@ if (n < 6 || n > 40) return null;
           k = (k + 1) % n;
           steps++;
         }
-        if (far > 6.2) continue;
+        var near = Math.hypot(starts[a][0] - hit[0], starts[a][1] - hit[1]);
+        var endNear = Math.hypot(segEnd(segs[b])[0] - hit[0], segEnd(segs[b])[1] - hit[1]);
+        if (endNear < near) near = endNear;
+        if (shortLen > 6.4) {
+          if (shorts > 1 || near > 3.2 || far > 8.8) continue;
+        } else if (far > 6.2) continue;
         var along = ((hit[0] - segEnd(segs[inn])[0]) * dx1 + (hit[1] - segEnd(segs[inn])[1]) * dy1) / innLen;
         if (along < -1.2 || along > 5.5) continue;
         segs[inn].p = [hit[0], hit[1]];
@@ -4566,15 +4571,25 @@ if (n < 6 || n > 40) return null;
       if (segs[i].k !== "C") continue;
       var prev = (i + segs.length - 1) % segs.length;
       var next = (i + 1) % segs.length;
-      if (segs[prev].k !== "L" || segs[next].k !== "L") continue;
       var a = starts[i];
       var b = segEnd(segs[i]);
       var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (chord < 22) continue;
-      if (distPointSeg(segs[i].c[1], a, b) > 3.4) continue;
-      if (distPointSeg(segs[i].c[2], a, b) > 3.4) continue;
+      var stair = false;
+      var after = next;
+      if (segs[prev].k === "L" && segs[next].k === "C") {
+        var nextEnd = segEnd(segs[next]);
+        var nextLen = Math.hypot(nextEnd[0] - starts[next][0], nextEnd[1] - starts[next][1]);
+        if (nextLen <= 6.2 && segs[(next + 1) % segs.length].k === "L") {
+          stair = true;
+          after = (next + 1) % segs.length;
+        }
+      }
+      if (!stair && (segs[prev].k !== "L" || segs[next].k !== "L")) continue;
+      if (chord < (stair ? 16 : 22)) continue;
+      if (distPointSeg(segs[i].c[1], a, b) > (stair ? 1.6 : 3.4)) continue;
+      if (distPointSeg(segs[i].c[2], a, b) > (stair ? 1.6 : 3.4)) continue;
       var pin = starts[prev];
-      var nout = segEnd(segs[next]);
+      var nout = stair ? segEnd(segs[after]) : segEnd(segs[next]);
       if (turnAt(pin, a, b) < 0.55 || turnAt(a, b, nout) < 0.55) continue;
       segs[i] = { k: "L", p: b.slice() };
     }

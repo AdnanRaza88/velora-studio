@@ -236,10 +236,22 @@ function star(x, y) {
   return inside;
 }
 
-const starD = trace(raster(180, 180, star), 180, 180);
-const starN = counts(starD);
-assert.strictEqual(starN.c, 0, "star cubics " + starD);
-assert.ok(starN.l >= 10 && starN.l <= 14, "star lines " + starN.l + " " + starD);
+function starCounts(tag, w, h, cx, cy, ro, ri) {
+  const d = trace(raster(w, h, (x, y) => {
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const r = i % 2 === 0 ? ro : ri;
+      pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+    }
+    return insidePoly(pts, x, y);
+  }), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.c, 0, tag + " cubics " + d);
+  assert.strictEqual(n.l, 10, tag + " lines " + d);
+}
+starCounts("star", 180, 180, 90, 90, 62, 26);
+starCounts("star tip", 160, 160, 80, 80, 50, 22);
 
 
 function pentagon(cx, cy, r, rot) {
