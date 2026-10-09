@@ -3539,6 +3539,166 @@ if (n < 6 || n > 40) return null;
     };
   }
 
+  function keyholeFit(ring) {
+    var n = ring.length;
+    if (n < 10 || n > 900) return null;
+    function collect(from, to) {
+      var span = [ring[from]];
+      var p = from;
+      var guard = 0;
+      while (p !== to && guard <= n) {
+        p = (p + 1) % n;
+        span.push(ring[p]);
+        guard++;
+      }
+      return span;
+    }
+    var runs = [];
+    var i, run, len;
+    for (i = 0; i < n; i++) {
+      run = straightRun(ring, i, 1);
+      if (run.end === i) continue;
+      len = Math.hypot(ring[run.end][0] - ring[i][0], ring[run.end][1] - ring[i][1]);
+      if (len < 12 || run.bow > 1.85) continue;
+      runs.push({ i: i, end: run.end, len: len, dx: ring[run.end][0] - ring[i][0], dy: ring[run.end][1] - ring[i][1] });
+    }
+    if (runs.length < 3) return null;
+    runs.sort(function (a, b) { return b.len - a.len; });
+    var kept = [];
+    for (i = 0; i < runs.length; i++) {
+      var overlap = false;
+      var k;
+      for (k = 0; k < kept.length; k++) {
+        if (runs[i].i === kept[k].i && runs[i].end === kept[k].end) overlap = true;
+      }
+      if (overlap) continue;
+      kept.push(runs[i]);
+      if (kept.length === 5) break;
+    }
+    if (kept.length < 3) return null;
+    var best = null;
+    var a, b, c;
+    for (a = 0; a < kept.length; a++) {
+      for (b = a + 1; b < kept.length; b++) {
+        var l1 = kept[a].len;
+        var l2 = kept[b].len;
+        if (l2 < l1 * 0.62 || l1 < l2 * 0.62) continue;
+        var dot = (kept[a].dx * kept[b].dx + kept[a].dy * kept[b].dy) / (l1 * l2);
+        if (Math.abs(dot) < 0.88) continue;
+        var across = Math.hypot(ring[kept[a].i][0] - ring[kept[b].i][0], ring[kept[a].i][1] - ring[kept[b].i][1]);
+        if (across < 8) continue;
+        for (c = 0; c < kept.length; c++) {
+          if (c === a || c === b) continue;
+          var l3 = kept[c].len;
+          if (l3 < 8 || l3 > Math.max(l1, l2) * 1.4) continue;
+          var capDot = Math.abs(kept[c].dx * kept[a].dx + kept[c].dy * kept[a].dy) / (l3 * l1);
+          if (capDot > 0.38) continue;
+          var capEnds = {};
+          capEnds[kept[c].i] = 1;
+          capEnds[kept[c].end] = 1;
+          var neck = [];
+          var ends = [kept[a].i, kept[a].end, kept[b].i, kept[b].end];
+          var e;
+          for (e = 0; e < ends.length; e++) {
+            if (!capEnds[ends[e]] && neck.indexOf(ends[e]) < 0) neck.push(ends[e]);
+          }
+          if (neck.length !== 2) continue;
+          var forward = collect(neck[0], neck[1]);
+          var back = collect(neck[1], neck[0]);
+          var head = chordBow(forward) >= chordBow(back) ? forward : back;
+          var stem = head === forward ? back : forward;
+          if (head.length < 5 || stem.length < 3) continue;
+          if (chordBow(stem) < 6) continue;
+          var cx = 0;
+          var cy = 0;
+          var s;
+          for (s = 0; s < head.length; s++) {
+            cx += head[s][0];
+            cy += head[s][1];
+          }
+          cx /= head.length;
+          cy /= head.length;
+          var r = 0;
+          for (s = 0; s < head.length; s++) r += Math.hypot(head[s][0] - cx, head[s][1] - cy);
+          r /= head.length;
+          if (r < 8 || r > 420) continue;
+          var step, dx, dy, dist, ex, ey, err, j00, j01, j02, j11, j12, j22, g0, g1, g2, delta;
+          for (step = 0; step < 6; step++) {
+            j00 = 0;
+            j01 = 0;
+            j02 = 0;
+            j11 = 0;
+            j12 = 0;
+            j22 = 0;
+            g0 = 0;
+            g1 = 0;
+            g2 = 0;
+            for (s = 0; s < head.length; s++) {
+              dx = head[s][0] - cx;
+              dy = head[s][1] - cy;
+              dist = Math.hypot(dx, dy) || 1e-6;
+              ex = dx / dist;
+              ey = dy / dist;
+              err = dist - r;
+              j00 += ex * ex;
+              j01 += ex * ey;
+              j02 += ex;
+              j11 += ey * ey;
+              j12 += ey;
+              j22 += 1;
+              g0 += ex * err;
+              g1 += ey * err;
+              g2 += err;
+            }
+            delta = solve3(j00, j01, j02, j11, j12, j22, g0, g1, g2);
+            if (!delta) break;
+            if (Math.abs(delta[2]) > r * 0.35) break;
+            cx += delta[0];
+            cy += delta[1];
+            r += delta[2];
+            if (r < 7) break;
+          }
+          if (r < 7) continue;
+          var worst = 0;
+          for (s = 0; s < head.length; s++) {
+            err = Math.abs(Math.hypot(head[s][0] - cx, head[s][1] - cy) - r);
+            if (err > worst) worst = err;
+          }
+          if (worst > Math.max(2.6, r * 0.12)) continue;
+          var pa = head[0];
+          var pb = head[head.length - 1];
+          if (Math.abs(Math.hypot(pa[0] - cx, pa[1] - cy) - r) > 3.4) continue;
+          if (Math.abs(Math.hypot(pb[0] - cx, pb[1] - cy) - r) > 3.4) continue;
+          var chord = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
+          if (chord < r * 0.28 || chord > r * 1.78) continue;
+          var walked = 0;
+          var s0;
+          for (s0 = 1; s0 < head.length; s0++) {
+            var a0 = Math.atan2(head[s0 - 1][1] - cy, head[s0 - 1][0] - cx);
+            var a1 = Math.atan2(head[s0][1] - cy, head[s0][0] - cx);
+            var turn = a1 - a0;
+            while (turn > Math.PI) turn -= Math.PI * 2;
+            while (turn < -Math.PI) turn += Math.PI * 2;
+            walked += turn;
+          }
+          var sign = walked >= 0 ? 1 : -1;
+          var sweep = Math.abs(walked);
+          if (sweep < 3.25 || sweep > 6.05) continue;
+          var arcs = arcCubics(pa, pb, cx, cy, r, sign);
+          if (!arcs || arcs.length < 2 || arcs.length > 4) continue;
+          var segs = [
+            { k: "L", p: stem[1].slice() },
+            { k: "L", p: stem[stem.length - 2].slice() },
+            { k: "L", p: stem[stem.length - 1].slice() }
+          ].concat(arcs);
+          if (!best || worst < best.worst) best = { worst: worst, start: stem[0].slice(), segs: segs };
+        }
+      }
+    }
+    if (!best) return null;
+    return { start: best.start, segs: best.segs };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -3571,6 +3731,8 @@ if (n < 6 || n > 40) return null;
     if (roundTri) return roundTri;
     var dcap = dCapFit(ring);
     if (dcap) return dcap;
+    var keyhole = keyholeFit(ring);
+    if (keyhole) return keyhole;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
     var oval = ovalFit(ring, opttolerance);

@@ -626,3 +626,43 @@ assert.strictEqual(archTallN.c, 2, "arch tall cubics " + archTall);
 assert.strictEqual(archTallN.l, 3, "arch tall lines " + archTall);
 
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
+
+function keyhole(x, y, cx, cy, r, half, dir) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if (dx * dx + dy * dy <= r * r) return true;
+  if (dir === "down") return Math.abs(x - cx) <= half && y >= cy && y <= cy + r * 2.4;
+  if (dir === "up") return Math.abs(x - cx) <= half && y <= cy && y >= cy - r * 2.4;
+  if (dir === "right") return Math.abs(y - cy) <= half && x >= cx && x <= cx + r * 2.4;
+  return Math.abs(y - cy) <= half && x <= cx && x >= cx - r * 2.4;
+}
+
+function axisLines(d) {
+  const nums = d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const pts = [];
+  for (let i = 0; i < nums.length; i += 2) pts.push([nums[i], nums[i + 1]]);
+  let axis = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = Math.abs(pts[i][0] - pts[i - 1][0]);
+    const dy = Math.abs(pts[i][1] - pts[i - 1][1]);
+    if (dx < 1.6 || dy < 1.6) axis++;
+  }
+  return axis;
+}
+const keyDown = trace(raster(140, 180, (x, y) => keyhole(x, y, 70, 52, 30, 16, "down")), 140, 180);
+const keyDownN = counts(keyDown);
+assert.strictEqual(keyDownN.l, 3, "key down lines " + keyDown);
+assert.ok(keyDownN.c >= 3 && keyDownN.c <= 4, "key down cubics " + keyDown);
+assert.ok(axisLines(keyDown) >= 3, "key down axis " + keyDown);
+const keyUp = trace(raster(140, 180, (x, y) => keyhole(x, y, 70, 128, 30, 16, "up")), 140, 180);
+const keyUpN = counts(keyUp);
+assert.strictEqual(keyUpN.l, 3, "key up lines " + keyUp);
+assert.ok(keyUpN.c >= 3 && keyUpN.c <= 4, "key up cubics " + keyUp);
+const keyRight = trace(raster(180, 140, (x, y) => keyhole(x, y, 52, 70, 30, 16, "right")), 180, 140);
+const keyRightN = counts(keyRight);
+assert.strictEqual(keyRightN.l, 3, "key right lines " + keyRight);
+assert.ok(keyRightN.c >= 3 && keyRightN.c <= 4, "key right cubics " + keyRight);
+const keyLeft = trace(raster(180, 140, (x, y) => keyhole(x, y, 128, 70, 30, 16, "left")), 180, 140);
+const keyLeftN = counts(keyLeft);
+assert.strictEqual(keyLeftN.l, 3, "key left lines " + keyLeft);
+assert.ok(keyLeftN.c >= 3 && keyLeftN.c <= 4, "key left cubics " + keyLeft);
