@@ -566,4 +566,30 @@ const pinLeftN = counts(pinLeft);
 assert.strictEqual(pinLeftN.l, 2, "pin left lines " + pinLeft);
 assert.strictEqual(pinLeftN.c, 4, "pin left cubics " + pinLeft);
 
+
+function arch(x, y, cx, cy, r, body, cap) {
+  if (cap === "top") {
+    if (x >= cx - r && x <= cx + r && y >= cy && y <= cy + body) return true;
+    const dx = x - cx;
+    const dy = y - cy;
+    return dx * dx + dy * dy <= r * r && y <= cy;
+  }
+  if (y >= cy - r && y <= cy + r && x >= cx - body && x <= cx) return true;
+  const dx = x - cx;
+  const dy = y - cy;
+  return dx * dx + dy * dy <= r * r && x >= cx;
+}
+const archTop = trace(raster(160, 180, (x, y) => arch(x, y, 80, 70, 40, 80, "top")), 160, 180);
+const archTopN = counts(archTop);
+assert.strictEqual(archTopN.c, 2, "arch top cubics " + archTop);
+assert.strictEqual(archTopN.l, 3, "arch top lines " + archTop);
+const archRight = trace(raster(180, 160, (x, y) => arch(x, y, 70, 80, 36, 70, "right")), 180, 160);
+const archRightN = counts(archRight);
+assert.strictEqual(archRightN.c, 2, "arch right cubics " + archRight);
+assert.strictEqual(archRightN.l, 3, "arch right lines " + archRight);
+const archTall = trace(raster(140, 200, (x, y) => arch(x, y, 70, 50, 32, 120, "top")), 140, 200);
+const archTallN = counts(archTall);
+assert.strictEqual(archTallN.c, 2, "arch tall cubics " + archTall);
+assert.strictEqual(archTallN.l, 3, "arch tall lines " + archTall);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
