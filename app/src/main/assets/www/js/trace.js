@@ -3736,6 +3736,171 @@ if (n < 6 || n > 40) return null;
     return cubics;
   }
 
+
+  function horseshoeFit(ring) {
+    var n = ring.length;
+    if (n < 18 || n > 700) return null;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 16 || bh < 16) return null;
+    var dirs = ["bottom", "top", "right", "left"];
+    var best = null;
+    var d;
+    for (d = 0; d < dirs.length; d++) {
+      var cap = dirs[d];
+      var horizontal = cap === "bottom" || cap === "top";
+      var span = horizontal ? bw : bh;
+      var reach = horizontal ? bh : bw;
+      var Ro = span / 2;
+      if (Ro < 10 || reach < Ro * 1.15) continue;
+      var cx = (minX + maxX) / 2;
+      var cy = (minY + maxY) / 2;
+      var cv = cap === "bottom" ? maxY - Ro : cap === "top" ? minY + Ro : cap === "right" ? maxX - Ro : minX + Ro;
+      var cu = horizontal ? cx : cy;
+      var openEnd = cap === "bottom" ? minY : cap === "top" ? maxY : cap === "right" ? minX : maxX;
+      var pole = null;
+      var capExtreme = cap === "bottom" ? maxY : cap === "top" ? minY : cap === "right" ? maxX : minX;
+      for (i = 0; i < n; i++) {
+        var u = horizontal ? ring[i][0] : ring[i][1];
+        var v = horizontal ? ring[i][1] : ring[i][0];
+        if (Math.abs(u - cu) > Ro * 0.55) continue;
+        var fromCap = cap === "bottom" || cap === "right" ? capExtreme - v : v - capExtreme;
+        if (fromCap < Ro * 0.22) continue;
+        var toward = cap === "bottom" || cap === "right" ? v : -v;
+        if (!pole || toward > pole.toward) pole = { u: u, v: v, toward: toward };
+      }
+      if (!pole) continue;
+      var Ri = cap === "bottom" || cap === "right" ? pole.v - cv : cv - pole.v;
+      if (Ri < 6 || Ri > Ro * 0.84) continue;
+      var leg = cap === "bottom" ? cv - openEnd : cap === "top" ? openEnd - cv : cap === "right" ? cv - openEnd : openEnd - cv;
+      if (leg < Math.max(8, Ri * 0.35)) continue;
+      var worst = 0;
+      var onOuter = 0;
+      var onInner = 0;
+      var onCap = 0;
+      for (i = 0; i < n; i++) {
+        var uu = horizontal ? ring[i][0] : ring[i][1];
+        var vv = horizontal ? ring[i][1] : ring[i][0];
+        var along = cap === "bottom" || cap === "right" ? cv - vv : vv - cv;
+        var side = Math.abs(uu - cu);
+        var errOuter;
+        var errInner;
+        if (along >= -1.4) {
+          errOuter = Math.abs(side - Ro);
+          errInner = Math.abs(side - Ri);
+        } else {
+          errOuter = Math.abs(Math.hypot(uu - cu, vv - cv) - Ro);
+          errInner = Math.abs(Math.hypot(uu - cu, vv - cv) - Ri);
+        }
+        var endErr = Math.abs(along - leg) + (side >= Ri - 1.6 && side <= Ro + 1.6 ? 0 : 8);
+        var err = Math.min(errOuter, errInner, endErr);
+        if (err === errOuter && errOuter <= 1.7) onOuter++;
+        if (err === errInner && errInner <= 1.7) onInner++;
+        if (err === endErr && endErr <= 1.7) onCap++;
+        if (err > worst) worst = err;
+      }
+      if (onOuter < 4 || onInner < 4 || onCap < 2) continue;
+      if (worst > Math.max(2.05, Ro * 0.07)) continue;
+      if (!best || worst < best.worst) best = { cap: cap, worst: worst, cu: cu, cv: cv, Ro: Ro, Ri: Ri, openEnd: openEnd };
+    }
+    if (!best) return null;
+    var wind = 0;
+    var wj;
+    for (i = 0; i < n; i++) {
+      wj = (i + 1) % n;
+      wind += ring[i][0] * ring[wj][1] - ring[wj][0] * ring[i][1];
+    }
+    var sign = wind < 0 ? -1 : 1;
+    var segs = [];
+    var start;
+    var cap = best.cap;
+    var Ro = best.Ro;
+    var Ri = best.Ri;
+    if (cap === "bottom" || cap === "top") {
+      var yOpen = best.openEnd;
+      var yCap = best.cv;
+      var xL = best.cu - Ro;
+      var xR = best.cu + Ro;
+      var xLi = best.cu - Ri;
+      var xRi = best.cu + Ri;
+      var yPole = cap === "bottom" ? yCap + Ro : yCap - Ro;
+      var yInner = cap === "bottom" ? yCap + Ri : yCap - Ri;
+      var arcSign = cap === "bottom" ? 1 : -1;
+      if ((cap === "bottom" && sign < 0) || (cap === "top" && sign > 0)) {
+        start = [xL, yOpen];
+        segs.push({ k: "L", p: [xL, yCap] });
+        segs.push(quarterCubic([xL, yCap], [best.cu, yPole], best.cu, yCap, Ro, arcSign));
+        segs.push(quarterCubic([best.cu, yPole], [xR, yCap], best.cu, yCap, Ro, arcSign));
+        segs.push({ k: "L", p: [xR, yOpen] });
+        segs.push({ k: "L", p: [xRi, yOpen] });
+        segs.push({ k: "L", p: [xRi, yCap] });
+        segs.push(quarterCubic([xRi, yCap], [best.cu, yInner], best.cu, yCap, Ri, -arcSign));
+        segs.push(quarterCubic([best.cu, yInner], [xLi, yCap], best.cu, yCap, Ri, -arcSign));
+        segs.push({ k: "L", p: [xLi, yOpen] });
+        segs.push({ k: "L", p: [xL, yOpen] });
+      } else {
+        start = [xR, yOpen];
+        segs.push({ k: "L", p: [xR, yCap] });
+        segs.push(quarterCubic([xR, yCap], [best.cu, yPole], best.cu, yCap, Ro, -arcSign));
+        segs.push(quarterCubic([best.cu, yPole], [xL, yCap], best.cu, yCap, Ro, -arcSign));
+        segs.push({ k: "L", p: [xL, yOpen] });
+        segs.push({ k: "L", p: [xLi, yOpen] });
+        segs.push({ k: "L", p: [xLi, yCap] });
+        segs.push(quarterCubic([xLi, yCap], [best.cu, yInner], best.cu, yCap, Ri, arcSign));
+        segs.push(quarterCubic([best.cu, yInner], [xRi, yCap], best.cu, yCap, Ri, arcSign));
+        segs.push({ k: "L", p: [xRi, yOpen] });
+        segs.push({ k: "L", p: [xR, yOpen] });
+      }
+    } else {
+      var xOpen = best.openEnd;
+      var xCap = best.cv;
+      var yT = best.cu - Ro;
+      var yB = best.cu + Ro;
+      var yTi = best.cu - Ri;
+      var yBi = best.cu + Ri;
+      var xPole = cap === "right" ? xCap + Ro : xCap - Ro;
+      var xInner = cap === "right" ? xCap + Ri : xCap - Ri;
+      var hSign = cap === "right" ? sign : -sign;
+      if ((cap === "right" && sign < 0) || (cap === "left" && sign > 0)) {
+        start = [xOpen, yT];
+        segs.push({ k: "L", p: [xCap, yT] });
+        segs.push(quarterCubic([xCap, yT], [xPole, best.cu], xCap, best.cu, Ro, -hSign));
+        segs.push(quarterCubic([xPole, best.cu], [xCap, yB], xCap, best.cu, Ro, -hSign));
+        segs.push({ k: "L", p: [xOpen, yB] });
+        segs.push({ k: "L", p: [xOpen, yBi] });
+        segs.push({ k: "L", p: [xCap, yBi] });
+        segs.push(quarterCubic([xCap, yBi], [xInner, best.cu], xCap, best.cu, Ri, hSign));
+        segs.push(quarterCubic([xInner, best.cu], [xCap, yTi], xCap, best.cu, Ri, hSign));
+        segs.push({ k: "L", p: [xOpen, yTi] });
+        segs.push({ k: "L", p: [xOpen, yT] });
+      } else {
+        start = [xOpen, yB];
+        segs.push({ k: "L", p: [xCap, yB] });
+        segs.push(quarterCubic([xCap, yB], [xPole, best.cu], xCap, best.cu, Ro, hSign));
+        segs.push(quarterCubic([xPole, best.cu], [xCap, yT], xCap, best.cu, Ro, hSign));
+        segs.push({ k: "L", p: [xOpen, yT] });
+        segs.push({ k: "L", p: [xOpen, yTi] });
+        segs.push({ k: "L", p: [xCap, yTi] });
+        segs.push(quarterCubic([xCap, yTi], [xInner, best.cu], xCap, best.cu, Ri, -hSign));
+        segs.push(quarterCubic([xInner, best.cu], [xCap, yBi], xCap, best.cu, Ri, -hSign));
+        segs.push({ k: "L", p: [xOpen, yBi] });
+        segs.push({ k: "L", p: [xOpen, yB] });
+      }
+    }
+    return { start: start, segs: segs };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -3770,6 +3935,8 @@ if (n < 6 || n > 40) return null;
     if (dcap) return dcap;
     var keyhole = keyholeFit(ring);
     if (keyhole) return keyhole;
+    var shoe = horseshoeFit(ring);
+    if (shoe) return shoe;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
     var oval = ovalFit(ring, opttolerance);

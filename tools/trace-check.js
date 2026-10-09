@@ -713,3 +713,30 @@ assert.ok(pacN.l >= 2 && pacN.l <= 3, "pac lines " + pac);
 assert.ok(pacN.c >= 3 && pacN.c <= 4, "pac cubics " + pacN.c + " " + pac);
 const pacXs = pac.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 0);
 assert.ok(Math.min.apply(null, pacXs) < 280, "pac body " + pac);
+
+function horseshoe(x, y, cx, cy, Ro, Ri, leg, cap) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if (cap === "bottom" || cap === "top") {
+    const along = cap === "bottom" ? -dy : dy;
+    const inOuter = dx * dx + dy * dy <= Ro * Ro;
+    const inInner = dx * dx + dy * dy < Ri * Ri;
+    if (along > 0) return Math.abs(dx) >= Ri && Math.abs(dx) <= Ro && along <= leg;
+    return inOuter && !inInner;
+  }
+  const along = cap === "right" ? -dx : dx;
+  const inOuter = dx * dx + dy * dy <= Ro * Ro;
+  const inInner = dx * dx + dy * dy < Ri * Ri;
+  if (along > 0) return Math.abs(dy) >= Ri && Math.abs(dy) <= Ro && along <= leg;
+  return inOuter && !inInner;
+}
+function shoeCounts(tag, w, h, paint) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.l, 6, tag + " lines " + d);
+  assert.strictEqual(n.c, 4, tag + " cubics " + d);
+}
+shoeCounts("shoe bottom", 140, 180, (x, y) => horseshoe(x, y, 70, 96, 42, 24, 52, "bottom"));
+shoeCounts("shoe top", 140, 180, (x, y) => horseshoe(x, y, 70, 84, 42, 24, 52, "top"));
+shoeCounts("shoe right", 180, 140, (x, y) => horseshoe(x, y, 96, 70, 40, 22, 50, "right"));
+shoeCounts("shoe left", 180, 140, (x, y) => horseshoe(x, y, 84, 70, 40, 22, 50, "left"));
