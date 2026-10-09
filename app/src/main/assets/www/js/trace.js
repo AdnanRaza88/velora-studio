@@ -2970,6 +2970,246 @@
     return { start: ring[peaks[0]].slice(), segs: segs };
   }
 
+
+  function dropFit(ring) {
+    var n = ring.length;
+    if (n < 16 || n > 900) return null;
+    var shoelace = 0;
+    var i, j;
+    for (i = 0; i < n; i++) {
+      j = (i + 1) % n;
+      shoelace += ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1];
+    }
+    if (Math.abs(shoelace) < 80) return null;
+    var wind = shoelace > 0 ? 1 : -1;
+    var turns = new Array(n);
+    var signed = new Array(n);
+    var a, b, c, v1x, v1y, v2x, v2y, cross, dot;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      v1x = b[0] - a[0];
+      v1y = b[1] - a[1];
+      v2x = c[0] - b[0];
+      v2y = c[1] - b[1];
+      cross = v1x * v2y - v1y * v2x;
+      dot = v1x * v2x + v1y * v2y;
+      signed[i] = Math.atan2(cross, dot);
+      turns[i] = Math.abs(signed[i]);
+    }
+    var tip = -1;
+    var tipTurn = 0.82;
+    var k, d, stepLen, local;
+    for (i = 0; i < n; i++) {
+      if (signed[i] * wind <= 0 || turns[i] < tipTurn) continue;
+      local = true;
+      k = (i + n - 1) % n;
+      d = 0;
+      while (d < 5) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + 1) % n][0], ring[k][1] - ring[(k + 1) % n][1]);
+        if (d + stepLen > 5) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.04) local = false;
+        k = (k + n - 1) % n;
+      }
+      k = (i + 1) % n;
+      d = 0;
+      while (d < 5) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + n - 1) % n][0], ring[k][1] - ring[(k + n - 1) % n][1]);
+        if (d + stepLen > 5) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.04) local = false;
+        k = (k + 1) % n;
+      }
+      if (local) {
+        tip = i;
+        tipTurn = turns[i];
+      }
+    }
+    if (tip < 0) return null;
+    var other = 0;
+    for (i = 0; i < n; i++) {
+      if (i === tip) continue;
+      if (signed[i] * wind > 0 && turns[i] > 0.7) {
+        d = Math.min((i - tip + n) % n, (tip - i + n) % n);
+        if (d > 4) other++;
+      }
+    }
+    if (other > 0) return null;
+    var far = [];
+    var tipP = ring[tip];
+    var reach = 0;
+    for (i = 0; i < n; i++) {
+      d = Math.hypot(ring[i][0] - tipP[0], ring[i][1] - tipP[1]);
+      if (d > reach) reach = d;
+    }
+    if (reach < 16) return null;
+    for (i = 0; i < n; i++) {
+      d = Math.hypot(ring[i][0] - tipP[0], ring[i][1] - tipP[1]);
+      if (d > reach * 0.42) far.push(ring[i]);
+    }
+    if (far.length < 8) return null;
+    var fit = dropCircle(far);
+    if (!fit || fit.r < 8) return null;
+    var on = new Array(n);
+    var err, onCount = 0;
+    for (i = 0; i < n; i++) {
+      err = Math.abs(Math.hypot(ring[i][0] - fit.cx, ring[i][1] - fit.cy) - fit.r);
+      on[i] = err < 2.5;
+      if (on[i]) onCount++;
+    }
+    if (onCount < n * 0.45) return null;
+    function shoulder(dir) {
+      var idx = tip;
+      var guard = 0;
+      var seen = 0;
+      while (guard < n - 1) {
+        idx = (idx + dir + n) % n;
+        if (on[idx]) seen++;
+        else seen = 0;
+        if (seen >= 3) return (idx - dir * 2 + n * 3) % n;
+        guard++;
+      }
+      return -1;
+    }
+    var fore = shoulder(1);
+    var back = shoulder(-1);
+    if (fore < 0 || back < 0 || fore === back || fore === tip || back === tip) return null;
+    var legA = Math.hypot(ring[fore][0] - tipP[0], ring[fore][1] - tipP[1]);
+    var legB = Math.hypot(ring[back][0] - tipP[0], ring[back][1] - tipP[1]);
+    if (legA < 7 || legB < 7) return null;
+    if (legA > legB * 2.8 || legB > legA * 2.8) return null;
+    function legBow(from, to) {
+      var worst = 0;
+      var idx = from;
+      var guard = 0;
+      while (idx !== to && guard < n) {
+        err = distPointSeg(ring[idx], ring[from], ring[to]);
+        if (err > worst) worst = err;
+        idx = (idx + 1) % n;
+        guard++;
+      }
+      return worst;
+    }
+    var shortFore = (fore - tip + n) % n;
+    var shortBack = (tip - back + n) % n;
+    if (shortFore + shortBack > n * 0.55) return null;
+    if (legBow(tip, fore) > 3.6 || legBow(back, tip) > 3.6) return null;
+    var body = [];
+    var idx = fore;
+    var guard = 0;
+    var bodyWorst = 0;
+    while (idx !== back && guard < n) {
+      body.push(ring[idx]);
+      err = Math.abs(Math.hypot(ring[idx][0] - fit.cx, ring[idx][1] - fit.cy) - fit.r);
+      if (err > bodyWorst) bodyWorst = err;
+      idx = (idx + 1) % n;
+      guard++;
+    }
+    body.push(ring[back]);
+    if (body.length < 8 || bodyWorst > 2.8) return null;
+    var tipDist = Math.hypot(tipP[0] - fit.cx, tipP[1] - fit.cy);
+    if (tipDist < fit.r + Math.max(5, fit.r * 0.16)) return null;
+    return emitDrop(tipP, ring[fore], ring[back], body, fit);
+  }
+
+  function dropCircle(pts) {
+    var n = pts.length;
+    var sx = 0;
+    var sy = 0;
+    var sxx = 0;
+    var syy = 0;
+    var sxy = 0;
+    var sx3 = 0;
+    var sy3 = 0;
+    var sxxy = 0;
+    var sxyy = 0;
+    var i, x, y;
+    for (i = 0; i < n; i++) {
+      x = pts[i][0];
+      y = pts[i][1];
+      sx += x;
+      sy += y;
+      sxx += x * x;
+      syy += y * y;
+      sxy += x * y;
+      sx3 += x * x * x;
+      sy3 += y * y * y;
+      sxxy += x * x * y;
+      sxyy += x * y * y;
+    }
+    var a1 = 2 * (sx * sx - n * sxx);
+    var b1 = 2 * (sx * sy - n * sxy);
+    var c1 = sx * (sxx + syy) - n * (sx3 + sxyy);
+    var a2 = b1;
+    var b2 = 2 * (sy * sy - n * syy);
+    var c2 = sy * (sxx + syy) - n * (sy3 + sxxy);
+    var det = a1 * b2 - a2 * b1;
+    if (Math.abs(det) < 1e-6) return null;
+    var cx = (c1 * b2 - c2 * b1) / det;
+    var cy = (a1 * c2 - a2 * c1) / det;
+    var r = 0;
+    for (i = 0; i < n; i++) r += Math.hypot(pts[i][0] - cx, pts[i][1] - cy);
+    r /= n;
+    if (!isFinite(cx) || !isFinite(cy) || !isFinite(r) || r < 6) return null;
+    return { cx: cx, cy: cy, r: r };
+  }
+
+  function emitDrop(tip, a, b, body, fit) {
+    function onCircle(p) {
+      var dx = p[0] - fit.cx;
+      var dy = p[1] - fit.cy;
+      var len = Math.hypot(dx, dy) || 1;
+      return [fit.cx + dx / len * fit.r, fit.cy + dy / len * fit.r];
+    }
+    var pa = onCircle(a);
+    var pb = onCircle(b);
+    var angA = Math.atan2(pa[1] - fit.cy, pa[0] - fit.cx);
+    var mid = body[body.length >> 1];
+    var angM = Math.atan2(mid[1] - fit.cy, mid[0] - fit.cx);
+    var angB = Math.atan2(pb[1] - fit.cy, pb[0] - fit.cx);
+    function unwrap(from, to) {
+      var delta = to - from;
+      while (delta <= -Math.PI) delta += Math.PI * 2;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      return delta;
+    }
+    var toMid = unwrap(angA, angM);
+    var toEnd = unwrap(angA, angB);
+    if (toMid * toEnd < 0) toEnd += toMid > 0 ? Math.PI * 2 : -Math.PI * 2;
+    if (Math.abs(toEnd) < 2.2 || Math.abs(toEnd) > 6.05) return null;
+    var segs = [{ k: "L", p: pa.slice() }];
+    var cursor = 0;
+    var steps = Math.ceil(Math.abs(toEnd) / (Math.PI / 2));
+    if (steps < 2) steps = 2;
+    if (steps > 4) steps = 4;
+    var s, next;
+    for (s = 1; s <= steps; s++) {
+      next = toEnd * s / steps;
+      segs.push(dropArc(angA + cursor, angA + next, fit.cx, fit.cy, fit.r));
+      cursor = next;
+    }
+    segs.push({ k: "L", p: tip.slice() });
+    return { start: tip.slice(), segs: segs };
+  }
+
+  function dropArc(aAng, bAng, cx, cy, r) {
+    var a = [cx + Math.cos(aAng) * r, cy + Math.sin(aAng) * r];
+    var b = [cx + Math.cos(bAng) * r, cy + Math.sin(bAng) * r];
+    var sweep = bAng - aAng;
+    var h = 4 / 3 * Math.tan(sweep / 4) * r;
+    var tax = -Math.sin(aAng);
+    var tay = Math.cos(aAng);
+    var tbx = -Math.sin(bAng);
+    var tby = Math.cos(bAng);
+    return {
+      k: "C",
+      c: [a, [a[0] + h * tax, a[1] + h * tay], [b[0] - h * tbx, b[1] - h * tby], b],
+      pts: [a, b]
+    };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -2994,6 +3234,8 @@
     if (crescent) return crescent;
     var heart = heartFit(ring);
     if (heart) return heart;
+    var drop = dropFit(ring);
+    if (drop) return drop;
     var dcap = dCapFit(ring);
     if (dcap) return dcap;
     var rounded = roundRectFit(ring);

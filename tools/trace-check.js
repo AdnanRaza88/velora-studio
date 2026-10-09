@@ -528,4 +528,23 @@ const arrowXs = arrowD.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i 
 const tipCount = arrowXs.filter((x) => x > 900).length;
 assert.strictEqual(tipCount, 1, "arrow tip " + arrowD);
 
+function mapPin(x, y, cx, cy, r, tipx, tipy) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if (dx * dx + dy * dy <= r * r) return true;
+  return insidePoly([[cx - 8, cy - 6], [tipx, tipy], [cx + 8, cy + 6]], x, y);
+}
+const pinDown = trace(raster(140, 170, (x, y) => mapPin(x, y, 70, 58, 28, 70, 142)), 140, 170);
+const pinDownN = counts(pinDown);
+assert.strictEqual(pinDownN.l, 2, "pin down lines " + pinDown);
+assert.strictEqual(pinDownN.c, 4, "pin down cubics " + pinDown);
+const pinUp = trace(raster(140, 170, (x, y) => mapPin(x, y, 70, 112, 28, 70, 24)), 140, 170);
+const pinUpN = counts(pinUp);
+assert.strictEqual(pinUpN.l, 2, "pin up lines " + pinUp);
+assert.strictEqual(pinUpN.c, 4, "pin up cubics " + pinUp);
+const pinLeft = trace(raster(170, 140, (x, y) => mapPin(x, y, 100, 70, 28, 22, 70)), 170, 140);
+const pinLeftN = counts(pinLeft);
+assert.strictEqual(pinLeftN.l, 2, "pin left lines " + pinLeft);
+assert.strictEqual(pinLeftN.c, 4, "pin left cubics " + pinLeft);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
