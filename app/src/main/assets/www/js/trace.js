@@ -1737,6 +1737,59 @@
 
 
 
+
+  function axisEllipseFit(ring) {
+    var n = ring.length;
+    if (n < 8 || n > 520) return null;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 12 || bh < 8) return null;
+    var aspect = Math.max(bw, bh) / Math.min(bw, bh);
+    if (aspect < 1.28 || aspect > 4.4) return null;
+    var rx = bw / 2;
+    var ry = bh / 2;
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var worst = 0;
+    var turnHi = 0;
+    for (i = 0; i < n; i++) {
+      var dx = ring[i][0] - cx;
+      var dy = ring[i][1] - cy;
+      var rad = Math.hypot(dx / rx, dy / ry);
+      var err = Math.abs(rad - 1) * Math.hypot(dx, dy);
+      if (err > worst) worst = err;
+      var prev = ring[(i + n - 1) % n];
+      var next = ring[(i + 1) % n];
+      if (Math.hypot(ring[i][0] - prev[0], ring[i][1] - prev[1]) < 1.15) continue;
+      if (Math.hypot(next[0] - ring[i][0], next[1] - ring[i][1]) < 1.15) continue;
+      var turn = turnAt(prev, ring[i], next);
+      if (turn > turnHi) turnHi = turn;
+    }
+    if (turnHi > 1.12) return null;
+    if (worst > Math.max(1.55, Math.min(rx, ry) * 0.16)) return null;
+    var reach = Math.max(rx, ry) - Math.min(rx, ry);
+    if (reach >= Math.min(rx, ry) * 1.05) return null;
+    if (Math.abs(area(ring)) < rx * ry * 2.05) return null;
+    var wind = 0;
+    var j;
+    for (i = 0; i < n; i++) {
+      j = (i + 1) % n;
+      wind += ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1];
+    }
+    return kappaEllipse({ cx: cx, cy: cy, rx: rx, ry: ry }, wind < 0 ? -1 : 1);
+  }
+
   function stadiumFit(ring) {
     var n = ring.length;
     if (n < 12) return null;
@@ -4464,6 +4517,8 @@ if (n < 6 || n > 40) return null;
     if (ring.length < 3) return null;
     var quad = quadFit(ring);
     if (quad) return quad;
+    var axisOval = axisEllipseFit(ring);
+    if (axisOval) return axisOval;
     var poly = polygonFit(ring);
     if (poly && poly.segs.length === 8) {
       var bowed = bowCircle(ring, mask, mw, mh);

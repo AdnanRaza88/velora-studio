@@ -889,3 +889,38 @@ function holeEllipse(tag, w, h) {
   assert.ok(Math.abs(nums[2] - nums[0]) < 1.5 || Math.abs(nums[3] - nums[1]) < 1.5, tag + " pole tangent " + hole);
 }
 holeEllipse("hole ellipse", 200, 160);
+
+function flatEllipse(tag, w, h, cx, cy, rx, ry) {
+  const d = trace(raster(w, h, (x, y) => {
+    const nx = (x - cx) / rx;
+    const ny = (y - cy) / ry;
+    return nx * nx + ny * ny <= 1;
+  }), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.l, 0, tag + " lines " + d);
+  assert.strictEqual(n.c, 4, tag + " cubics " + d);
+  const nums = d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  assert.ok(Math.abs(nums[2] - nums[0]) < 1.5 || Math.abs(nums[3] - nums[1]) < 1.5, tag + " pole tangent " + d);
+}
+flatEllipse("flat ellipse", 160, 120, 80, 60, 28, 16);
+flatEllipse("flat ellipse 18", 140, 90, 70, 45, 18, 10);
+flatEllipse("flat ellipse 12", 90, 60, 45, 30, 12, 7);
+
+function holeFlatEllipse(tag, w, h, rx, ry) {
+  const d = trace(raster(w, h, (x, y) => {
+    const box = x >= 12 && x <= w - 12 && y >= 10 && y <= h - 10;
+    const nx = (x - w / 2) / rx;
+    const ny = (y - h / 2) / ry;
+    return box && nx * nx + ny * ny > 1;
+  }), w, h);
+  const parts = d.split(/ (?=M)/);
+  assert.strictEqual(parts.length, 2, tag + " parts " + d);
+  assert.strictEqual(counts(parts[0]).l, 4, tag + " outer " + parts[0]);
+  const hole = parts[1];
+  assert.strictEqual(counts(hole).l, 0, tag + " hole lines " + hole);
+  assert.strictEqual(counts(hole).c, 4, tag + " hole cubics " + hole);
+  const nums = hole.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  assert.ok(Math.abs(nums[2] - nums[0]) < 1.5 || Math.abs(nums[3] - nums[1]) < 1.5, tag + " pole tangent " + hole);
+}
+holeFlatEllipse("hole flat ellipse", 180, 120, 16, 9);
+holeFlatEllipse("hole flat ellipse 18", 180, 120, 22, 12);
