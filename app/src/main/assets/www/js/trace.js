@@ -3901,6 +3901,98 @@ if (n < 6 || n > 40) return null;
     return { start: start, segs: segs };
   }
 
+
+  function reuleauxFit(ring) {
+    var n = ring.length;
+    if (n < 16 || n > 720) return null;
+    var turns = new Array(n);
+    var i;
+    for (i = 0; i < n; i++) turns[i] = turnAt(ring[(i + n - 1) % n], ring[i], ring[(i + 1) % n]);
+    var peaks = [];
+    var best, k, d, stepLen;
+    for (i = 0; i < n; i++) {
+      if (turns[i] < 0.45 || turns[i] > 1.35) continue;
+      best = true;
+      k = (i + n - 1) % n;
+      d = 0;
+      while (d < 5) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + 1) % n][0], ring[k][1] - ring[(k + 1) % n][1]);
+        if (d + stepLen > 5) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.05) best = false;
+        k = (k + n - 1) % n;
+      }
+      k = (i + 1) % n;
+      d = 0;
+      while (d < 5) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + n - 1) % n][0], ring[k][1] - ring[(k + n - 1) % n][1]);
+        if (d + stepLen > 5) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.05) best = false;
+        k = (k + 1) % n;
+      }
+      if (best) peaks.push(i);
+    }
+    var kept = [];
+    var gap;
+    for (i = 0; i < peaks.length; i++) {
+      if (!kept.length) {
+        kept.push(peaks[i]);
+        continue;
+      }
+      gap = Math.hypot(ring[peaks[i]][0] - ring[kept[kept.length - 1]][0], ring[peaks[i]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 8) {
+        if (turns[peaks[i]] > turns[kept[kept.length - 1]]) kept[kept.length - 1] = peaks[i];
+        continue;
+      }
+      kept.push(peaks[i]);
+    }
+    if (kept.length > 1) {
+      gap = Math.hypot(ring[kept[0]][0] - ring[kept[kept.length - 1]][0], ring[kept[0]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 8) {
+        if (turns[kept[kept.length - 1]] > turns[kept[0]]) kept[0] = kept[kept.length - 1];
+        kept.pop();
+      }
+    }
+    if (kept.length !== 3) return null;
+    var p0 = ring[kept[0]];
+    var p1 = ring[kept[1]];
+    var p2 = ring[kept[2]];
+    var s0 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    var s1 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    var s2 = Math.hypot(p0[0] - p2[0], p0[1] - p2[1]);
+    var side = (s0 + s1 + s2) / 3;
+    if (side < 16) return null;
+    if (Math.abs(s0 - side) > side * 0.16 || Math.abs(s1 - side) > side * 0.16 || Math.abs(s2 - side) > side * 0.16) return null;
+    var spans = [spanPoints(ring, kept[0], kept[1]), spanPoints(ring, kept[1], kept[2]), spanPoints(ring, kept[2], kept[0])];
+    var centers = [p2, p0, p1];
+    var segs = [];
+    var si, span, center, r, worst, err, bow, sign, sweep, cubics;
+    for (si = 0; si < 3; si++) {
+      span = spans[si];
+      if (span.length < 5) return null;
+      center = centers[si];
+      r = (Math.hypot(span[0][0] - center[0], span[0][1] - center[1]) + Math.hypot(span[span.length - 1][0] - center[0], span[span.length - 1][1] - center[1])) / 2;
+      if (r < 16) return null;
+      bow = chordBow(span);
+      if (bow < Math.max(4.2, r * 0.07)) return null;
+      worst = 0;
+      for (i = 0; i < span.length; i++) {
+        err = Math.abs(Math.hypot(span[i][0] - center[0], span[i][1] - center[1]) - r);
+        if (err > worst) worst = err;
+      }
+      if (worst > Math.max(2.6, r * 0.08)) return null;
+      sign = arcSign(span, span[0], span[span.length - 1], center[0], center[1]);
+      if (!sign) return null;
+      sweep = arcSweep(span[0], span[span.length - 1], center[0], center[1], sign);
+      if (sweep < 0.7 || sweep > 1.5) return null;
+      cubics = arcCubics(span[0], span[span.length - 1], center[0], center[1], r, sign);
+      if (cubics.length !== 1) return null;
+      segs = segs.concat(cubics);
+    }
+    return { start: p0.slice(), segs: segs };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -3923,6 +4015,8 @@ if (n < 6 || n > 40) return null;
     if (segment) return segment;
     var crescent = crescentFit(ring);
     if (crescent) return crescent;
+    var reuleaux = reuleauxFit(ring);
+    if (reuleaux) return reuleaux;
     var heart = heartFit(ring);
     if (heart) return heart;
     var drop = dropFit(ring);

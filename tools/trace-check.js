@@ -740,3 +740,22 @@ shoeCounts("shoe bottom", 140, 180, (x, y) => horseshoe(x, y, 70, 96, 42, 24, 52
 shoeCounts("shoe top", 140, 180, (x, y) => horseshoe(x, y, 70, 84, 42, 24, 52, "top"));
 shoeCounts("shoe right", 180, 140, (x, y) => horseshoe(x, y, 96, 70, 40, 22, 50, "right"));
 shoeCounts("shoe left", 180, 140, (x, y) => horseshoe(x, y, 84, 70, 40, 22, 50, "left"));
+
+function reuleaux(x, y, ax, ay, bx, by, cx, cy) {
+  const r2ab = (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
+  const r2bc = (bx - cx) * (bx - cx) + (by - cy) * (by - cy);
+  const r2ca = (cx - ax) * (cx - ax) + (cy - ay) * (cy - ay);
+  const dab = (x - ax) * (x - ax) + (y - ay) * (y - ay) <= r2ab;
+  const dbc = (x - bx) * (x - bx) + (y - by) * (y - by) <= r2bc;
+  const dca = (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r2ca;
+  return dab && dbc && dca;
+}
+function reuCounts(tag, w, h, paint) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.l, 0, tag + " lines " + d);
+  assert.strictEqual(n.c, 3, tag + " cubics " + d);
+}
+reuCounts("reuleaux up", 160, 160, (x, y) => reuleaux(x, y, 80, 28, 34, 112, 126, 112));
+reuCounts("reuleaux down", 160, 160, (x, y) => reuleaux(x, y, 80, 132, 34, 48, 126, 48));
+reuCounts("reuleaux right", 160, 160, (x, y) => reuleaux(x, y, 132, 80, 48, 34, 48, 126));
