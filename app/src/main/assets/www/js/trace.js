@@ -4211,6 +4211,123 @@ if (n < 6 || n > 40) return null;
     return { start: p0.slice(), segs: segs };
   }
 
+  function starFit(ring) {
+    var n = ring.length;
+    if (n < 16 || n > 860) return null;
+    var win = n <= 48 ? 3.2 : 5.2;
+    function step(i, dir) {
+      var walked = 0;
+      var j = i;
+      var guard = 0;
+      var prev = ring[j];
+      while (walked < win && guard < n) {
+        j = (j + dir + n) % n;
+        walked += Math.hypot(ring[j][0] - prev[0], ring[j][1] - prev[1]);
+        prev = ring[j];
+        guard++;
+      }
+      return j;
+    }
+    var turns = new Array(n);
+    var i, best, k, d, stepLen, peaks, gap, a, b, span, valley, bestTurn, mid, bow, len, lens, lo, hi, segs, half;
+    for (i = 0; i < n; i++) turns[i] = turnAt(ring[step(i, -1)], ring[i], ring[step(i, 1)]);
+    peaks = [];
+    for (i = 0; i < n; i++) {
+      if (turns[i] < 0.5 || turns[i] > 1.5) continue;
+      best = true;
+      k = (i + n - 1) % n;
+      d = 0;
+      while (d < 4.4) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + 1) % n][0], ring[k][1] - ring[(k + 1) % n][1]);
+        if (d + stepLen > 4.4) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.06) best = false;
+        k = (k + n - 1) % n;
+        if (k === i) break;
+      }
+      k = (i + 1) % n;
+      d = 0;
+      while (d < 4.4) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + n - 1) % n][0], ring[k][1] - ring[(k + n - 1) % n][1]);
+        if (d + stepLen > 4.4) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.06) best = false;
+        k = (k + 1) % n;
+        if (k === i) break;
+      }
+      if (best) peaks.push(i);
+    }
+    var kept = [];
+    for (i = 0; i < peaks.length; i++) {
+      if (!kept.length) {
+        kept.push(peaks[i]);
+        continue;
+      }
+      gap = Math.hypot(ring[peaks[i]][0] - ring[kept[kept.length - 1]][0], ring[peaks[i]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 6.4) {
+        if (turns[peaks[i]] > turns[kept[kept.length - 1]]) kept[kept.length - 1] = peaks[i];
+        continue;
+      }
+      kept.push(peaks[i]);
+    }
+    if (kept.length > 1) {
+      gap = Math.hypot(ring[kept[0]][0] - ring[kept[kept.length - 1]][0], ring[kept[0]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 6.4) {
+        if (turns[kept[kept.length - 1]] > turns[kept[0]]) kept[0] = kept[kept.length - 1];
+        kept.pop();
+      }
+    }
+    if (kept.length !== 5) return null;
+    for (i = 0; i < kept.length; i++) {
+      if (turns[kept[i]] < 0.48 || turns[kept[i]] > 1.5) return null;
+    }
+    var corners = [];
+    lens = [];
+    for (i = 0; i < kept.length; i++) {
+      a = kept[i];
+      b = kept[(i + 1) % kept.length];
+      span = spanPoints(ring, a, b);
+      if (span.length < 3) return null;
+      if (chordBow(span) < 3.4) return null;
+      valley = -1;
+      bestTurn = 0;
+      for (k = 1; k < span.length - 1; k++) {
+        mid = (a + k) % n;
+        if (Math.hypot(ring[mid][0] - ring[a][0], ring[mid][1] - ring[a][1]) < 4) continue;
+        if (Math.hypot(ring[mid][0] - ring[b][0], ring[mid][1] - ring[b][1]) < 4) continue;
+        if (turns[mid] > bestTurn) {
+          bestTurn = turns[mid];
+          valley = mid;
+        }
+      }
+      if (valley < 0 || bestTurn < 0.48) return null;
+      half = spanPoints(ring, a, valley);
+      if (chordBow(half) > 2.4) return null;
+      len = Math.hypot(ring[valley][0] - ring[a][0], ring[valley][1] - ring[a][1]);
+      if (len < 6) return null;
+      lens.push(len);
+      half = spanPoints(ring, valley, b);
+      if (chordBow(half) > 2.4) return null;
+      len = Math.hypot(ring[b][0] - ring[valley][0], ring[b][1] - ring[valley][1]);
+      if (len < 6) return null;
+      lens.push(len);
+      corners.push(valley);
+    }
+    lo = lens[0];
+    hi = lens[0];
+    for (i = 1; i < lens.length; i++) {
+      if (lens[i] < lo) lo = lens[i];
+      if (lens[i] > hi) hi = lens[i];
+    }
+    if (hi > lo * 1.65) return null;
+    segs = [];
+    for (i = 0; i < kept.length; i++) {
+      segs.push({ k: "L", p: ring[corners[i]].slice(), pts: [ring[kept[i]], ring[corners[i]]] });
+      segs.push({ k: "L", p: ring[kept[(i + 1) % kept.length]].slice(), pts: [ring[corners[i]], ring[kept[(i + 1) % kept.length]]] });
+    }
+    return { start: ring[kept[0]].slice(), segs: segs };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -4223,6 +4340,8 @@ if (n < 6 || n > 40) return null;
     if (quad) return quad;
     var poly = polygonFit(ring);
     if (poly) return poly;
+    var star = starFit(ring);
+    if (star) return star;
     var straight = straightPolyFit(ring);
     if (straight) return straight;
     var stadium = stadiumFit(ring);

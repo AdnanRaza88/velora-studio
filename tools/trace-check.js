@@ -252,6 +252,9 @@ function starCounts(tag, w, h, cx, cy, ro, ri) {
 }
 starCounts("star", 180, 180, 90, 90, 62, 26);
 starCounts("star tip", 160, 160, 80, 80, 50, 22);
+starCounts("star valley", 120, 120, 60, 60, 40, 16);
+starCounts("star small", 100, 100, 50, 50, 34, 14);
+starCounts("star mid", 140, 140, 70, 70, 48, 20);
 
 
 function pentagon(cx, cy, r, rot) {
