@@ -785,3 +785,18 @@ function dartCounts(tag, w, h, paint) {
 dartCounts("dart", 160, 140, (x, y) => dart(x, y, 30, 30, 130, 30, 80, 112, 80, 68));
 dartCounts("dart left", 160, 140, (x, y) => dart(x, y, 130, 28, 36, 70, 130, 112, 92, 70));
 dartCounts("dart down", 160, 150, (x, y) => dart(x, y, 28, 118, 132, 118, 80, 28, 80, 78));
+
+function boltCounts(tag, w, h, pts, lines, tipY) {
+  const d = trace(raster(w, h, (x, y) => insidePoly(pts, x, y)), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.c, 0, tag + " cubics " + d);
+  assert.strictEqual(n.l, lines, tag + " lines " + d);
+  if (!tipY) return;
+  const nums = d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  let tip = 0;
+  for (let i = 1; i < nums.length; i += 2) if (nums[i] > tipY) tip++;
+  assert.strictEqual(tip, 2, tag + " tip " + d);
+}
+boltCounts("bolt", 160, 170, [[30, 20], [70, 22], [48, 70], [92, 68], [36, 140], [18, 132], [62, 78], [28, 80]], 8, 780);
+boltCounts("bolt axis", 160, 160, [[42, 16], [86, 16], [60, 62], [104, 62], [46, 132], [24, 132], [70, 74], [34, 74]], 8, 780);
+boltCounts("bolt long", 140, 180, [[50, 12], [88, 30], [62, 58], [100, 74], [54, 108], [78, 148], [40, 118], [22, 132], [46, 86], [18, 70], [44, 46], [20, 28]], 12);

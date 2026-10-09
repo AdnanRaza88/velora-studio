@@ -3157,8 +3157,9 @@
         kept.pop();
       }
     }
-    if (kept.length < 4 || kept.length > 7) return null;
+    if (kept.length < 4 || kept.length > 12) return null;
     reflex = 0;
+    var lens = [];
     for (i = 0; i < kept.length; i++) {
       if (turns[kept[i]] > 2.42) reflex++;
       a = kept[i];
@@ -3173,10 +3174,20 @@
       bow = chordBow(span);
       len = Math.hypot(ring[b][0] - ring[a][0], ring[b][1] - ring[a][1]);
       if (len < 8) return null;
-      if (bow > 2.65) return null;
+      if (bow > (kept.length >= 6 ? 3.35 : 2.65)) return null;
       if (turns[kept[i]] < 0.62) return null;
+      lens.push(len);
     }
-    if (reflex < 1 || reflex > 2) return null;
+    if (kept.length <= 5) {
+      if (reflex < 1 || reflex > 2) return null;
+    } else if (reflex > 6) return null;
+    var lo = lens[0];
+    var hi = lens[0];
+    for (i = 1; i < lens.length; i++) {
+      if (lens[i] < lo) lo = lens[i];
+      if (lens[i] > hi) hi = lens[i];
+    }
+    if (kept.length >= 8 && hi < lo * 1.55) return null;
     segs = [];
     for (i = 1; i < kept.length; i++) segs.push({ k: "L", p: ring[kept[i]].slice(), pts: [ring[kept[i - 1]], ring[kept[i]]] });
     segs.push({ k: "L", p: ring[kept[0]].slice(), pts: [ring[kept[kept.length - 1]], ring[kept[0]]] });
