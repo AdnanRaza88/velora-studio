@@ -3288,6 +3288,257 @@ if (n < 6 || n > 40) return null;
     return { start: start, segs: segs };
   }
 
+
+  function bubbleFit(ring) {
+    var n = ring.length;
+    if (n < 16 || n > 900) return null;
+    var shoelace = 0;
+    var i, j;
+    for (i = 0; i < n; i++) {
+      j = (i + 1) % n;
+      shoelace += ring[i][0] * ring[j][1] - ring[j][0] * ring[i][1];
+    }
+    if (Math.abs(shoelace) < 100) return null;
+    var wind = shoelace > 0 ? 1 : -1;
+    var turns = new Array(n);
+    var signed = new Array(n);
+    var a, b, c, v1x, v1y, v2x, v2y, cross, dot;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      v1x = b[0] - a[0];
+      v1y = b[1] - a[1];
+      v2x = c[0] - b[0];
+      v2y = c[1] - b[1];
+      cross = v1x * v2y - v1y * v2x;
+      dot = v1x * v2x + v1y * v2y;
+      signed[i] = Math.atan2(cross, dot);
+      turns[i] = Math.abs(signed[i]);
+    }
+    var extremes = [0, 0, 0, 0];
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < ring[extremes[0]][0]) extremes[0] = i;
+      if (ring[i][0] > ring[extremes[1]][0]) extremes[1] = i;
+      if (ring[i][1] < ring[extremes[2]][1]) extremes[2] = i;
+      if (ring[i][1] > ring[extremes[3]][1]) extremes[3] = i;
+    }
+    var tip = -1;
+    var tipScore = 0;
+    var score, k, j, best;
+    for (i = 0; i < 4; i++) {
+      best = extremes[i];
+      for (k = -4; k <= 4; k++) {
+        j = (extremes[i] + k + n) % n;
+        if (signed[j] * wind > 0 && turns[j] > turns[best]) best = j;
+      }
+      if (signed[best] * wind <= 0) continue;
+      score = turns[best];
+      if (score > tipScore) {
+        tip = best;
+        tipScore = score;
+      }
+    }
+    if (tip < 0 || turns[tip] < 0.35) return null;
+    var other = 0;
+    var d;
+    for (i = 0; i < n; i++) {
+      if (i === tip) continue;
+      if (signed[i] * wind > 0 && turns[i] > turns[tip] * 0.85 && turns[i] > 0.7) {
+        d = Math.min((i - tip + n) % n, (tip - i + n) % n);
+        if (d > 3) other++;
+      }
+    }
+    if (other > 0) return null;
+    var fit = bubblePoles(ring, tip);
+    if (!fit) return null;
+    var tipP = ring[tip];
+    if (bubbleRadial(tipP, fit) < 1.22) return null;
+    var left = bubbleShoulder(ring, tip, 1, fit);
+    var right = bubbleShoulder(ring, tip, -1, fit);
+    if (!left || !right) return null;
+    if (Math.hypot(left.p[0] - tipP[0], left.p[1] - tipP[1]) < 7) return null;
+    if (Math.hypot(right.p[0] - tipP[0], right.p[1] - tipP[1]) < 7) return null;
+    if (bubbleBow(ring, tip, left.index, 1) > 2.6) return null;
+    if (bubbleBow(ring, tip, right.index, -1) > 2.6) return null;
+    var body = [];
+    for (i = 0; i < n; i++) {
+      if (bubbleRadial(ring[i], fit) < 1.12) body.push(ring[i]);
+    }
+    if (body.length < 8) return null;
+    return emitBubble(tipP, left.p, right.p, body, fit);
+  }
+
+  function bubbleRadial(p, fit) {
+    return Math.hypot((p[0] - fit.cx) / fit.rx, (p[1] - fit.cy) / fit.ry);
+  }
+
+  function bubblePoles(ring, tip) {
+    var n = ring.length;
+    var tipP = ring[tip];
+    var minX = ring[0][0], maxX = minX, minY = ring[0][1], maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var dx = tipP[0] - (minX + maxX) / 2;
+    var dy = tipP[1] - (minY + maxY) / 2;
+    var horizontal = Math.abs(dx) > Math.abs(dy);
+    var cx, cy, rx, ry;
+    if (!horizontal) {
+      cx = (minX + maxX) / 2;
+      rx = (maxX - minX) / 2;
+      if (dy > 0) {
+        var sideY = 0;
+        var sideN = 0;
+        for (i = 0; i < n; i++) {
+          if (Math.abs(ring[i][0] - minX) < 1.4 || Math.abs(ring[i][0] - maxX) < 1.4) {
+            sideY += ring[i][1];
+            sideN++;
+          }
+        }
+        if (!sideN) return null;
+        cy = sideY / sideN;
+        ry = cy - minY;
+      } else {
+        var sideY2 = 0;
+        var sideN2 = 0;
+        for (i = 0; i < n; i++) {
+          if (Math.abs(ring[i][0] - minX) < 1.4 || Math.abs(ring[i][0] - maxX) < 1.4) {
+            sideY2 += ring[i][1];
+            sideN2++;
+          }
+        }
+        if (!sideN2) return null;
+        cy = sideY2 / sideN2;
+        ry = maxY - cy;
+      }
+    } else {
+      cy = (minY + maxY) / 2;
+      ry = (maxY - minY) / 2;
+      var sideX = 0;
+      var sideN3 = 0;
+      for (i = 0; i < n; i++) {
+        if (Math.abs(ring[i][1] - minY) < 1.4 || Math.abs(ring[i][1] - maxY) < 1.4) {
+          sideX += ring[i][0];
+          sideN3++;
+        }
+      }
+      if (!sideN3) return null;
+      cx = sideX / sideN3;
+      rx = dx > 0 ? cx - minX : maxX - cx;
+    }
+    if (!(rx > 10) || !(ry > 8)) return null;
+    var aspect = Math.max(rx, ry) / Math.min(rx, ry);
+    if (aspect < 1.18 || aspect > 3.2) return null;
+    var worst = 0;
+    var err, used = 0;
+    for (i = 0; i < n; i++) {
+      err = bubbleRadial(ring[i], { cx: cx, cy: cy, rx: rx, ry: ry });
+      if (err > 1.08) continue;
+      err = Math.abs(err - 1) * Math.min(rx, ry);
+      used++;
+      if (err > worst) worst = err;
+    }
+    if (used < 8 || worst > 2.8) return null;
+    return { cx: cx, cy: cy, rx: rx, ry: ry };
+  }
+
+  function bubbleShoulder(ring, tip, dir, fit) {
+    var n = ring.length;
+    var i = tip;
+    var walked = 0;
+    var guard = 0;
+    var p, prev;
+    while (guard < n) {
+      prev = ring[i];
+      i = (i + dir + n) % n;
+      p = ring[i];
+      walked += Math.hypot(p[0] - prev[0], p[1] - prev[1]);
+      guard++;
+      if (walked < 5) continue;
+      if (bubbleRadial(p, fit) < 1.06) return { p: bubbleOnEllipse(p, fit), index: i };
+      if (walked > Math.max(fit.rx, fit.ry) * 1.6) return null;
+    }
+    return null;
+  }
+
+  function bubbleOnEllipse(p, fit) {
+    var dx = p[0] - fit.cx;
+    var dy = p[1] - fit.cy;
+    var rad = Math.hypot(dx / fit.rx, dy / fit.ry) || 1;
+    return [fit.cx + dx / rad, fit.cy + dy / rad];
+  }
+
+  function bubbleBow(ring, tip, end, dir) {
+    var n = ring.length;
+    var a = ring[tip];
+    var b = ring[end];
+    var i = (tip + dir + n) % n;
+    var worst = 0;
+    var guard = 0;
+    var bow;
+    while (i !== end && guard < n) {
+      bow = distPointSeg(ring[i], a, b);
+      if (bow > worst) worst = bow;
+      i = (i + dir + n) % n;
+      guard++;
+    }
+    return worst;
+  }
+
+  function emitBubble(tip, a, b, body, fit) {
+    var angA = Math.atan2((a[1] - fit.cy) / fit.ry, (a[0] - fit.cx) / fit.rx);
+    var angB = Math.atan2((b[1] - fit.cy) / fit.ry, (b[0] - fit.cx) / fit.rx);
+    var tipAng = Math.atan2((tip[1] - fit.cy) / fit.ry, (tip[0] - fit.cx) / fit.rx);
+    function unwrap(from, to) {
+      var delta = to - from;
+      while (delta <= -Math.PI) delta += Math.PI * 2;
+      while (delta > Math.PI) delta -= Math.PI * 2;
+      return delta;
+    }
+    function holds(sweep, ang) {
+      var rel = unwrap(angA, ang);
+      if (sweep > 0) return rel > 0.04 && rel < sweep - 0.04;
+      return rel < -0.04 && rel > sweep + 0.04;
+    }
+    var short = unwrap(angA, angB);
+    var long = short > 0 ? short - Math.PI * 2 : short + Math.PI * 2;
+    var toEnd = holds(short, tipAng) ? long : short;
+    if (Math.abs(toEnd) < 3.4 || Math.abs(toEnd) > 6.05) return null;
+    var segs = [{ k: "L", p: a.slice() }];
+    var steps = Math.ceil(Math.abs(toEnd) / (Math.PI / 2));
+    if (steps < 2) steps = 2;
+    if (steps > 4) steps = 4;
+    var s, cursor = 0, next;
+    for (s = 1; s <= steps; s++) {
+      next = toEnd * s / steps;
+      segs.push(bubbleArc(angA + cursor, angA + next, fit));
+      cursor = next;
+    }
+    segs.push({ k: "L", p: tip.slice() });
+    return { start: tip.slice(), segs: segs };
+  }
+
+  function bubbleArc(aAng, bAng, fit) {
+    var a = [fit.cx + Math.cos(aAng) * fit.rx, fit.cy + Math.sin(aAng) * fit.ry];
+    var b = [fit.cx + Math.cos(bAng) * fit.rx, fit.cy + Math.sin(bAng) * fit.ry];
+    var sweep = bAng - aAng;
+    var h = 4 / 3 * Math.tan(sweep / 4);
+    var tax = -Math.sin(aAng) * fit.rx;
+    var tay = Math.cos(aAng) * fit.ry;
+    var tbx = -Math.sin(bAng) * fit.rx;
+    var tby = Math.cos(bAng) * fit.ry;
+    return {
+      k: "C",
+      c: [a, [a[0] + h * tax, a[1] + h * tay], [b[0] - h * tbx, b[1] - h * tby], b],
+      pts: [a, b]
+    };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -3314,6 +3565,8 @@ if (n < 6 || n > 40) return null;
     if (heart) return heart;
     var drop = dropFit(ring);
     if (drop) return drop;
+    var bubble = bubbleFit(ring);
+    if (bubble) return bubble;
     var roundTri = roundTriFit(ring);
     if (roundTri) return roundTri;
     var dcap = dCapFit(ring);

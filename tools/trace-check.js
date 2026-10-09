@@ -504,12 +504,26 @@ function bubble(x, y, cx, cy, rx, ry, tipY) {
 }
 const bubblePath = trace(raster(140, 140, (x, y) => bubble(x, y, 70, 58, 40, 28, 112)), 140, 140);
 const bubbleN = counts(bubblePath);
-assert.ok(bubbleN.c >= 4, "bubble cubics " + bubbleN.c + " " + bubblePath);
-assert.ok(bubbleN.l <= 4, "bubble lines " + bubblePath);
+assert.strictEqual(bubbleN.l, 2, "bubble lines " + bubblePath);
+assert.ok(bubbleN.c >= 2 && bubbleN.c <= 4, "bubble cubics " + bubbleN.c + " " + bubblePath);
 const nums = bubblePath.match(/-?\d+(?:\.\d+)?/g).map(Number);
 let minY = nums[1];
 for (let i = 1; i < nums.length; i += 2) if (nums[i] < minY) minY = nums[i];
 assert.ok(minY < 360, "bubble body " + minY + " " + bubblePath);
+function bubbleSide(x, y, cx, cy, rx, ry, tipX) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1) return true;
+  return x >= cx + rx * 0.55 && x <= tipX && Math.abs(y - cy) <= (tipX - x) * 0.42 + 1;
+}
+const bubbleRight = trace(raster(160, 130, (x, y) => bubbleSide(x, y, 62, 64, 28, 36, 138)), 160, 130);
+const bubbleRightN = counts(bubbleRight);
+assert.strictEqual(bubbleRightN.l, 2, "bubble right lines " + bubbleRight);
+assert.ok(bubbleRightN.c >= 2 && bubbleRightN.c <= 4, "bubble right cubics " + bubbleRightN.c + " " + bubbleRight);
+const bubbleUp = trace(raster(140, 150, (x, y) => bubble(x, 149 - y, 70, 58, 40, 28, 112)), 140, 150);
+const bubbleUpN = counts(bubbleUp);
+assert.strictEqual(bubbleUpN.l, 2, "bubble up lines " + bubbleUp);
+assert.ok(bubbleUpN.c >= 2 && bubbleUpN.c <= 4, "bubble up cubics " + bubbleUpN.c + " " + bubbleUp);
 
 function arrowNotch(x, y) {
   const pts = [[16, 20], [120, 20], [120, 40], [148, 50], [120, 60], [120, 80], [16, 80], [40, 50]];
