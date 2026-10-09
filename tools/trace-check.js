@@ -528,6 +528,25 @@ const arrowXs = arrowD.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i 
 const tipCount = arrowXs.filter((x) => x > 900).length;
 assert.strictEqual(tipCount, 1, "arrow tip " + arrowD);
 
+function roundedTri(x, y, r) {
+  const pts = [[70, 24], [116, 112], [24, 112]];
+  if (!insidePoly(pts, x, y)) return false;
+  function edge(ax, ay, bx, by) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const l2 = dx * dx + dy * dy;
+    let t = ((x - ax) * dx + (y - ay) * dy) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+  }
+  const d = Math.min(edge(70, 24, 116, 112), edge(116, 112, 24, 112), edge(24, 112, 70, 24));
+  return d >= r;
+}
+const roundTri = trace(raster(140, 140, (x, y) => roundedTri(x, y, 10)), 140, 140);
+const roundTriN = counts(roundTri);
+assert.ok(roundTriN.c >= 1 && roundTriN.c <= 3, "rounded tri cubics " + roundTriN.c + " " + roundTri);
+assert.ok(roundTriN.l >= 3 && roundTriN.l <= 5, "rounded tri lines " + roundTri);
+
 function mapPin(x, y, cx, cy, r, tipx, tipy) {
   const dx = x - cx;
   const dy = y - cy;

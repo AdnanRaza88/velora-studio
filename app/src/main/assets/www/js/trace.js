@@ -3210,6 +3210,83 @@
     };
   }
 
+
+  function roundTriFit(ring) {
+    var n = ring.length;
+if (n < 6 || n > 40) return null;
+    var mark = new Array(n);
+    var fillets = [];
+    var i, a, b, c, ab, bc, bow, turn;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      ab = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      bc = Math.hypot(c[0] - b[0], c[1] - b[1]);
+      if (ab < 1.15 || ab > 5.5 || bc < 1.15 || bc > 5.5) continue;
+      if (Math.abs(ab - bc) > 1.8) continue;
+      bow = distPointSeg(b, a, c);
+      if (bow < 0.8 || bow > 3.2) continue;
+      turn = turnAt(a, b, c);
+      if (turn < 0.5 || turn > 2.4) continue;
+      var prev = ring[(i + n - 2) % n];
+      var next = ring[(i + 2) % n];
+      if (Math.hypot(a[0] - prev[0], a[1] - prev[1]) < 8) continue;
+      if (Math.hypot(next[0] - c[0], next[1] - c[1]) < 8) continue;
+      var hit = lineCross(prev, a, c, next);
+      if (!hit) continue;
+      var rise = Math.hypot(hit[0] - b[0], hit[1] - b[1]);
+      if (rise < 1.45 || rise > 8) continue;
+      mark[i] = 1;
+      fillets.push(i);
+    }
+    if (!fillets.length || fillets.length > 3) return null;
+    var peaks = 0;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      if (turnAt(a, b, c) < 0.7) continue;
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 6 && Math.hypot(c[0] - b[0], c[1] - b[1]) < 6) continue;
+      peaks++;
+    }
+    if (peaks < 2 || peaks > 3) return null;
+    var segs = [];
+    var start = ring[(fillets[0] + n - 1) % n].slice();
+    i = (fillets[0] + n - 1) % n;
+    var guard = 0;
+    var produced = 0;
+    while (guard < n) {
+      var at = (i + 1) % n;
+      if (mark[at]) {
+        a = ring[i];
+        b = ring[at];
+        c = ring[(at + 1) % n];
+        var ix = b[0] - a[0];
+        var iy = b[1] - a[1];
+        var ox = c[0] - b[0];
+        var oy = c[1] - b[1];
+        var il = Math.hypot(ix, iy) || 1;
+        var ol = Math.hypot(ox, oy) || 1;
+        var h = Math.min(il, ol) * 0.55;
+        segs.push({
+          k: "C",
+          c: [a, [a[0] + ix / il * h, a[1] + iy / il * h], [c[0] - ox / ol * h, c[1] - oy / ol * h], c],
+          pts: [a, b, c]
+        });
+        produced++;
+        i = (at + 1) % n;
+      } else {
+        segs.push({ k: "L", p: ring[at].slice(), pts: [ring[i], ring[at]] });
+        i = at;
+      }
+      guard++;
+      if (i === (fillets[0] + n - 1) % n) break;
+    }
+    if (produced !== fillets.length || segs.length < 4) return null;
+    return { start: start, segs: segs };
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -3236,6 +3313,8 @@
     if (heart) return heart;
     var drop = dropFit(ring);
     if (drop) return drop;
+    var roundTri = roundTriFit(ring);
+    if (roundTri) return roundTri;
     var dcap = dCapFit(ring);
     if (dcap) return dcap;
     var rounded = roundRectFit(ring);
@@ -3604,6 +3683,8 @@
         var dy2 = nout[1] - b[1];
         var dot = (dx1 * dx2 + dy1 * dy2) / (inLen * outLen);
         if (dot > 0.62) continue;
+        var mid = bezier(segs[i].c[0], segs[i].c[1], segs[i].c[2], segs[i].c[3], 0.5);
+        if (distPointSeg(mid, a, b) > 0.4) continue;
         if (distPointSeg(segs[i].c[1], a, hit) > 2.6) continue;
         if (distPointSeg(segs[i].c[2], b, hit) > 2.6) continue;
         var along = ((hit[0] - a[0]) * dx1 + (hit[1] - a[1]) * dy1) / inLen;
@@ -4037,6 +4118,33 @@
     return horiz || vert;
   }
 
+
+  function filletBow(ring, i) {
+    var n = ring.length;
+    var back = i;
+    var fore = i;
+    var walked = 0;
+    var prev = ring[i];
+    var guard = 0;
+    while (walked < 8 && guard < n) {
+      back = (back + n - 1) % n;
+      walked += Math.hypot(ring[back][0] - prev[0], ring[back][1] - prev[1]);
+      prev = ring[back];
+      guard++;
+    }
+    walked = 0;
+    prev = ring[i];
+    guard = 0;
+    while (walked < 8 && guard < n) {
+      fore = (fore + 1) % n;
+      walked += Math.hypot(ring[fore][0] - prev[0], ring[fore][1] - prev[1]);
+      prev = ring[fore];
+      guard++;
+    }
+    if (back === fore) return 0;
+    return distPointSeg(ring[i], ring[back], ring[fore]);
+  }
+
   function smoothChain(points, corner) {
     var pack = closedRing(points);
     var ring = pack.ring;
@@ -4070,6 +4178,10 @@
       a = ring[(i + ring.length - 1) % ring.length];
       b = ring[i];
       c = ring[(i + 1) % ring.length];
+      if (filletBow(ring, i) > 0.85) {
+        keep.push(b.slice());
+        continue;
+      }
       if (turnAt(a, b, c) < 0.14 && distPointSeg(b, a, c) < 0.45) continue;
       if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 2.6 && Math.hypot(c[0] - b[0], c[1] - b[1]) < 2.6 && distPointSeg(b, a, c) < 1.15) continue;
       keep.push(b.slice());
