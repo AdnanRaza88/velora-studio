@@ -1288,10 +1288,27 @@
     return false;
   }
 
+  function stairSharp(ring) {
+    var n = ring.length;
+    var i, a, b, c, lab, lbc;
+    if (n < 4) return false;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
+      b = ring[i];
+      c = ring[(i + 1) % n];
+      if (turnAt(a, b, c) <= 0.62) continue;
+      lab = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      lbc = Math.hypot(c[0] - b[0], c[1] - b[1]);
+      if (lab < 2.6 && lbc < 2.6) continue;
+      return true;
+    }
+    return false;
+  }
+
   function circleFit(ring) {
     var n = ring.length;
     if (n < 8) return null;
-    if (hasSharp(ring)) return null;
+    var stair = stairSharp(ring);
     var cx = 0;
     var cy = 0;
     var i;
@@ -1359,7 +1376,9 @@
     if (bw < 6.5 || bh < 6.5) return null;
     if (Math.max(bw, bh) / Math.min(bw, bh) > 1.16) return null;
     var allow = Math.max(0.78, r * 0.062);
-    if (worst > allow || worst > 1.35) return null;
+    if (stair && worst > 1.05) return null;
+    if (worst > allow || worst > 1.7) return null;
+    if (Math.abs(area(ring)) < Math.PI * r * r * 0.84) return null;
     return { cx: cx, cy: cy, r: r, worst: worst };
   }
 
@@ -1411,7 +1430,7 @@
     var bw = maxX - minX;
     var bh = maxY - minY;
     if (bw < 10 || bh < 8) return null;
-    if (hasSharp(ring)) return null;
+    var stairE = stairSharp(ring);
     var aspect0 = Math.max(bw, bh) / Math.min(bw, bh);
     if (aspect0 < 1.18 || aspect0 > 4.8) return null;
     var s00 = 0, s01 = 0, s02 = 0, s03 = 0, s11 = 0, s12 = 0, s13 = 0, s22 = 0, s23 = 0, s33 = 0;
@@ -1461,6 +1480,7 @@
       if (err > worst) worst = err;
     }
     var allow = Math.max(1.35, Math.min(rx, ry) * 0.11);
+    if (stairE && worst > 1.6) return null;
     if (worst > allow || worst > 2.8) return null;
     if (Math.abs(area(ring)) < rx * ry * 2.2) return null;
     return { cx: cx, cy: cy, rx: rx, ry: ry, worst: worst };
@@ -2655,6 +2675,18 @@
       sum += err;
     }
     if (worst > 2.6 || sum / n > 0.95) return null;
+    var cr = 0;
+    var cworst = 0;
+    var csum = 0;
+    var cerr;
+    for (i = 0; i < n; i++) cr += Math.hypot(ring[i][0] - cx, ring[i][1] - cy);
+    cr /= n;
+    for (i = 0; i < n; i++) {
+      cerr = Math.abs(Math.hypot(ring[i][0] - cx, ring[i][1] - cy) - cr);
+      if (cerr > cworst) cworst = cerr;
+      csum += cerr;
+    }
+    if (cworst <= 1.85 && csum < sum) return null;
     function edgeSpan(sel) {
       var idx = [];
       var k;

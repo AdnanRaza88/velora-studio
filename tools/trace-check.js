@@ -834,3 +834,42 @@ paraCounts("para", 160, 120, [[40, 20], [130, 20], [120, 100], [30, 100]]);
 paraCounts("para skew", 180, 140, [[36, 22], [150, 18], [132, 118], [18, 114]]);
 const chamferStay = trace(raster(140, 100, (x, y) => insidePoly([[28, 20], [92, 20], [112, 40], [112, 80], [28, 80]], x, y)), 140, 100);
 assert.strictEqual(counts(chamferStay).l, 5, "chamfer stays " + chamferStay);
+
+function holeCircle(tag, w, h, cx, cy, r) {
+  const d = trace(raster(w, h, (x, y) => {
+    const box = x >= 12 && x <= w - 12 && y >= 10 && y <= h - 10;
+    return box && (x - cx) * (x - cx) + (y - cy) * (y - cy) > r * r;
+  }), w, h);
+  const parts = d.split(/ (?=M)/);
+  assert.strictEqual(parts.length, 2, tag + " parts " + d);
+  assert.strictEqual(counts(parts[0]).l, 4, tag + " outer " + parts[0]);
+  assert.strictEqual(counts(parts[0]).c, 0, tag + " outer cubics " + parts[0]);
+  const hole = parts[1];
+  assert.strictEqual(counts(hole).l, 0, tag + " hole lines " + hole);
+  assert.strictEqual(counts(hole).c, 4, tag + " hole cubics " + hole);
+  const nums = hole.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const handle = Math.hypot(nums[2] - nums[0], nums[3] - nums[1]);
+  const chord = Math.hypot(nums[6] - nums[0], nums[7] - nums[1]);
+  const ratio = handle / (chord / Math.SQRT2);
+  assert.ok(ratio > 0.45 && ratio < 0.68, tag + " kappa " + ratio.toFixed(3) + " " + hole);
+}
+holeCircle("hole circle", 200, 160, 100, 80, 18);
+holeCircle("hole circle wide", 200, 160, 100, 80, 24);
+
+function holeEllipse(tag, w, h) {
+  const d = trace(raster(w, h, (x, y) => {
+    const box = x >= 12 && x <= w - 12 && y >= 10 && y <= h - 10;
+    const nx = (x - 100) / 28;
+    const ny = (y - 80) / 16;
+    return box && nx * nx + ny * ny > 1;
+  }), w, h);
+  const parts = d.split(/ (?=M)/);
+  assert.strictEqual(parts.length, 2, tag + " parts " + d);
+  assert.strictEqual(counts(parts[0]).l, 4, tag + " outer " + parts[0]);
+  const hole = parts[1];
+  assert.strictEqual(counts(hole).l, 0, tag + " hole lines " + hole);
+  assert.strictEqual(counts(hole).c, 4, tag + " hole cubics " + hole);
+  const nums = hole.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  assert.ok(Math.abs(nums[2] - nums[0]) < 1.5 || Math.abs(nums[3] - nums[1]) < 1.5, tag + " pole tangent " + hole);
+}
+holeEllipse("hole ellipse", 200, 160);
