@@ -759,3 +759,16 @@ function reuCounts(tag, w, h, paint) {
 reuCounts("reuleaux up", 160, 160, (x, y) => reuleaux(x, y, 80, 28, 34, 112, 126, 112));
 reuCounts("reuleaux down", 160, 160, (x, y) => reuleaux(x, y, 80, 132, 34, 48, 126, 48));
 reuCounts("reuleaux right", 160, 160, (x, y) => reuleaux(x, y, 132, 80, 48, 34, 48, 126));
+
+function squircle(x, y, cx, cy, rx, ry) {
+  const nx = Math.abs(x - cx) / rx;
+  const ny = Math.abs(y - cy) / ry;
+  return nx * nx * nx * nx + ny * ny * ny * ny <= 1;
+}
+function squCounts(tag, w, h, paint) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.l, 0, tag + " lines " + d);
+  assert.strictEqual(n.c, 4, tag + " cubics " + d);
+}
+squCounts("squircle", 160, 160, (x, y) => squircle(x, y, 80, 80, 48, 48));

@@ -2620,6 +2620,121 @@
     };
   }
 
+
+  function squircleFit(ring) {
+    var n = ring.length;
+    if (n < 12) return null;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var rx = (maxX - minX) / 2;
+    var ry = (maxY - minY) / 2;
+    if (rx < 12 || ry < 12) return null;
+    var aspect = rx > ry ? rx / ry : ry / rx;
+    if (aspect > 1.4) return null;
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var worst = 0;
+    var sum = 0;
+    for (i = 0; i < n; i++) {
+      var nx = (ring[i][0] - cx) / rx;
+      var ny = (ring[i][1] - cy) / ry;
+      if (Math.abs(nx) > 1.08 || Math.abs(ny) > 1.08) return null;
+      var mag = Math.pow(Math.abs(nx), 4) + Math.pow(Math.abs(ny), 4);
+      var rad = Math.pow(Math.max(mag, 1e-9), 0.25);
+      var err = Math.abs(rad - 1) * Math.min(rx, ry);
+      if (err > worst) worst = err;
+      sum += err;
+    }
+    if (worst > 2.6 || sum / n > 0.95) return null;
+    function edgeSpan(sel) {
+      var idx = [];
+      var k;
+      for (k = 0; k < n; k++) if (sel(k)) idx.push(k);
+      if (idx.length < 2) return 0;
+      var best = 0;
+      var run = [idx[0]];
+      for (k = 1; k <= idx.length; k++) {
+        var cur = idx[k % idx.length];
+        var prev = idx[(k - 1) % idx.length];
+        var gap = (cur - prev + n) % n;
+        if (k < idx.length && gap <= 2) run.push(cur);
+        else {
+          if (run.length >= 2) {
+            var a = ring[run[0]];
+            var b = ring[run[run.length - 1]];
+            var along = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            if (along > best) best = along;
+          }
+          run = [cur];
+        }
+      }
+      return best;
+    }
+    var flat = Math.max(
+      edgeSpan(function (k) { return Math.abs(Math.abs(ring[k][0] - cx) / rx - 1) < 0.012; }),
+      edgeSpan(function (k) { return Math.abs(Math.abs(ring[k][1] - cy) / ry - 1) < 0.012; })
+    );
+    if (flat > Math.min(rx, ry) * 0.45) return null;
+    var poles = [[cx + rx, cy], [cx - rx, cy], [cx, cy - ry], [cx, cy + ry]];
+    var order = [];
+    for (i = 0; i < poles.length; i++) {
+      var best = 0;
+      var bestD = 1e12;
+      var k, d;
+      for (k = 0; k < n; k++) {
+        d = Math.hypot(ring[k][0] - poles[i][0], ring[k][1] - poles[i][1]);
+        if (d < bestD) {
+          bestD = d;
+          best = k;
+        }
+      }
+      if (bestD > Math.min(rx, ry) * 0.32) return null;
+      order.push({ i: best, p: poles[i] });
+    }
+    order.sort(function (a, b) { return a.i - b.i; });
+    for (i = 1; i < order.length; i++) if (order[i].i === order[i - 1].i) return null;
+    var h = 0.92;
+    var segs = [];
+    for (i = 0; i < order.length; i++) {
+      var a = order[i].p;
+      var b = order[(i + 1) % order.length].p;
+      var atx = -(a[1] - cy) / ry * rx;
+      var aty = (a[0] - cx) / rx * ry;
+      var alen = Math.hypot(atx, aty) || 1;
+      atx /= alen;
+      aty /= alen;
+      if (atx * (b[0] - a[0]) + aty * (b[1] - a[1]) < 0) {
+        atx = -atx;
+        aty = -aty;
+      }
+      var btx = -(b[1] - cy) / ry * rx;
+      var bty = (b[0] - cx) / rx * ry;
+      var blen = Math.hypot(btx, bty) || 1;
+      btx /= blen;
+      bty /= blen;
+      if (btx * (b[0] - a[0]) + bty * (b[1] - a[1]) < 0) {
+        btx = -btx;
+        bty = -bty;
+      }
+      var as = Math.abs(a[0] - cx) > Math.abs(a[1] - cy) ? ry : rx;
+      var bs = Math.abs(b[0] - cx) > Math.abs(b[1] - cy) ? ry : rx;
+      segs.push({
+        k: "C",
+        c: [a, [a[0] + atx * h * as, a[1] + aty * h * as], [b[0] - btx * h * bs, b[1] - bty * h * bs], b]
+      });
+    }
+    return { start: order[0].p, segs: segs };
+  }
+
   function roundRectFit(ring) {
     var n = ring.length;
     if (n < 6) return null;
@@ -4031,6 +4146,8 @@ if (n < 6 || n > 40) return null;
     if (keyhole) return keyhole;
     var shoe = horseshoeFit(ring);
     if (shoe) return shoe;
+    var squircle = squircleFit(ring);
+    if (squircle) return squircle;
     var rounded = roundRectFit(ring);
     if (rounded) return rounded;
     var oval = ovalFit(ring, opttolerance);
