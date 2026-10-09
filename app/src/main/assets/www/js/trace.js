@@ -2866,6 +2866,28 @@
   }
 
 
+  function endStair(span) {
+    if (!span || span.length < 3) return false;
+    var a = span[0];
+    var b = span[span.length - 1];
+    var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (chord < 16) return false;
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var mid = 0;
+    var end = 0;
+    var i, along, cross, dist;
+    for (i = 1; i < span.length - 1; i++) {
+      along = ((span[i][0] - a[0]) * dx + (span[i][1] - a[1]) * dy) / chord;
+      cross = (span[i][0] - a[0]) * dy - (span[i][1] - a[1]) * dx;
+      dist = Math.abs(cross) / chord;
+      if (along > 8 && along < chord - 8) {
+        if (dist > mid) mid = dist;
+      } else if (dist > end) end = dist;
+    }
+    return mid <= 1.45 && end <= 3.6;
+  }
+
   function quadFit(ring) {
     var n = ring.length;
     if (n < 8 || n > 180) return null;
@@ -2968,7 +2990,7 @@
       bow = chordBow(span);
       len = Math.hypot(ring[b][0] - ring[a][0], ring[b][1] - ring[a][1]);
       if (len < 8) return null;
-      if (bow > 1.65) return null;
+      if (bow > 1.65 && !endStair(span)) return null;
       lens.push(len);
     }
     lo = lens[0];

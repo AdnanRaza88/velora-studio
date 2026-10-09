@@ -445,6 +445,14 @@ const stairDiamond = trace(raster(180, 180, (x, y) => {
 const stairN = counts(stairDiamond);
 assert.strictEqual(stairN.c, 0, "stair diamond cubics " + stairDiamond);
 assert.strictEqual(stairN.l, 4, "stair diamond lines " + stairDiamond);
+const tipDiamond = trace(raster(160, 160, (x, y) => insidePoly([[80, 24], [128, 80], [80, 136], [32, 80]], x, y)), 160, 160);
+const tipN = counts(tipDiamond);
+assert.strictEqual(tipN.c, 0, "tip diamond cubics " + tipDiamond);
+assert.strictEqual(tipN.l, 4, "tip diamond lines " + tipDiamond);
+const skinnyDiamond = trace(raster(200, 160, (x, y) => insidePoly([[100, 20], [170, 80], [100, 140], [30, 80]], x, y)), 200, 160);
+const skinnyN = counts(skinnyDiamond);
+assert.strictEqual(skinnyN.c, 0, "skinny diamond cubics " + skinnyDiamond);
+assert.strictEqual(skinnyN.l, 4, "skinny diamond lines " + skinnyDiamond);
 
 function insidePoly(pts, x, y) {
   let inside = false;
