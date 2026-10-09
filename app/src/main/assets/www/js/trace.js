@@ -3038,6 +3038,78 @@
     return { start: ring[kept[0]].slice(), segs: segs };
   }
 
+  function rayEdge(cx, cy, dx, dy, hint, mask, w, h) {
+    var inside = on(mask, w, h, Math.round(cx), Math.round(cy));
+    var t, x, y, v, prev;
+    prev = inside;
+    var start = Math.max(1, hint * 0.62);
+    var end = hint * 1.28;
+    for (t = start; t <= end; t += 0.45) {
+      x = Math.round(cx + dx * t);
+      y = Math.round(cy + dy * t);
+      v = on(mask, w, h, x, y);
+      if (v !== prev) return t;
+      prev = v;
+    }
+    return null;
+  }
+
+  function bowCircle(ring, mask, w, h) {
+    if (!mask || !w || !h || ring.length < 6 || ring.length > 36) return null;
+    var n = ring.length;
+    var cx = 0;
+    var cy = 0;
+    var i;
+    for (i = 0; i < n; i++) {
+      cx += ring[i][0];
+      cy += ring[i][1];
+    }
+    cx /= n;
+    cy /= n;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var rSum = 0;
+    for (i = 0; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+      rSum += Math.hypot(ring[i][0] - cx, ring[i][1] - cy);
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 10 || bh < 10) return null;
+    if (Math.max(bw, bh) / Math.min(bw, bh) > 1.14) return null;
+    var r = rSum / n;
+    if (r < 8 || r > 92) return null;
+    var deltas = [];
+    for (i = 0; i < n; i++) {
+      var a = ring[i];
+      var b = ring[(i + 1) % n];
+      var mx = (a[0] + b[0]) / 2;
+      var my = (a[1] + b[1]) / 2;
+      var ang = Math.atan2(my - cy, mx - cx);
+      var dx = Math.cos(ang);
+      var dy = Math.sin(ang);
+      var vr = (Math.hypot(a[0] - cx, a[1] - cy) + Math.hypot(b[0] - cx, b[1] - cy)) / 2;
+      var edge = rayEdge(cx, cy, dx, dy, vr, mask, w, h);
+      if (edge == null) return null;
+      deltas.push(vr - edge);
+    }
+    deltas.sort(function (p, q) { return p - q; });
+    var mid = deltas[(deltas.length / 2) | 0];
+    if (mid > 0.55 || mid < -1.35) return null;
+    var wind = 0;
+    var wi;
+    for (wi = 0; wi < n; wi++) {
+      var wj = (wi + 1) % n;
+      wind += ring[wi][0] * ring[wj][1] - ring[wj][0] * ring[wi][1];
+    }
+    return kappaCircle({ cx: cx, cy: cy, r: r }, wind < 0 ? -1 : 1);
+  }
+
   function polygonFit(ring) {
     var n = ring.length;
     if (n < 6 || n > 96) return null;
@@ -4382,7 +4454,7 @@ if (n < 6 || n > 40) return null;
     return { start: ring[kept[0]].slice(), segs: segs };
   }
 
-  function fitContour(points, alphamax, opttolerance) {
+  function fitContour(points, alphamax, opttolerance, mask, mw, mh) {
     var ring = [];
     var i;
     for (i = 0; i < points.length; i++) {
@@ -4393,6 +4465,10 @@ if (n < 6 || n > 40) return null;
     var quad = quadFit(ring);
     if (quad) return quad;
     var poly = polygonFit(ring);
+    if (poly && poly.segs.length === 8) {
+      var bowed = bowCircle(ring, mask, mw, mh);
+      if (bowed) return bowed;
+    }
     if (poly) return poly;
     var star = starFit(ring);
     if (star) return star;
@@ -4842,7 +4918,7 @@ if (n < 6 || n > 40) return null;
     }
     var alphamax = opts && opts.alphamax != null ? opts.alphamax : 0.95;
     var opttolerance = opts && opts.opttolerance != null ? opts.opttolerance : 0.36;
-    var fit = fitContour(points, alphamax, opttolerance);
+    var fit = fitContour(points, alphamax, opttolerance, opts && opts.mask, opts && opts.mw, opts && opts.mh);
 
     if (!fit || !fit.segs.length) return "";
     fit = miterChamfers(fit);
@@ -6230,11 +6306,17 @@ if (n < 6 || n > 40) return null;
     }
     for (i = 0; i < simplified.length; i++) {
       var fitted = thinFit(simplified[i], ink, w, h, opts);
+      fitted.opts.mask = ink;
+      fitted.opts.mw = w;
+      fitted.opts.mh = h;
       d = toPath(fitted.points, ox, oy, scale, fitted.opts);
       if (!d) continue;
       for (j = 0; j < holeSlim.length; j++) {
         if (owners[j] !== i) continue;
         var holeFit = thinFit(holeSlim[j], ink, w, h, opts);
+        holeFit.opts.mask = ink;
+        holeFit.opts.mw = w;
+        holeFit.opts.mh = h;
         hd = toPath(holeFit.points, ox, oy, scale, holeFit.opts);
         if (!hd) continue;
         d += " " + hd;
@@ -6430,11 +6512,17 @@ if (n < 6 || n > 40) return null;
     }
     for (i = 0; i < simplified.length; i++) {
       var fitted = thinFit(simplified[i], mask, w, h, opts);
+      fitted.opts.mask = mask;
+      fitted.opts.mw = w;
+      fitted.opts.mh = h;
       d = toPath(fitted.points, ox, oy, scale, fitted.opts);
       if (!d) continue;
       for (j = 0; j < holeSlim.length; j++) {
         if (owners[j] !== i) continue;
         var holeFit = thinFit(holeSlim[j], mask, w, h, opts);
+        holeFit.opts.mask = mask;
+        holeFit.opts.mw = w;
+        holeFit.opts.mh = h;
         hd = toPath(holeFit.points, ox, oy, scale, holeFit.opts);
         if (!hd) continue;
         d += " " + hd;

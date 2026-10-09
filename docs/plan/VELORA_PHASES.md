@@ -44,6 +44,7 @@ Brief (+ optional attachment)
 - [x] Quad tip stairs: a side may bow up to 3.6px within 8px of a corner when the middle stays within 1.45px, so a raster diamond stays four lines; a circle, pentagon, and rounded rectangle stay
 - [x] Trace parallelogram stairs: a shallow slant may keep an 8px axis stair at the corner; that stair miters into the two long sides, so a parallelogram stays four lines; a 12px chamfer, chevron, diamond, and bolt stay
 - [x] Trace circular holes: a circle or ellipse cut out of a rectangle emits four kappa cubics, so a stair on the hole is not a squircle; a squircle, diamond, circle, and ellipse stay
+- [x] Trace small circles: an eight-corner raster ring whose side midpoints still sit on the circle emits four kappa cubics, so a 14px and 16px disk and a circular hole are not octagons; a 12px octagon, flat octagon, pentagon, hexagon, and square stay
 - [x] Trace segment and wedge: a circular segment emits one chord and one or two arc cubics, and a pie under a half-turn emits two radii and one arc cubic, so a stair at the tip is not an extra line; a circle, semicircle, stadium, rounded rectangle, D-cap, and polygon stay
 - [x] Trace crescent: two cusp corners whose spans sit on circles emit arc cubics and no chord, so a bitten circle stays two arcs; a segment, pie, semicircle, stadium, and polygon stay
 - [x] Trace heart: an upright contour with one convex tip and one concave cleft emits cubics on both lobes and no chord, so a cardioid heart stays a closed curve; a crescent, circle, stadium, and polygon stay

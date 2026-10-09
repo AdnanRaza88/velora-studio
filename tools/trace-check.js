@@ -835,6 +835,20 @@ paraCounts("para skew", 180, 140, [[36, 22], [150, 18], [132, 118], [18, 114]]);
 const chamferStay = trace(raster(140, 100, (x, y) => insidePoly([[28, 20], [92, 20], [112, 40], [112, 80], [28, 80]], x, y)), 140, 100);
 assert.strictEqual(counts(chamferStay).l, 5, "chamfer stays " + chamferStay);
 
+function smallCircle(tag, w, h, cx, cy, r) {
+  const d = trace(raster(w, h, (x, y) => (x - cx) * (x - cx) + (y - cy) * (y - cy) < r * r), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.l, 0, tag + " lines " + d);
+  assert.strictEqual(n.c, 4, tag + " cubics " + d);
+  const nums = d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const handle = Math.hypot(nums[2] - nums[0], nums[3] - nums[1]);
+  const chord = Math.hypot(nums[6] - nums[0], nums[7] - nums[1]);
+  const ratio = handle / (chord / Math.SQRT2);
+  assert.ok(ratio > 0.45 && ratio < 0.68, tag + " kappa " + ratio.toFixed(3) + " " + d);
+}
+smallCircle("small circle", 160, 160, 80, 80, 16);
+smallCircle("small circle 14", 160, 160, 80, 80, 14);
+
 function holeCircle(tag, w, h, cx, cy, r) {
   const d = trace(raster(w, h, (x, y) => {
     const box = x >= 12 && x <= w - 12 && y >= 10 && y <= h - 10;
@@ -855,6 +869,8 @@ function holeCircle(tag, w, h, cx, cy, r) {
 }
 holeCircle("hole circle", 200, 160, 100, 80, 18);
 holeCircle("hole circle wide", 200, 160, 100, 80, 24);
+holeCircle("hole circle small", 200, 160, 100, 80, 16);
+holeCircle("hole circle 14", 200, 160, 100, 80, 14);
 
 function holeEllipse(tag, w, h) {
   const d = trace(raster(w, h, (x, y) => {
