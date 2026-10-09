@@ -3091,6 +3091,98 @@
   }
 
 
+  function straightPolyFit(ring) {
+    var n = ring.length;
+    if (n < 6 || n > 980) return null;
+    var win = 4.4;
+    function step(i, dir) {
+      var walked = 0;
+      var j = i;
+      var guard = 0;
+      var prev = ring[j];
+      while (walked < win && guard < n) {
+        j = (j + dir + n) % n;
+        walked += Math.hypot(ring[j][0] - prev[0], ring[j][1] - prev[1]);
+        prev = ring[j];
+        guard++;
+      }
+      return j;
+    }
+    var turns = new Array(n);
+    var i, best, k, d, stepLen, peaks, span, bow, len, gap, reflex, segs, a, b;
+    for (i = 0; i < n; i++) turns[i] = turnAt(ring[step(i, -1)], ring[i], ring[step(i, 1)]);
+    peaks = [];
+    for (i = 0; i < n; i++) {
+      if (turns[i] < 0.66 || turns[i] > 3.05) continue;
+      best = true;
+      k = (i + n - 1) % n;
+      d = 0;
+      while (d < 6.2) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + 1) % n][0], ring[k][1] - ring[(k + 1) % n][1]);
+        if (d + stepLen > 6.2) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.04) best = false;
+        k = (k + n - 1) % n;
+        if (k === i) break;
+      }
+      k = (i + 1) % n;
+      d = 0;
+      while (d < 6.2) {
+        stepLen = Math.hypot(ring[k][0] - ring[(k + n - 1) % n][0], ring[k][1] - ring[(k + n - 1) % n][1]);
+        if (d + stepLen > 6.2) break;
+        d += stepLen;
+        if (turns[k] > turns[i] + 0.04) best = false;
+        k = (k + 1) % n;
+        if (k === i) break;
+      }
+      if (best) peaks.push(i);
+    }
+    var kept = [];
+    for (i = 0; i < peaks.length; i++) {
+      if (!kept.length) {
+        kept.push(peaks[i]);
+        continue;
+      }
+      gap = Math.hypot(ring[peaks[i]][0] - ring[kept[kept.length - 1]][0], ring[peaks[i]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 7.2) {
+        if (turns[peaks[i]] > turns[kept[kept.length - 1]]) kept[kept.length - 1] = peaks[i];
+        continue;
+      }
+      kept.push(peaks[i]);
+    }
+    if (kept.length > 1) {
+      gap = Math.hypot(ring[kept[0]][0] - ring[kept[kept.length - 1]][0], ring[kept[0]][1] - ring[kept[kept.length - 1]][1]);
+      if (gap < 7.2) {
+        if (turns[kept[kept.length - 1]] > turns[kept[0]]) kept[0] = kept[kept.length - 1];
+        kept.pop();
+      }
+    }
+    if (kept.length < 4 || kept.length > 7) return null;
+    reflex = 0;
+    for (i = 0; i < kept.length; i++) {
+      if (turns[kept[i]] > 2.42) reflex++;
+      a = kept[i];
+      b = kept[(i + 1) % kept.length];
+      span = [ring[a]];
+      k = a;
+      while (k !== b) {
+        k = (k + 1) % n;
+        span.push(ring[k]);
+        if (span.length > n) return null;
+      }
+      bow = chordBow(span);
+      len = Math.hypot(ring[b][0] - ring[a][0], ring[b][1] - ring[a][1]);
+      if (len < 8) return null;
+      if (bow > 2.65) return null;
+      if (turns[kept[i]] < 0.62) return null;
+    }
+    if (reflex < 1 || reflex > 2) return null;
+    segs = [];
+    for (i = 1; i < kept.length; i++) segs.push({ k: "L", p: ring[kept[i]].slice(), pts: [ring[kept[i - 1]], ring[kept[i]]] });
+    segs.push({ k: "L", p: ring[kept[0]].slice(), pts: [ring[kept[kept.length - 1]], ring[kept[0]]] });
+    return { start: ring[kept[0]].slice(), segs: segs };
+  }
+
   function dropFit(ring) {
     var n = ring.length;
     if (n < 16 || n > 900) return null;
@@ -4120,6 +4212,8 @@ if (n < 6 || n > 40) return null;
     if (quad) return quad;
     var poly = polygonFit(ring);
     if (poly) return poly;
+    var straight = straightPolyFit(ring);
+    if (straight) return straight;
     var stadium = stadiumFit(ring);
     if (stadium) return stadium;
     var semi = semicircleFit(ring);

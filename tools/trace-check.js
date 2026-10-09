@@ -772,3 +772,16 @@ function squCounts(tag, w, h, paint) {
   assert.strictEqual(n.c, 4, tag + " cubics " + d);
 }
 squCounts("squircle", 160, 160, (x, y) => squircle(x, y, 80, 80, 48, 48));
+
+function dart(x, y, ax, ay, bx, by, cx, cy, dx, dy) {
+  return insidePoly([[ax, ay], [bx, by], [cx, cy], [dx, dy]], x, y);
+}
+function dartCounts(tag, w, h, paint) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.c, 0, tag + " cubics " + d);
+  assert.strictEqual(n.l, 4, tag + " lines " + d);
+}
+dartCounts("dart", 160, 140, (x, y) => dart(x, y, 30, 30, 130, 30, 80, 112, 80, 68));
+dartCounts("dart left", 160, 140, (x, y) => dart(x, y, 130, 28, 36, 70, 130, 112, 92, 70));
+dartCounts("dart down", 160, 150, (x, y) => dart(x, y, 28, 118, 132, 118, 80, 28, 80, 78));
