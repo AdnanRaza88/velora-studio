@@ -2068,15 +2068,15 @@
       if ((best.cap === "right" && sign < 0) || (best.cap === "left" && sign > 0)) {
         start = topW;
         segs.push({ k: "L", p: topC.slice() });
-        segs.push(quarterCubic(topC, pole, capX, cy, best.r, arcSign));
-        segs.push(quarterCubic(pole, botC, capX, cy, best.r, arcSign));
+        segs.push(quarterCubic(topC, pole, capX, cy, best.r, -arcSign));
+        segs.push(quarterCubic(pole, botC, capX, cy, best.r, -arcSign));
         segs.push({ k: "L", p: botW.slice() });
         segs.push({ k: "L", p: topW.slice() });
       } else {
         start = botW;
         segs.push({ k: "L", p: botC.slice() });
-        segs.push(quarterCubic(botC, pole, capX, cy, best.r, -arcSign));
-        segs.push(quarterCubic(pole, topC, capX, cy, best.r, -arcSign));
+        segs.push(quarterCubic(botC, pole, capX, cy, best.r, arcSign));
+        segs.push(quarterCubic(pole, topC, capX, cy, best.r, arcSign));
         segs.push({ k: "L", p: topW.slice() });
         segs.push({ k: "L", p: botW.slice() });
       }
@@ -2092,15 +2092,15 @@
       if ((best.cap === "bottom" && sign < 0) || (best.cap === "top" && sign > 0)) {
         start = leftW;
         segs.push({ k: "L", p: leftC.slice() });
-        segs.push(quarterCubic(leftC, vpole, cx, capY, best.r, vSign));
-        segs.push(quarterCubic(vpole, rightC, cx, capY, best.r, vSign));
+        segs.push(quarterCubic(leftC, vpole, cx, capY, best.r, -vSign));
+        segs.push(quarterCubic(vpole, rightC, cx, capY, best.r, -vSign));
         segs.push({ k: "L", p: rightW.slice() });
         segs.push({ k: "L", p: leftW.slice() });
       } else {
         start = rightW;
         segs.push({ k: "L", p: rightC.slice() });
-        segs.push(quarterCubic(rightC, vpole, cx, capY, best.r, -vSign));
-        segs.push(quarterCubic(vpole, leftC, cx, capY, best.r, -vSign));
+        segs.push(quarterCubic(rightC, vpole, cx, capY, best.r, vSign));
+        segs.push(quarterCubic(vpole, leftC, cx, capY, best.r, vSign));
         segs.push({ k: "L", p: leftW.slice() });
         segs.push({ k: "L", p: rightW.slice() });
       }

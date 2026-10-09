@@ -625,6 +625,39 @@ const archTallN = counts(archTall);
 assert.strictEqual(archTallN.c, 2, "arch tall cubics " + archTall);
 assert.strictEqual(archTallN.l, 3, "arch tall lines " + archTall);
 
+function capQuarterError(d) {
+  const parts = d.split("C");
+  let worst = 0;
+  for (let i = 1; i < parts.length; i++) {
+    const nums = parts[i].match(/-?\d+(?:\.\d+)?/g).map(Number);
+    const prev = parts[i - 1].match(/-?\d+(?:\.\d+)?/g).map(Number);
+    const a = [prev[prev.length - 2], prev[prev.length - 1]];
+    const c1 = [nums[0], nums[1]];
+    const c2 = [nums[2], nums[3]];
+    const b = [nums[4], nums[5]];
+    if (Math.min(Math.abs(c1[0] - a[0]), Math.abs(c1[1] - a[1])) > 1.4) return 99;
+    if (Math.min(Math.abs(c2[0] - b[0]), Math.abs(c2[1] - b[1])) > 1.4) return 99;
+    const centers = [[a[0], b[1]], [b[0], a[1]]];
+    let best = 1e9;
+    centers.forEach((c) => {
+      const r0 = Math.hypot(a[0] - c[0], a[1] - c[1]);
+      const r1 = Math.hypot(b[0] - c[0], b[1] - c[1]);
+      if (Math.abs(r0 - r1) > 1.6) return;
+      const u = 0.5;
+      const mid = [
+        0.125 * a[0] + 0.375 * c1[0] + 0.375 * c2[0] + 0.125 * b[0],
+        0.125 * a[1] + 0.375 * c1[1] + 0.375 * c2[1] + 0.125 * b[1]
+      ];
+      best = Math.min(best, Math.abs(Math.hypot(mid[0] - c[0], mid[1] - c[1]) - r0));
+    });
+    if (best > worst) worst = best;
+  }
+  return worst;
+}
+assert.ok(capQuarterError(archTop) < 1.2, "arch top cap " + capQuarterError(archTop) + " " + archTop);
+assert.ok(capQuarterError(archRight) < 1.2, "arch right cap " + capQuarterError(archRight) + " " + archRight);
+assert.ok(capQuarterError(archTall) < 1.2, "arch tall cap " + capQuarterError(archTall) + " " + archTall);
+
 console.log("trace-check ok", { circle: counts(circle), ellipse: counts(ellipse), square: counts(square), tri: counts(tri), lobe: lobeN, pent: pentN });
 
 function keyhole(x, y, cx, cy, r, half, dir) {
