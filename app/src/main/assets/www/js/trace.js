@@ -1738,6 +1738,154 @@
 
 
 
+  function vesicaCusps(ring, horizontal) {
+    var n = ring.length;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    var cx = (minX + maxX) / 2;
+    var cy = (minY + maxY) / 2;
+    var a = -1;
+    var b = -1;
+    var bestA = 0;
+    var bestB = 0;
+    var here, prev, next, depth;
+    for (i = 0; i < n; i++) {
+      here = ring[i];
+      prev = ring[(i + n - 1) % n];
+      next = ring[(i + 1) % n];
+      if (horizontal) {
+        if (Math.abs(here[0] - cx) > bw * 0.22) continue;
+        if (here[1] < cy && here[1] >= prev[1] && here[1] >= next[1]) {
+          depth = here[1] - minY;
+          if (depth > bestA) {
+            bestA = depth;
+            a = i;
+          }
+        }
+        if (here[1] > cy && here[1] <= prev[1] && here[1] <= next[1]) {
+          depth = maxY - here[1];
+          if (depth > bestB) {
+            bestB = depth;
+            b = i;
+          }
+        }
+      } else {
+        if (Math.abs(here[1] - cy) > bh * 0.22) continue;
+        if (here[0] < cx && here[0] >= prev[0] && here[0] >= next[0]) {
+          depth = here[0] - minX;
+          if (depth > bestA) {
+            bestA = depth;
+            a = i;
+          }
+        }
+        if (here[0] > cx && here[0] <= prev[0] && here[0] <= next[0]) {
+          depth = maxX - here[0];
+          if (depth > bestB) {
+            bestB = depth;
+            b = i;
+          }
+        }
+      }
+    }
+    if (a < 0 || b < 0 || bestA < 2.4 || bestB < 2.4) return null;
+    return { a: a, b: b };
+  }
+
+  function vesicaSpan(ring, from, to) {
+    var span = [];
+    var i = from;
+    var guard = 0;
+    while (guard <= ring.length) {
+      span.push(ring[i]);
+      if (i === to && span.length > 1) break;
+      i = (i + 1) % ring.length;
+      guard++;
+    }
+    return span;
+  }
+
+  function vesicaLobe(span) {
+    var fit = arcCircle(span);
+    if (!fit) return null;
+    var worst = 0;
+    var i, err, a, b, sign, sweep, travel, cubics;
+    for (i = 0; i < span.length; i++) {
+      err = Math.abs(Math.hypot(span[i][0] - fit.cx, span[i][1] - fit.cy) - fit.r);
+      if (err > worst) worst = err;
+    }
+    if (worst > Math.max(1.8, fit.r * 0.07)) return null;
+    a = span[0];
+    b = span[span.length - 1];
+    sign = arcSign(span, a, b, fit.cx, fit.cy);
+    if (!sign) return null;
+    sweep = arcSweep(a, b, fit.cx, fit.cy, sign);
+    travel = 0;
+    for (i = 1; i < span.length; i++) travel += Math.hypot(span[i][0] - span[i - 1][0], span[i][1] - span[i - 1][1]);
+    if (Math.abs(travel - sweep * fit.r) > Math.abs(travel - (Math.PI * 2 - sweep) * fit.r)) {
+      sign = -sign;
+      sweep = Math.PI * 2 - sweep;
+    }
+    if (sweep < 2.3 || sweep > 5.4) return null;
+    cubics = arcCubics(a, b, fit.cx, fit.cy, fit.r, sign);
+    if (!cubics.length || cubics.length > 4) return null;
+    fit.cubics = cubics;
+    return fit;
+  }
+
+  function vesicaFit(ring) {
+    var n = ring.length;
+    if (n < 14 || n > 72) return null;
+    var minX = ring[0][0];
+    var maxX = minX;
+    var minY = ring[0][1];
+    var maxY = minY;
+    var i;
+    for (i = 1; i < n; i++) {
+      if (ring[i][0] < minX) minX = ring[i][0];
+      if (ring[i][0] > maxX) maxX = ring[i][0];
+      if (ring[i][1] < minY) minY = ring[i][1];
+      if (ring[i][1] > maxY) maxY = ring[i][1];
+    }
+    var bw = maxX - minX;
+    var bh = maxY - minY;
+    if (bw < 16 || bh < 16) return null;
+    var aspect = Math.max(bw, bh) / Math.min(bw, bh);
+    if (aspect < 1.18 || aspect > 2.5) return null;
+    var cusps = vesicaCusps(ring, bw >= bh);
+    if (!cusps) return null;
+    var gap = Math.min((cusps.b - cusps.a + n) % n, (cusps.a - cusps.b + n) % n);
+    if (gap < 4) return null;
+    var left = vesicaSpan(ring, cusps.a, cusps.b);
+    var right = vesicaSpan(ring, cusps.b, cusps.a);
+    if (left.length < 6 || right.length < 6) return null;
+    var lobeA = vesicaLobe(left);
+    var lobeB = vesicaLobe(right);
+    if (!lobeA || !lobeB) return null;
+    var ratio = lobeA.r / lobeB.r;
+    if (ratio < 0.82 || ratio > 1.22) return null;
+    var dist = Math.hypot(lobeA.cx - lobeB.cx, lobeA.cy - lobeB.cy);
+    var avg = (lobeA.r + lobeB.r) / 2;
+    if (dist < avg * 0.4 || dist > avg * 1.82) return null;
+    var ca = ring[cusps.a];
+    var cb = ring[cusps.b];
+    if (Math.abs(Math.hypot(ca[0] - lobeA.cx, ca[1] - lobeA.cy) - lobeA.r) > 2.4) return null;
+    if (Math.abs(Math.hypot(ca[0] - lobeB.cx, ca[1] - lobeB.cy) - lobeB.r) > 2.4) return null;
+    if (Math.abs(Math.hypot(cb[0] - lobeA.cx, cb[1] - lobeA.cy) - lobeA.r) > 2.4) return null;
+    if (Math.abs(Math.hypot(cb[0] - lobeB.cx, cb[1] - lobeB.cy) - lobeB.r) > 2.4) return null;
+    return { start: ca.slice(), segs: lobeA.cubics.concat(lobeB.cubics) };
+  }
+
   function axisEllipseFit(ring) {
     var n = ring.length;
     if (n < 8 || n > 520) return null;
@@ -1757,6 +1905,35 @@
     if (bw < 12 || bh < 8) return null;
     var aspect = Math.max(bw, bh) / Math.min(bw, bh);
     if (aspect < 1.28 || aspect > 4.4) return null;
+    var midX = (minX + maxX) / 2;
+    var midY = (minY + maxY) / 2;
+    var notch = 0;
+    var px, py, nx, ny, hx, hy, depth;
+    for (i = 0; i < n; i++) {
+      hx = ring[i][0];
+      hy = ring[i][1];
+      px = ring[(i + n - 1) % n][0];
+      py = ring[(i + n - 1) % n][1];
+      nx = ring[(i + 1) % n][0];
+      ny = ring[(i + 1) % n][1];
+      if (Math.abs(hx - midX) < bw * 0.22 && hy < midY && hy >= py && hy >= ny) {
+        depth = hy - minY;
+        if (depth > notch) notch = depth;
+      }
+      if (Math.abs(hx - midX) < bw * 0.22 && hy > midY && hy <= py && hy <= ny) {
+        depth = maxY - hy;
+        if (depth > notch) notch = depth;
+      }
+      if (Math.abs(hy - midY) < bh * 0.22 && hx < midX && hx >= px && hx >= nx) {
+        depth = hx - minX;
+        if (depth > notch) notch = depth;
+      }
+      if (Math.abs(hy - midY) < bh * 0.22 && hx > midX && hx <= px && hx <= nx) {
+        depth = maxX - hx;
+        if (depth > notch) notch = depth;
+      }
+    }
+    if (notch > 2.4) return null;
     var rx = bw / 2;
     var ry = bh / 2;
     var cx = (minX + maxX) / 2;
@@ -4517,6 +4694,8 @@ if (n < 6 || n > 40) return null;
     if (ring.length < 3) return null;
     var quad = quadFit(ring);
     if (quad) return quad;
+    var vesica = vesicaFit(ring);
+    if (vesica) return vesica;
     var axisOval = axisEllipseFit(ring);
     if (axisOval) return axisOval;
     var poly = polygonFit(ring);

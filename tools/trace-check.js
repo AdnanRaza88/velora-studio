@@ -933,3 +933,38 @@ function holeFlatEllipse(tag, w, h, rx, ry) {
 }
 holeFlatEllipse("hole flat ellipse", 180, 120, 16, 9);
 holeFlatEllipse("hole flat ellipse 18", 180, 120, 22, 12);
+
+function vesica(tag, w, h, c1, c2, r) {
+  const d = trace(raster(w, h, (x, y) => {
+    return (x - c1[0]) * (x - c1[0]) + (y - c1[1]) * (y - c1[1]) <= r * r
+      || (x - c2[0]) * (x - c2[0]) + (y - c2[1]) * (y - c2[1]) <= r * r;
+  }), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.l, 0, tag + " lines " + d);
+  assert.ok(n.c >= 4 && n.c <= 8, tag + " cubics " + n.c + " " + d);
+  const nums = d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  const pts = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) pts.push([nums[i], nums[i + 1]]);
+  let minX = pts[0][0], maxX = minX, minY = pts[0][1], maxY = minY;
+  pts.forEach((p) => {
+    if (p[0] < minX) minX = p[0];
+    if (p[0] > maxX) maxX = p[0];
+    if (p[1] < minY) minY = p[1];
+    if (p[1] > maxY) maxY = p[1];
+  });
+  const midX = (minX + maxX) / 2;
+  const midY = (minY + maxY) / 2;
+  const wide = maxX - minX >= maxY - minY;
+  if (wide) {
+    const tops = pts.filter((p) => p[1] < minY + (maxY - minY) * 0.08);
+    assert.ok(tops.every((p) => Math.abs(p[0] - midX) > (maxX - minX) * 0.08), tag + " top pole " + d);
+    assert.ok(pts.some((p) => Math.abs(p[0] - midX) < (maxX - minX) * 0.12 && p[1] > minY + (maxY - minY) * 0.08 && p[1] < midY), tag + " top cusp " + d);
+  } else {
+    const lefts = pts.filter((p) => p[0] < minX + (maxX - minX) * 0.08);
+    assert.ok(lefts.every((p) => Math.abs(p[1] - midY) > (maxY - minY) * 0.08), tag + " side pole " + d);
+    assert.ok(pts.some((p) => Math.abs(p[1] - midY) < (maxY - minY) * 0.12 && p[0] > minX + (maxX - minX) * 0.08 && p[0] < midX), tag + " side cusp " + d);
+  }
+}
+vesica("vesica", 180, 120, [70, 60], [110, 60], 36);
+vesica("vesica wide", 200, 120, [70, 60], [130, 60], 40);
+vesica("vesica vertical", 120, 180, [60, 70], [60, 110], 36);
