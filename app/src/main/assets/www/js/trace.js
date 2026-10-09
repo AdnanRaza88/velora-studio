@@ -2603,13 +2603,17 @@
     var sign = arcSign(arc.length ? arc : [a], a, b, o[0], o[1]);
     if (!sign) return null;
     var sweep = arcSweep(a, b, o[0], o[1], sign);
+    if (Math.abs(arcLen - sweep * r) > Math.abs(arcLen - (Math.PI * 2 - sweep) * r)) {
+      sign = -sign;
+      sweep = Math.PI * 2 - sweep;
+    }
     if (sweep < 0.4 || sweep > 2.7) return null;
     return { o: o, a: a, b: b, cx: o[0], cy: o[1], r: r, sign: sign, err: worst };
   }
 
   function emitWedge(fit) {
     var cubics = arcCubics(fit.a, fit.b, fit.cx, fit.cy, fit.r, fit.sign);
-    if (!cubics.length || cubics.length > 3) return null;
+    if (!cubics.length || cubics.length > 4) return null;
     return {
       start: fit.o.slice(),
       segs: [{ k: "L", p: fit.a.slice() }].concat(cubics).concat([{ k: "L", p: fit.o.slice() }])
@@ -3699,6 +3703,39 @@ if (n < 6 || n > 40) return null;
     return { start: best.start, segs: best.segs };
   }
 
+  function spanArc(span) {
+    if (!span || span.length < 8) return null;
+    var fit = arcCircle(span);
+    if (!fit) return null;
+    var a = span[0];
+    var b = span[span.length - 1];
+    var worst = 0;
+    var i, err, turn;
+    for (i = 0; i < span.length; i++) {
+      err = Math.abs(Math.hypot(span[i][0] - fit.cx, span[i][1] - fit.cy) - fit.r);
+      if (err > worst) worst = err;
+      if (i > 0 && i < span.length - 1) {
+        turn = turnAt(span[i - 1], span[i], span[i + 1]);
+        if (turn > 0.85) return null;
+      }
+    }
+    if (worst > Math.max(1.65, fit.r * 0.065)) return null;
+    if (chordBow(span) < Math.max(4, fit.r * 0.18)) return null;
+    var sign = arcSign(span, a, b, fit.cx, fit.cy);
+    if (!sign) return null;
+    var sweep = arcSweep(a, b, fit.cx, fit.cy, sign);
+    var travel = 0;
+    for (i = 1; i < span.length; i++) travel += Math.hypot(span[i][0] - span[i - 1][0], span[i][1] - span[i - 1][1]);
+    if (Math.abs(travel - sweep * fit.r) > Math.abs(travel - (Math.PI * 2 - sweep) * fit.r)) {
+      sign = -sign;
+      sweep = Math.PI * 2 - sweep;
+    }
+    if (sweep < 3.4 || sweep > 5.6) return null;
+    var cubics = arcCubics(a, b, fit.cx, fit.cy, fit.r, sign);
+    if (!cubics.length || cubics.length > 4) return null;
+    return cubics;
+  }
+
   function fitContour(points, alphamax, opttolerance) {
     var ring = [];
     var i;
@@ -3815,8 +3852,10 @@ if (n < 6 || n > 40) return null;
       } while (idx !== to && guard <= ring.length);
       if (span.length < 2) continue;
       var fillet = cornerFillet(ring, from, to);
+      var arcSegs = spanArc(span);
       if (lineChord(span) || stairLine(span) || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else if (fillet) segs.push(fillet);
+      else if (arcSegs) segs = segs.concat(arcSegs);
       else if (span.length >= 3 && span.length <= 6 && !flatSpan(span)) {
         var best = 1;
         var bestTurn = 0;

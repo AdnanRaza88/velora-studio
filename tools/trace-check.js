@@ -666,3 +666,17 @@ const keyLeft = trace(raster(180, 140, (x, y) => keyhole(x, y, 128, 70, 30, 16, 
 const keyLeftN = counts(keyLeft);
 assert.strictEqual(keyLeftN.l, 3, "key left lines " + keyLeft);
 assert.ok(keyLeftN.c >= 3 && keyLeftN.c <= 4, "key left cubics " + keyLeft);
+
+function pacman(x, y, cx, cy, r, mouth) {
+  const dx = x - cx;
+  const dy = y - cy;
+  if (dx * dx + dy * dy > r * r) return false;
+  const a = Math.atan2(dy, dx);
+  return a < -mouth || a > mouth;
+}
+const pac = trace(raster(140, 140, (x, y) => pacman(x, y, 70, 70, 48, 0.55)), 140, 140);
+const pacN = counts(pac);
+assert.ok(pacN.l >= 2 && pacN.l <= 3, "pac lines " + pac);
+assert.ok(pacN.c >= 3 && pacN.c <= 4, "pac cubics " + pacN.c + " " + pac);
+const pacXs = pac.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 0);
+assert.ok(Math.min.apply(null, pacXs) < 280, "pac body " + pac);
