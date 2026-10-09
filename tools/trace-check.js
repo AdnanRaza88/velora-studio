@@ -395,6 +395,25 @@ const houseN = counts(houseD);
 assert.strictEqual(houseN.c, 0, "house cubics " + houseD);
 assert.strictEqual(houseN.l, 5, "house lines " + houseD);
 
+function shield(x, y) {
+  if (x < 30 || x > 130 || y < 28 || y > 142) return false;
+  if (y <= 88) return true;
+  return Math.abs(x - 80) <= 50 * (1 - (y - 88) / 54);
+}
+const shieldD = trace(raster(160, 170, shield), 160, 170);
+const shieldN = counts(shieldD);
+assert.strictEqual(shieldN.c, 0, "shield cubics " + shieldD);
+assert.strictEqual(shieldN.l, 5, "shield lines " + shieldD);
+function shieldWide(x, y) {
+  if (x < 18 || x > 150 || y < 24 || y > 150) return false;
+  if (y <= 96) return true;
+  return Math.abs(x - 84) <= 66 * (1 - (y - 96) / 54);
+}
+const shieldWideD = trace(raster(180, 180, shieldWide), 180, 180);
+const shieldWideN = counts(shieldWideD);
+assert.strictEqual(shieldWideN.c, 0, "wide shield cubics " + shieldWideD);
+assert.strictEqual(shieldWideN.l, 5, "wide shield lines " + shieldWideD);
+
 function diamond(x, y, cx, cy, r) {
   return Math.abs(x - cx) + Math.abs(y - cy) <= r;
 }
