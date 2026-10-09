@@ -2645,7 +2645,7 @@
     if (Math.abs(ra - rb) > Math.max(3.2, Math.min(ra, rb) * 0.14)) return null;
     var r = (ra + rb) / 2;
     var dot = ((a[0] - o[0]) * (b[0] - o[0]) + (a[1] - o[1]) * (b[1] - o[1])) / (ra * rb);
-    if (dot > 0.9 || dot < -0.2) return null;
+    if (dot > 0.9 || dot < -0.9) return null;
     var arc = [];
     var j = fore;
     var guard = 0;
@@ -2680,7 +2680,7 @@
       sign = -sign;
       sweep = Math.PI * 2 - sweep;
     }
-    if (sweep < 0.4 || sweep > 2.7) return null;
+    if (sweep < 0.4 || sweep > 5.05) return null;
     return { o: o, a: a, b: b, cx: o[0], cy: o[1], r: r, sign: sign, err: worst };
   }
 

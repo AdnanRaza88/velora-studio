@@ -508,6 +508,15 @@ const rightN = counts(rightPie);
 assert.strictEqual(rightN.l, 2, "right pie lines " + rightPie);
 assert.strictEqual(rightN.c, 1, "right pie cubics " + rightPie);
 
+function sector(tag, a0, a1, lines, cubics) {
+  const d = trace(raster(180, 180, (x, y) => pie(x, y, 90, 90, 62, a0, a1)), 180, 180);
+  const n = counts(d);
+  assert.strictEqual(n.l, lines, tag + " lines " + d);
+  assert.strictEqual(n.c, cubics, tag + " cubics " + d);
+}
+sector("obtuse pie", -0.2, 2.0, 2, 2);
+sector("wide pie", -0.35, 2.15, 2, 2);
+
 function crescent(x, y, cx, cy, r, ox, oy, r2) {
   const dx = x - cx;
   const dy = y - cy;
