@@ -4575,7 +4575,7 @@ if (n < 6 || n > 40) return null;
       for (i = 0; i < n; i++) {
         if (segs[i].k !== "L") continue;
         var shortLen = Math.hypot(segEnd(segs[i])[0] - starts[i][0], segEnd(segs[i])[1] - starts[i][1]);
-        if (shortLen < 0.4 || shortLen > 7.5) continue;
+        if (shortLen < 0.4 || shortLen > 8.6) continue;
         var a = i;
         var b = i;
         var shorts = 1;
@@ -4599,7 +4599,7 @@ if (n < 6 || n > 40) return null;
           shorts++;
           span += nl;
         }
-        if (span > 7.6) continue;
+        if (span > 9.2) continue;
         var inn = (a + n - 1) % n;
         var out = (b + 1) % n;
         if (inn === b || out === a || segs[inn].k !== "L" || segs[out].k !== "L") continue;

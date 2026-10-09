@@ -823,3 +823,14 @@ function boltCounts(tag, w, h, pts, lines, tipY) {
 boltCounts("bolt", 160, 170, [[30, 20], [70, 22], [48, 70], [92, 68], [36, 140], [18, 132], [62, 78], [28, 80]], 8, 780);
 boltCounts("bolt axis", 160, 160, [[42, 16], [86, 16], [60, 62], [104, 62], [46, 132], [24, 132], [70, 74], [34, 74]], 8, 780);
 boltCounts("bolt long", 140, 180, [[50, 12], [88, 30], [62, 58], [100, 74], [54, 108], [78, 148], [40, 118], [22, 132], [46, 86], [18, 70], [44, 46], [20, 28]], 12);
+
+function paraCounts(tag, w, h, pts) {
+  const d = trace(raster(w, h, (x, y) => insidePoly(pts, x, y)), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.c, 0, tag + " cubics " + d);
+  assert.strictEqual(n.l, 4, tag + " lines " + d);
+}
+paraCounts("para", 160, 120, [[40, 20], [130, 20], [120, 100], [30, 100]]);
+paraCounts("para skew", 180, 140, [[36, 22], [150, 18], [132, 118], [18, 114]]);
+const chamferStay = trace(raster(140, 100, (x, y) => insidePoly([[28, 20], [92, 20], [112, 40], [112, 80], [28, 80]], x, y)), 140, 100);
+assert.strictEqual(counts(chamferStay).l, 5, "chamfer stays " + chamferStay);
