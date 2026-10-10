@@ -6345,6 +6345,37 @@ if (n < 6 || n > 40) return null;
           }
         }
         if (!ok) break;
+        var ax = ring[i][0];
+        var ay = ring[i][1];
+        var bx = ring[j][0];
+        var by = ring[j][1];
+        var chord = Math.hypot(bx - ax, by - ay);
+        if (chord > 14) {
+          var dx = bx - ax;
+          var dy = by - ay;
+          var bow = 0;
+          var pos = 0;
+          var neg = 0;
+          var bowAt = -1;
+          k = (i + 1) % n;
+          seen = 0;
+          while (k !== j) {
+            var cross = ((ring[k][0] - ax) * dy - (ring[k][1] - ay) * dx) / chord;
+            if (cross > 0.2) pos++;
+            else if (cross < -0.2) neg++;
+            if (Math.abs(cross) > bow) {
+              bow = Math.abs(cross);
+              bowAt = k;
+            }
+            k = (k + 1) % n;
+            seen++;
+            if (seen > n) break;
+          }
+          if (bow > 0.52 && pos + neg >= 2 && bowAt >= 0 && ((pos > 0 && neg === 0) || (neg > 0 && pos === 0))) {
+            far = bowAt;
+            break;
+          }
+        }
         far = j;
         j = (j + 1) % n;
         steps++;

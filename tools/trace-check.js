@@ -1111,3 +1111,17 @@ function multiLobe(tag, w, lobes, amp, minC, maxL) {
 }
 multiLobe("four lobe", 180, 4, 14, 10, 0);
 multiLobe("mild four lobe", 160, 4, 8, 8, 0);
+
+function gentleOrganic(tag, w, h, paint, minC, maxL) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.ok(n.c >= minC, tag + " cubics " + n.c + " " + d);
+  assert.ok(n.l <= maxL, tag + " lines " + n.l + " " + d);
+}
+gentleOrganic("s-curve body", 160, 200, (x, y) => {
+  const t = (y - 20) / 160;
+  if (t < 0 || t > 1) return false;
+  const cx = 80 + 22 * Math.sin(t * Math.PI * 1.6);
+  const half = 18 + 12 * Math.sin(t * Math.PI);
+  return Math.abs(x - cx) <= half;
+}, 5, 3);
