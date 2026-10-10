@@ -5016,7 +5016,7 @@ if (n < 6 || n > 40) return null;
       } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
-    return splitInflections(mergeSmoothCubics(absorbResidualLines(continueFreeform(smoothJoins({ start: start, segs: segs })))));
+    return curveTangentChords(splitInflections(mergeSmoothCubics(absorbResidualLines(continueFreeform(smoothJoins({ start: start, segs: segs }))))));
   }
 
   function cornerFillet(ring, from, to) {
@@ -5529,6 +5529,66 @@ if (n < 6 || n > 40) return null;
         if (leftErr > 1.8 || rightErr > 1.8) continue;
         segs.splice(i, 1, { k: "C", c: leftFit.cubic, pts: left }, { k: "C", c: rightFit.cubic, pts: right });
         if (i === 0) fit.start = starts[i].slice();
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
+
+  function curveTangentChords(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 4) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 6) {
+      changed = false;
+      guard++;
+      var segs = fit.segs;
+      var n = segs.length;
+      if (n < 4) break;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "L") continue;
+        var prev = (i + n - 1) % n;
+        var next = (i + 1) % n;
+        if (segs[prev].k !== "C" || segs[next].k !== "C") continue;
+        var from = starts[i];
+        var to = segEnd(segs[i]);
+        var prevStart = starts[prev];
+        var nextEnd = segEnd(segs[next]);
+        var tIn = turnAt(prevStart, from, to);
+        var tOut = turnAt(from, to, nextEnd);
+        if (tIn > 1.4 || tOut > 1.4) continue;
+        if (tIn < 0.45 || tOut < 0.45) continue;
+        var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
+        if (chord < 6 || chord > 36) continue;
+        var inH = segs[prev].c[2];
+        var outH = segs[next].c[1];
+        var inDx = from[0] - inH[0];
+        var inDy = from[1] - inH[1];
+        var outDx = outH[0] - to[0];
+        var outDy = outH[1] - to[1];
+        var inLen = Math.hypot(inDx, inDy);
+        var outLen = Math.hypot(outDx, outDy);
+        if (inLen < 1.2 || outLen < 1.2) continue;
+        var lineDx = to[0] - from[0];
+        var lineDy = to[1] - from[1];
+        var inDot = (inDx * lineDx + inDy * lineDy) / (inLen * chord);
+        var outDot = (outDx * lineDx + outDy * lineDy) / (outLen * chord);
+        if (inDot > 0.9 && outDot > 0.9) continue;
+        if (inDot < 0.4 || outDot < 0.4) continue;
+        var h1 = [from[0] + (inDx / inLen) * chord * 0.38, from[1] + (inDy / inLen) * chord * 0.38];
+        var h2 = [to[0] - (outDx / outLen) * chord * 0.38, to[1] - (outDy / outLen) * chord * 0.38];
+        var mid = bezier(from, h1, h2, to, 0.5);
+        if (distPointSeg(mid, from, to) < 0.55) continue;
+        segs[i] = { k: "C", c: [from, h1, h2, to], pts: segs[i].pts || [from, to] };
         changed = true;
         break;
       }

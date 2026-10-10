@@ -1096,3 +1096,18 @@ function thinWave(tag, w, h, amp, thick) {
 thinWave("thin wave", 200, 120, 18, 2.2);
 thinWave("thin wave long", 640, 180, 20, 3.5);
 
+
+function multiLobe(tag, w, lobes, amp, minC, maxL) {
+  const d = trace(raster(w, w, (x, y) => {
+    const dx = x - w / 2;
+    const dy = y - w / 2;
+    const r = Math.hypot(dx, dy);
+    const ang = Math.atan2(dy, dx);
+    return r <= (w * 0.22) + amp * Math.cos(lobes * ang);
+  }), w, w);
+  const n = counts(d);
+  assert.ok(n.c >= minC, tag + " cubics " + n.c + " " + d);
+  assert.ok(n.l <= maxL, tag + " lines " + n.l + " " + d);
+}
+multiLobe("four lobe", 180, 4, 14, 10, 0);
+multiLobe("mild four lobe", 160, 4, 8, 8, 0);
