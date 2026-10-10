@@ -47,6 +47,7 @@ Brief (+ optional attachment)
 - [x] Freeform cubic joins: adjacent cubics with a small turn share a tangent so organic contours stay smooth without touching geometric special fits
 - [x] Freeform collinear merge: adjacent lines whose intermediate vertex sits within 1.45px of the outer chord and whose turn stays under 0.2 rad collapse into one line
 - [x] Freeform residual continuation: a short non-axis line run between two cubics becomes one cubic when both joins stay under 0.55 rad, so organic contours stay continuous
+- [x] Higher resolution: device and preview rasters use a 1792 long edge so fine contours keep more samples before the 1024 viewBox fit. Small circles, ellipses, and polygons stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
