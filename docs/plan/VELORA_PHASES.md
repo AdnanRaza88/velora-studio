@@ -48,6 +48,7 @@ Brief (+ optional attachment)
 - [x] Freeform smooth cubic merge: adjacent cubics on a low-turn span collapse into one cubic when the combined fit stays within 1.7px, so an organic lobe uses fewer curves. Circles, polygons, and special fits stay.
 - [x] Freeform residual absorb: a short low-bow line under 32px that sits before or after a cubic folds into that cubic when the refit stays within 2.1px, so an organic lobe closes with curves instead of a chord. Circles, polygons, and rounded rectangles stay.
 - [x] Freeform gentle line runs: consecutive lines whose intermediate turns stay under 0.7 rad and whose span bows past 2.6px on one side refit as cubics, so a pointed organic keeps curved sides instead of an 8-line polygon. Circles, polygons, chamfers, and rounded rectangles stay.
+- [x] Gentle bowed spans: a side whose samples bow past 1.7px but whose local turns look collinear keeps an RDP fit instead of collapsing to a chord, and a lone line with that bow refits as a cubic. A taper and a flame stay curved. Circles, polygons, and rounded rectangles stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate

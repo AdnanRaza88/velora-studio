@@ -5242,7 +5242,10 @@ if (n < 6 || n > 40) return null;
       var pin = starts[prev];
       var nout = stair ? segEnd(segs[after]) : segEnd(segs[next]);
       if (turnAt(pin, a, b) < 0.55 || turnAt(a, b, nout) < 0.55) continue;
-      segs[i] = { k: "L", p: b.slice() };
+      if (segs[i].pts && chordBow(segs[i].pts) >= 1.8) continue;
+      var mid = bezier(segs[i].c[0], segs[i].c[1], segs[i].c[2], segs[i].c[3], 0.5);
+      if (distPointSeg(mid, a, b) > 1.15) continue;
+      segs[i] = { k: "L", p: b.slice(), pts: segs[i].pts };
     }
     return fit;
   }
@@ -5550,6 +5553,64 @@ if (n < 6 || n > 40) return null;
     return fit;
   }
 
+  function curveLoneBowedLines(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 3) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 6) {
+      changed = false;
+      guard++;
+      var segs = fit.segs;
+      var n = segs.length;
+      if (n < 3) break;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "L" || !segs[i].pts || segs[i].pts.length < 4) continue;
+        var pts = segs[i].pts;
+        var bow = chordBow(pts);
+        if (bow < 2.4) continue;
+        var a0 = pts[0];
+        var b0 = pts[pts.length - 1];
+        var chord = Math.hypot(b0[0] - a0[0], b0[1] - a0[1]);
+        if (chord < 22) continue;
+        var dx = b0[0] - a0[0];
+        var dy = b0[1] - a0[1];
+        var pos = 0;
+        var neg = 0;
+        var s;
+        for (s = 1; s < pts.length - 1; s++) {
+          var cross = ((pts[s][0] - a0[0]) * dy - (pts[s][1] - a0[1]) * dx) / chord;
+          if (cross > 0.55) pos++;
+          else if (cross < -0.55) neg++;
+        }
+        if (pos > 0 && neg > 0) continue;
+        if ((Math.abs(dx) < 1.6 || Math.abs(dy) < 1.6) && bow < 3.2) continue;
+        var fitted = fitSpan(pts, 1.6, 0);
+        var cubics = 0;
+        var fittedBow = 0;
+        for (s = 0; s < fitted.length; s++) {
+          if (fitted[s].k !== "C") continue;
+          cubics++;
+          var m = bezier(fitted[s].c[0], fitted[s].c[1], fitted[s].c[2], fitted[s].c[3], 0.5);
+          var db = distPointSeg(m, fitted[s].c[0], fitted[s].c[3]);
+          if (db > fittedBow) fittedBow = db;
+        }
+        if (!cubics || fittedBow < 1.4) continue;
+        fit.segs = segs.slice(0, i).concat(fitted).concat(segs.slice(i + 1));
+        if (i === 0) fit.start = pts[0].slice();
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
   function mergeCollinear(fit) {
     var segs = fit.segs;
     if (!segs || segs.length < 3) return fit;
@@ -5613,6 +5674,7 @@ if (n < 6 || n > 40) return null;
     fit = miterTipCubics(fit);
     fit = mergeCollinear(fit);
     fit = curveGentleLineRuns(fit);
+    fit = curveLoneBowedLines(fit);
     if (!fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
     for (var s = 0; s < fit.segs.length; s++) {
@@ -6060,23 +6122,58 @@ if (n < 6 || n > 40) return null;
     return out;
   }
 
+  function collapseFlat(span) {
+    if (!span || span.length < 3) return span ? span.map(function (p) { return p.slice(); }) : [];
+    var keep = [span[0].slice()];
+    var i, a, b, c;
+    for (i = 1; i < span.length - 1; i++) {
+      a = span[i - 1];
+      b = span[i];
+      c = span[i + 1];
+      if (turnAt(a, b, c) < 0.14 && distPointSeg(b, a, c) < 0.45) continue;
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 2.6 && Math.hypot(c[0] - b[0], c[1] - b[1]) < 2.6 && distPointSeg(b, a, c) < 1.15) continue;
+      keep.push(b.slice());
+    }
+    keep.push(span[span.length - 1].slice());
+    return keep;
+  }
+
   function collapseCollinear(points) {
     var pack = closedRing(points);
     var ring = pack.ring;
     if (ring.length < 4) return points.slice();
-    var keep = [];
-    var i, a, b, c;
-    for (i = 0; i < ring.length; i++) {
-      a = ring[(i + ring.length - 1) % ring.length];
+    var n = ring.length;
+    var sharp = [];
+    var i, a, b, c, from, to, span, k, guard, bow, flat, piece, keep;
+    for (i = 0; i < n; i++) {
+      a = ring[(i + n - 1) % n];
       b = ring[i];
-      c = ring[(i + 1) % ring.length];
-      if (filletBow(ring, i) > 0.85) {
-        keep.push(b.slice());
-        continue;
+      c = ring[(i + 1) % n];
+      if (turnAt(a, b, c) >= 0.55 || filletBow(ring, i) > 0.85) sharp.push(i);
+    }
+    if (sharp.length < 2) {
+      keep = collapseFlat(ring.concat([ring[0]]));
+      if (keep.length < 4) return points.slice();
+      if (pack.closed) return keep;
+      return keep.slice(0, -1);
+    }
+    keep = [];
+    for (i = 0; i < sharp.length; i++) {
+      from = sharp[i];
+      to = sharp[(i + 1) % sharp.length];
+      span = [ring[from]];
+      k = from;
+      guard = 0;
+      while (k !== to && guard <= n) {
+        k = (k + 1) % n;
+        span.push(ring[k]);
+        guard++;
       }
-      if (turnAt(a, b, c) < 0.14 && distPointSeg(b, a, c) < 0.45) continue;
-      if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 2.6 && Math.hypot(c[0] - b[0], c[1] - b[1]) < 2.6 && distPointSeg(b, a, c) < 1.15) continue;
-      keep.push(b.slice());
+      bow = chordBow(span);
+      flat = collapseFlat(span);
+      piece = bow >= 1.7 && span.length > 4 && flat.length <= 3 ? rdpOpen(span, 0.9, null) : flat;
+      if (!keep.length) keep = piece.slice();
+      else keep = keep.concat(piece.slice(1));
     }
     if (keep.length < 3) return points.slice();
     if (pack.closed) keep.push(keep[0].slice());

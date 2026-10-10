@@ -1035,7 +1035,7 @@ organicLean("organic lean", 220, 180, (x, y) => {
   const dy = y - 90;
   const ang = Math.atan2(dy, dx);
   return Math.hypot(dx, dy) <= 48 + 18 * Math.sin(3 * ang) + 6 * Math.cos(5 * ang);
-}, 10);
+}, 11);
 organicLean("organic lean tight", 200, 160, (x, y) => {
   const dx = x - 100;
   const dy = y - 80;
@@ -1066,6 +1066,20 @@ pointedOrganic("flame wide", 200, 140, (x, y) => {
   const half = Math.sin(t * Math.PI) * 36 * (1 - t * 0.25);
   return Math.abs(y - 70) <= half;
 }, 2, 4);
+
+function taperedSide(tag, w, h, paint, minC, maxL) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.ok(n.c >= minC, tag + " cubics " + n.c + " " + d);
+  assert.ok(n.l <= maxL, tag + " lines " + n.l + " " + d);
+}
+taperedSide("comma taper", 160, 180, (x, y) => {
+  const t = y / 170;
+  if (t < 0.05 || t > 0.95) return false;
+  const cx = 80 + 18 * Math.sin(t * Math.PI);
+  const half = Math.sin(t * Math.PI) * 36 * (0.4 + t * 0.6);
+  return Math.abs(x - cx) <= half;
+}, 3, 5);
 
 function thinWave(tag, w, h, amp, thick) {
   const luma = raster(w, h, (x, y) => {
