@@ -34,6 +34,7 @@ Brief (+ optional attachment)
 - [x] Bundle Needle 2 android-arm64 binary in APK assets (~14 MB)
 - [x] Session A: brief → Needle tool call → VXL → canvas
 - [x] No remote key required for default path
+- [x] Needle emit_vxl reliability: tools.json always rewritten from the current schema; one retry with a forced call if the first run yields no emit_vxl
 - [x] Attachment picker UI (wire to image-to-vector in Phase 3b)
 
 ## Phase 3b — Reference / image to vector

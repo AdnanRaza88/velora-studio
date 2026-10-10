@@ -54,8 +54,13 @@ class NeedleBridge(private val context: Context) {
             val binary = extractBinary()
             val tools = writeTools()
             val prompt = input.optString("prompt").ifBlank { brief }.take(900)
-            val result = runNeedle(binary, tools, prompt)
-            val parsed = parseCall(result.stdout)
+            var result = runNeedle(binary, tools, prompt)
+            var parsed = parseCall(result.stdout)
+            if (parsed == null) {
+                val retryPrompt = (prompt + "\nCall emit_vxl once with the required fields.").take(900)
+                result = runNeedle(binary, tools, retryPrompt)
+                parsed = parseCall(result.stdout)
+            }
             if (parsed == null) {
                 return fail(result.error ?: "no emit_vxl call", started, result.stdout.take(400))
             }
@@ -91,10 +96,8 @@ class NeedleBridge(private val context: Context) {
         val dir = File(context.filesDir, "needle")
         if (!dir.exists()) dir.mkdirs()
         val out = File(dir, "tools.json")
-        if (!out.exists()) {
-            val schema = context.assets.open("skills/emit_vxl.schema.json").bufferedReader().use { it.readText() }
-            out.writeText(JSONArray().put(JSONObject(schema)).toString())
-        }
+        val schema = context.assets.open("skills/emit_vxl.schema.json").bufferedReader().use { it.readText() }
+        out.writeText(JSONArray().put(JSONObject(schema)).toString())
         return out
     }
 
