@@ -53,6 +53,7 @@ Brief (+ optional attachment)
 - [x] Freeform inflection split: a cubic whose samples change curvature sign splits at the flip when both halves keep a bow and fit tighter than the whole, so an S-curve uses two cubics instead of one crossed handle. Circles, polygons, and special fits stay.
 - [x] Freeform tangent chords: a short residual line between two cubics becomes a cubic when both end turns stay under 1.4 rad and the neighboring handles leave the chord, so a four-lobe flower keeps curved valleys instead of three chords. Circles, polygons, and special fits stay.
 - [x] Gentle bow keep: a long chord whose intermediate samples bow past 0.52px on one side keeps that sample, so a gentle organic side stays a cubic instead of collapsing to a line. Circles, polygons, and special fits stay.
+- [x] Side-run gentle ends: a locally straight run that leaves a real corner does not cut where the far end still drifts under 0.6 (or a two-point run drifts under 0.2 into a corner), so a long gentle organic keeps curved sides instead of a residual chord. Circles, polygons, bubbles, and special fits stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate

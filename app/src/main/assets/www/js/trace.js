@@ -1152,8 +1152,19 @@
         continue;
       }
       for (k = 0; k < run.length; k++) seen[run[k]] = 1;
-      cuts.push(run[0]);
-      cuts.push(run[run.length - 1]);
+      var keepIn = turnIn >= 0.45 || driftIn >= 0.6;
+      var keepOut = turnOut >= 0.45 || driftOut >= 0.6;
+      if (run.length >= 3) {
+        if (keepIn) cuts.push(run[0]);
+        if (keepOut) cuts.push(run[run.length - 1]);
+      } else if (driftIn < 0.2 && turnOut > 1 && turnIn < 0.4) {
+        cuts.push(run[run.length - 1]);
+      } else if (driftOut < 0.2 && turnIn > 1 && turnOut < 0.4) {
+        cuts.push(run[0]);
+      } else {
+        cuts.push(run[0]);
+        cuts.push(run[run.length - 1]);
+      }
     }
     return cuts;
   }

@@ -1110,6 +1110,7 @@ function multiLobe(tag, w, lobes, amp, minC, maxL) {
   assert.ok(n.l <= maxL, tag + " lines " + n.l + " " + d);
 }
 multiLobe("four lobe", 180, 4, 14, 10, 0);
+
 multiLobe("mild four lobe", 160, 4, 8, 8, 0);
 
 function gentleOrganic(tag, w, h, paint, minC, maxL) {
@@ -1125,3 +1126,10 @@ gentleOrganic("s-curve body", 160, 200, (x, y) => {
   const half = 18 + 12 * Math.sin(t * Math.PI);
   return Math.abs(x - cx) <= half;
 }, 5, 3);
+gentleOrganic("banana", 240, 120, (x, y) => {
+  const t = (x - 20) / 200;
+  if (t < 0 || t > 1) return false;
+  const cy = 60 - 22 * Math.sin(t * Math.PI);
+  const half = 14 + 6 * Math.sin(t * Math.PI);
+  return Math.abs(y - cy) <= half;
+}, 4, 2);
