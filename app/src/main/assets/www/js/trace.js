@@ -5016,7 +5016,7 @@ if (n < 6 || n > 40) return null;
       } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
-    return continueFreeform(smoothJoins({ start: start, segs: segs }));
+    return mergeSmoothCubics(continueFreeform(smoothJoins({ start: start, segs: segs })));
   }
 
   function cornerFillet(ring, from, to) {
@@ -5305,6 +5305,52 @@ if (n < 6 || n > 40) return null;
     return fit;
   }
 
+
+  function mergeSmoothCubics(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 4) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 8) {
+      changed = false;
+      guard++;
+      var segs = fit.segs;
+      var n = segs.length;
+      if (n < 4) break;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        var next = (i + 1) % n;
+        if (segs[i].k !== "C" || segs[next].k !== "C") continue;
+        if (!segs[i].pts || !segs[next].pts) continue;
+        var a = starts[i];
+        var b = starts[next];
+        var c = segEnd(segs[next]);
+        var turn = turnAt(a, b, c);
+        if (turn > 0.72) continue;
+        var merged = joinPts(segs[i].pts, segs[next].pts);
+        if (!merged || merged.length < 5) continue;
+        if (spanTurn(merged) > 0.88) continue;
+        var bow = chordBow(merged);
+        if (bow < 1.05) continue;
+        var one = fitTight(merged);
+        var err = cubicError(merged, one.cubic, one.ts);
+        var chord = Math.hypot(c[0] - a[0], c[1] - a[1]);
+        var allow = Math.max(1.2, Math.min(1.7, chord * 0.04));
+        if (err.max > allow) continue;
+        segs[i] = { k: "C", c: one.cubic, pts: merged };
+        segs.splice(next, 1);
+        if (next === 0) fit.start = a.slice();
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
 
   function continueFreeform(fit) {
     var segs = fit.segs;

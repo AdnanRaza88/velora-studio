@@ -1024,6 +1024,25 @@ organic("organic lobes tight", 200, 160, (x, y) => {
   return Math.hypot(dx, dy) <= 40 + 14 * Math.sin(3 * ang + 0.6) + 5 * Math.cos(4 * ang);
 });
 
+function organicLean(tag, w, h, paint, maxC) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.ok(n.c <= maxC, tag + " cubics " + n.c + " " + d);
+  assert.ok(n.l <= 2, tag + " lines " + n.l + " " + d);
+}
+organicLean("organic lean", 220, 180, (x, y) => {
+  const dx = x - 110;
+  const dy = y - 90;
+  const ang = Math.atan2(dy, dx);
+  return Math.hypot(dx, dy) <= 48 + 18 * Math.sin(3 * ang) + 6 * Math.cos(5 * ang);
+}, 10);
+organicLean("organic lean tight", 200, 160, (x, y) => {
+  const dx = x - 100;
+  const dy = y - 80;
+  const ang = Math.atan2(dy, dx);
+  return Math.hypot(dx, dy) <= 40 + 14 * Math.sin(3 * ang + 0.6) + 5 * Math.cos(4 * ang);
+}, 9);
+
 function thinWave(tag, w, h, amp, thick) {
   const luma = raster(w, h, (x, y) => {
     if (x < 16 || x > w - 16) return false;
