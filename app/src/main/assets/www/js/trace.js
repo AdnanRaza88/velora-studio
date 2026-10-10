@@ -6805,7 +6805,7 @@ if (n < 6 || n > 40) return null;
 
   function fromImage(img, done, options) {
     var opts = options || {};
-    var maxEdge = opts.maxEdge || 1024;
+    var maxEdge = opts.maxEdge || 1536;
     var sw = img.naturalWidth || img.width;
     var sh = img.naturalHeight || img.height;
     if (!sw || !sh) {

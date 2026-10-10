@@ -1761,7 +1761,7 @@
     }
     var img = new Image();
     img.onload = function () {
-      VeloraTrace.fromImage(img, function (result) { showTrace(result, "Autotrace / preview"); });
+      VeloraTrace.fromImage(img, function (result) { showTrace(result, "Autotrace / preview"); }, { maxEdge: 1536 });
     };
     img.onerror = function () {
       document.getElementById("out").innerHTML = '<div class="status warn">Unreadable reference.</div>';
