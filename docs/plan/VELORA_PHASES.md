@@ -47,6 +47,7 @@ Brief (+ optional attachment)
 - [x] Thin strokes: peel width scales with the raster long edge, a one-pixel dilate keeps the skeleton connected, and aligned chain ends join, so a hairline stays one centerline instead of a filled ribbon or fragments. Filled circles, polygons, and bars stay fills.
 - [x] Freeform smooth cubic merge: adjacent cubics on a low-turn span collapse into one cubic when the combined fit stays within 1.7px, so an organic lobe uses fewer curves. Circles, polygons, and special fits stay.
 - [x] Freeform residual absorb: a short low-bow line under 32px that sits before or after a cubic folds into that cubic when the refit stays within 2.1px, so an organic lobe closes with curves instead of a chord. Circles, polygons, and rounded rectangles stay.
+- [x] Freeform gentle line runs: consecutive lines whose intermediate turns stay under 0.7 rad and whose span bows past 2.6px on one side refit as cubics, so a pointed organic keeps curved sides instead of an 8-line polygon. Circles, polygons, chamfers, and rounded rectangles stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate

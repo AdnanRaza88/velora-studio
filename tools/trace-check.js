@@ -1043,6 +1043,30 @@ organicLean("organic lean tight", 200, 160, (x, y) => {
   return Math.hypot(dx, dy) <= 40 + 14 * Math.sin(3 * ang + 0.6) + 5 * Math.cos(4 * ang);
 }, 9);
 
+function pointedOrganic(tag, w, h, paint, minC, maxL) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.ok(n.c >= minC, tag + " cubics " + n.c + " " + d);
+  assert.ok(n.l <= maxL, tag + " lines " + n.l + " " + d);
+}
+pointedOrganic("flame", 160, 200, (x, y) => {
+  const t = y / 180;
+  if (t < 0.05 || t > 0.95) return false;
+  const half = Math.sin(t * Math.PI) * 40 * (1 - t * 0.3);
+  return Math.abs(x - 80) <= half;
+}, 2, 4);
+pointedOrganic("leaf", 140, 200, (x, y) => {
+  const t = (y - 16) / 168;
+  if (t < 0 || t > 1) return false;
+  return Math.abs(x - 70) <= Math.sin(t * Math.PI) * 42;
+}, 3, 2);
+pointedOrganic("flame wide", 200, 140, (x, y) => {
+  const t = x / 180;
+  if (t < 0.05 || t > 0.95) return false;
+  const half = Math.sin(t * Math.PI) * 36 * (1 - t * 0.25);
+  return Math.abs(y - 70) <= half;
+}, 2, 4);
+
 function thinWave(tag, w, h, amp, thick) {
   const luma = raster(w, h, (x, y) => {
     if (x < 16 || x > w - 16) return false;

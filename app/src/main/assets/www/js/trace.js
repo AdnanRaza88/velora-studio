@@ -5472,6 +5472,84 @@ if (n < 6 || n > 40) return null;
     return fit;
   }
 
+  function curveGentleLineRuns(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 4) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 6) {
+      changed = false;
+      guard++;
+      var segs = fit.segs;
+      var n = segs.length;
+      if (n < 4) break;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "L" || !segs[i].pts) continue;
+        var run = [i];
+        var j = (i + 1) % n;
+        while (run.length < n - 1 && segs[j].k === "L" && segs[j].pts) {
+          var vertex = starts[j];
+          var incoming = starts[run[run.length - 1]];
+          var outgoing = segEnd(segs[j]);
+          if (turnAt(incoming, vertex, outgoing) >= 0.7) break;
+          run.push(j);
+          j = (j + 1) % n;
+        }
+        if (run.length < 2) continue;
+        var pts = [];
+        var r, p;
+        for (r = 0; r < run.length; r++) {
+          var chunk = segs[run[r]].pts;
+          for (p = 0; p < chunk.length; p++) {
+            if (pts.length && pts[pts.length - 1][0] === chunk[p][0] && pts[pts.length - 1][1] === chunk[p][1]) continue;
+            pts.push(chunk[p]);
+          }
+        }
+        if (pts.length < 3) continue;
+        var bow = chordBow(pts);
+        if (bow < 2.6) continue;
+        var a0 = pts[0];
+        var b0 = pts[pts.length - 1];
+        var chord = Math.hypot(b0[0] - a0[0], b0[1] - a0[1]);
+        if (chord < 16) continue;
+        var dx = b0[0] - a0[0];
+        var dy = b0[1] - a0[1];
+        var pos = 0;
+        var neg = 0;
+        var s;
+        for (s = 1; s < pts.length - 1; s++) {
+          var cross = ((pts[s][0] - a0[0]) * dy - (pts[s][1] - a0[1]) * dx) / chord;
+          if (cross > 0.55) pos++;
+          else if (cross < -0.55) neg++;
+        }
+        if (pos > 0 && neg > 0) continue;
+        var fitted = fitSpan(pts, 1.7, 0);
+        var cubics = 0;
+        for (s = 0; s < fitted.length; s++) if (fitted[s].k === "C") cubics++;
+        if (!cubics) continue;
+        var wraps = run[0] + run.length > n;
+        if (wraps) {
+          var shift = run[0];
+          var rotated = segs.slice(shift).concat(segs.slice(0, shift));
+          fit.segs = fitted.concat(rotated.slice(run.length));
+          fit.start = pts[0].slice();
+        } else {
+          fit.segs = segs.slice(0, run[0]).concat(fitted).concat(segs.slice(run[0] + run.length));
+          if (run[0] === 0) fit.start = pts[0].slice();
+        }
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
   function mergeCollinear(fit) {
     var segs = fit.segs;
     if (!segs || segs.length < 3) return fit;
@@ -5534,6 +5612,7 @@ if (n < 6 || n > 40) return null;
     fit = lineBiasSides(fit);
     fit = miterTipCubics(fit);
     fit = mergeCollinear(fit);
+    fit = curveGentleLineRuns(fit);
     if (!fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
     for (var s = 0; s < fit.segs.length; s++) {
