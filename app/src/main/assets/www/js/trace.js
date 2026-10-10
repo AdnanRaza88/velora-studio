@@ -1051,6 +1051,42 @@
     return out;
   }
 
+  function smoothJoins(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 2) return fit;
+    var segs = fit.segs;
+    var n = segs.length;
+    var starts = [];
+    var cursor = fit.start.slice();
+    var i, prev, next, a, b, c, turn, inLen, outLen, avg, mag, lim, dx, dy;
+    for (i = 0; i < n; i++) {
+      starts.push(cursor.slice());
+      cursor = (segs[i].k === "C" ? segs[i].c[3] : segs[i].p).slice();
+    }
+    for (i = 0; i < n; i++) {
+      prev = (i + n - 1) % n;
+      next = i;
+      if (segs[prev].k !== "C" || segs[next].k !== "C") continue;
+      a = starts[prev];
+      b = starts[next];
+      c = segs[next].k === "C" ? segs[next].c[3] : segs[next].p;
+      turn = turnAt(a, b, c);
+      if (turn < 0.08 || turn > 0.42) continue;
+      inLen = Math.hypot(b[0] - segs[prev].c[2][0], b[1] - segs[prev].c[2][1]);
+      outLen = Math.hypot(segs[next].c[1][0] - b[0], segs[next].c[1][1] - b[1]);
+      if (inLen < 1.4 || outLen < 1.4) continue;
+      dx = (b[0] - segs[prev].c[2][0]) / inLen;
+      dy = (b[1] - segs[prev].c[2][1]) / inLen;
+      avg = norm(dx + (segs[next].c[1][0] - b[0]) / outLen, dy + (segs[next].c[1][1] - b[1]) / outLen);
+      if (avg[0] * dx + avg[1] * dy < 0.86) continue;
+      mag = Math.min(inLen, outLen) * 0.35;
+      lim = Math.min(inLen * 0.55, outLen * 0.55);
+      if (mag > lim) mag = lim;
+      segs[prev].c[2] = [b[0] - avg[0] * mag, b[1] - avg[1] * mag];
+      segs[next].c[1] = [b[0] + avg[0] * mag, b[1] + avg[1] * mag];
+    }
+    return fit;
+  }
+
   function sideRuns(ring) {
     var n = ring.length;
     if (n < 4) return [];
@@ -4980,7 +5016,7 @@ if (n < 6 || n > 40) return null;
       } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
-    return { start: start, segs: segs };
+    return smoothJoins({ start: start, segs: segs });
   }
 
   function cornerFillet(ring, from, to) {

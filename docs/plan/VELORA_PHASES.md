@@ -44,6 +44,7 @@ Brief (+ optional attachment)
 - [x] Attach image
 - [x] Autotrace → path simplify → VXL paths
 - [x] User can edit result as normal VXL
+- [x] Freeform cubic joins: adjacent cubics with a small turn share a tangent so organic contours stay smooth without touching geometric special fits
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
