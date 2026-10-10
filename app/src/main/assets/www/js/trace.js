@@ -5016,7 +5016,7 @@ if (n < 6 || n > 40) return null;
       } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
-    return mergeSmoothCubics(absorbResidualLines(continueFreeform(smoothJoins({ start: start, segs: segs }))));
+    return splitInflections(mergeSmoothCubics(absorbResidualLines(continueFreeform(smoothJoins({ start: start, segs: segs })))));
   }
 
   function cornerFillet(ring, from, to) {
@@ -5468,6 +5468,67 @@ if (n < 6 || n > 40) return null;
         segs = segs.slice(0, a).concat([cubic]).concat(segs.slice(b + 1));
         fit.segs = segs;
         if (a === 0) fit.start = from.slice();
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
+  function splitInflections(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 2) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 4) {
+      changed = false;
+      guard++;
+      var segs = fit.segs;
+      var n = segs.length;
+      if (n < 2) break;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "C" || !segs[i].pts || segs[i].pts.length < 7) continue;
+        var pts = segs[i].pts;
+        var signs = [];
+        var s;
+        for (s = 1; s < pts.length - 1; s++) {
+          var ax = pts[s][0] - pts[s - 1][0];
+          var ay = pts[s][1] - pts[s - 1][1];
+          var bx = pts[s + 1][0] - pts[s][0];
+          var by = pts[s + 1][1] - pts[s][1];
+          var cross = ax * by - ay * bx;
+          if (Math.abs(cross) > 0.8) signs.push({ i: s, sign: cross > 0 ? 1 : -1 });
+        }
+        if (signs.length < 4) continue;
+        var flip = -1;
+        var pos = 0;
+        var neg = 0;
+        for (s = 0; s < signs.length; s++) {
+          if (signs[s].sign > 0) pos++;
+          else neg++;
+          if (s > 0 && signs[s].sign !== signs[s - 1].sign && flip < 0) flip = signs[s].i;
+        }
+        if (flip < 2 || flip > pts.length - 4) continue;
+        if (pos < 2 || neg < 2) continue;
+        var left = pts.slice(0, flip + 1);
+        var right = pts.slice(flip);
+        if (chordBow(left) < 1.2 || chordBow(right) < 1.2) continue;
+        var leftFit = fitTight(left);
+        var rightFit = fitTight(right);
+        var leftErr = cubicError(left, leftFit.cubic, leftFit.ts).max;
+        var rightErr = cubicError(right, rightFit.cubic, rightFit.ts).max;
+        var whole = fitTight(pts);
+        var wholeErr = cubicError(pts, whole.cubic, whole.ts).max;
+        if (Math.max(leftErr, rightErr) >= wholeErr * 0.92) continue;
+        if (leftErr > 1.8 || rightErr > 1.8) continue;
+        segs.splice(i, 1, { k: "C", c: leftFit.cubic, pts: left }, { k: "C", c: rightFit.cubic, pts: right });
+        if (i === 0) fit.start = starts[i].slice();
         changed = true;
         break;
       }
