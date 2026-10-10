@@ -2997,6 +2997,136 @@
     return { start: order[0].p, segs: segs };
   }
 
+
+  function roundPolyFit(ring) {
+    var n = ring.length;
+    if (n < 8 || n > 72) return null;
+    var turns = new Array(n);
+    var i, k, best, gap, from, to, prev, next, guard;
+    for (i = 0; i < n; i++) turns[i] = turnAt(ring[(i + n - 1) % n], ring[i], ring[(i + 1) % n]);
+    var seeds = [];
+    for (i = 0; i < n; i++) {
+      if (turns[i] < 0.42) continue;
+      best = true;
+      for (k = 1; k <= 2; k++) {
+        var ahead = (i + k) % n;
+        var behind = (i + n - k) % n;
+        if (Math.hypot(ring[ahead][0] - ring[i][0], ring[ahead][1] - ring[i][1]) < 10 && turns[ahead] > turns[i] + 0.08) best = false;
+        if (Math.hypot(ring[behind][0] - ring[i][0], ring[behind][1] - ring[i][1]) < 10 && turns[behind] > turns[i] + 0.08) best = false;
+      }
+      if (best) seeds.push(i);
+    }
+    if (seeds.length < 3) return null;
+    var groups = [];
+    for (i = 0; i < seeds.length; i++) {
+      if (!groups.length) {
+        groups.push([seeds[i]]);
+        continue;
+      }
+      var last = groups[groups.length - 1];
+      gap = Math.hypot(ring[seeds[i]][0] - ring[last[last.length - 1]][0], ring[seeds[i]][1] - ring[last[last.length - 1]][1]);
+      if (gap < 18) last.push(seeds[i]);
+      else groups.push([seeds[i]]);
+    }
+    if (groups.length > 1) {
+      var head = groups[0][0];
+      var tail = groups[groups.length - 1];
+      gap = Math.hypot(ring[head][0] - ring[tail[tail.length - 1]][0], ring[head][1] - ring[tail[tail.length - 1]][1]);
+      if (gap < 18) {
+        groups[0] = tail.concat(groups[0]);
+        groups.pop();
+      }
+    }
+    if (groups.length < 3 || groups.length > 6) return null;
+    var corners = [];
+    for (i = 0; i < groups.length; i++) {
+      from = groups[i][0];
+      to = groups[i][groups[i].length - 1];
+      guard = 0;
+      while (guard < 4) {
+        prev = (from + n - 1) % n;
+        if (turns[prev] < 0.26) break;
+        if (Math.hypot(ring[prev][0] - ring[from][0], ring[prev][1] - ring[from][1]) > 12) break;
+        from = prev;
+        guard++;
+      }
+      guard = 0;
+      while (guard < 4) {
+        next = (to + 1) % n;
+        if (turns[next] < 0.26) break;
+        if (Math.hypot(ring[next][0] - ring[to][0], ring[next][1] - ring[to][1]) > 12) break;
+        to = next;
+        guard++;
+      }
+      corners.push({ from: from, to: to });
+    }
+    function spanOf(a, b) {
+      var span = [ring[a]];
+      var idx = a;
+      var steps = 0;
+      while (idx !== b && steps <= n) {
+        idx = (idx + 1) % n;
+        span.push(ring[idx]);
+        steps++;
+      }
+      return span;
+    }
+    var bowed = 0;
+    var bestBow = 0;
+    var sideLens = [];
+    for (i = 0; i < corners.length; i++) {
+      var c = corners[i];
+      var nxt = corners[(i + 1) % corners.length];
+            var side = spanOf(c.to, nxt.from);
+      var sideLen = 0;
+      for (k = 1; k < side.length; k++) sideLen += Math.hypot(side[k][0] - side[k - 1][0], side[k][1] - side[k - 1][1]);
+      if (sideLen < 16 || chordBow(side) > 2.6) return null;
+      var corner = spanOf(c.from, c.to);
+      var chord = Math.hypot(ring[c.to][0] - ring[c.from][0], ring[c.to][1] - ring[c.from][1]);
+      var bow = chordBow(corner);
+      if (chord < 5.5 || chord > 32) return null;
+      if (chord > sideLen * 0.62) return null;
+      var prevPt = ring[(c.from + n - 1) % n];
+      var nextPt = ring[(c.to + 1) % n];
+      var inLen = Math.hypot(ring[c.from][0] - prevPt[0], ring[c.from][1] - prevPt[1]) || 1;
+      var outLen = Math.hypot(nextPt[0] - ring[c.to][0], nextPt[1] - ring[c.to][1]) || 1;
+      var dot = ((ring[c.from][0] - prevPt[0]) / inLen) * ((nextPt[0] - ring[c.to][0]) / outLen) + ((ring[c.from][1] - prevPt[1]) / inLen) * ((nextPt[1] - ring[c.to][1]) / outLen);
+      if (dot > 0.55) return null;
+      if (bow > 1.2) bowed++;
+      if (bow > bestBow) bestBow = bow;
+      sideLens.push(sideLen);
+    }
+    if (bowed < 2 || bestBow < 2.85) return null;
+    var lo = sideLens[0];
+    var hi = sideLens[0];
+    for (i = 1; i < sideLens.length; i++) {
+      if (sideLens[i] < lo) lo = sideLens[i];
+      if (sideLens[i] > hi) hi = sideLens[i];
+    }
+    if (hi > lo * 3.4) return null;
+    var segs = [];
+    var start = ring[corners[0].from].slice();
+    for (i = 0; i < corners.length; i++) {
+      var c = corners[i];
+      var nxt = corners[(i + 1) % corners.length];
+      var a = ring[c.from];
+      var b = ring[c.to];
+      prev = ring[(c.from + n - 1) % n];
+      next = ring[(c.to + 1) % n];
+      var il = Math.hypot(a[0] - prev[0], a[1] - prev[1]) || 1;
+      var ol = Math.hypot(next[0] - b[0], next[1] - b[1]) || 1;
+      var ix = (a[0] - prev[0]) / il;
+      var iy = (a[1] - prev[1]) / il;
+      var ox = (next[0] - b[0]) / ol;
+      var oy = (next[1] - b[1]) / ol;
+      var chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      var h = 0.5523 * chord / Math.SQRT2;
+      segs.push({ k: "C", c: [a.slice(), [a[0] + ix * h, a[1] + iy * h], [b[0] - ox * h, b[1] - oy * h], b.slice()] });
+      segs.push({ k: "L", p: ring[nxt.from].slice() });
+    }
+    return { start: start, segs: segs };
+  }
+
   function roundRectFit(ring) {
     var n = ring.length;
     if (n < 6) return null;
@@ -4706,6 +4836,8 @@ if (n < 6 || n > 40) return null;
     if (poly) return poly;
     var star = starFit(ring);
     if (star) return star;
+    var roundPoly = roundPolyFit(ring);
+    if (roundPoly) return roundPoly;
     var straight = straightPolyFit(ring);
     if (straight) return straight;
     var stadium = stadiumFit(ring);

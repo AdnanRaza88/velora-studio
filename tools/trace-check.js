@@ -968,3 +968,39 @@ function vesica(tag, w, h, c1, c2, r) {
 vesica("vesica", 180, 120, [70, 60], [110, 60], 36);
 vesica("vesica wide", 200, 120, [70, 60], [130, 60], 40);
 vesica("vesica vertical", 120, 180, [60, 70], [60, 110], 36);
+
+function filletedTri(x, y, ax, bx, cx, tip, base, r) {
+  const pts = [[bx, tip], [cx, base], [ax, base]];
+  let n = 0;
+  for (let i = 0, j = 2; i < 3; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) n++;
+  }
+  if (n % 2 !== 1) return false;
+  for (let i = 0; i < 3; i++) {
+    const a = pts[(i + 2) % 3], b = pts[i], c = pts[(i + 1) % 3];
+    const v1x = a[0] - b[0], v1y = a[1] - b[1], v2x = c[0] - b[0], v2y = c[1] - b[1];
+    const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+    const u1x = v1x / l1, u1y = v1y / l1, u2x = v2x / l2, u2y = v2y / l2;
+    const cosA = Math.max(-1, Math.min(1, u1x * u2x + u1y * u2y));
+    const half = Math.acos(cosA) / 2;
+    const off = r / Math.sin(half);
+    const bl = Math.hypot(u1x + u2x, u1y + u2y);
+    const cx0 = b[0] + (u1x + u2x) / bl * off;
+    const cy0 = b[1] + (u1y + u2y) / bl * off;
+    const tanLen = r / Math.tan(half);
+    const d1 = (x - b[0]) * u1x + (y - b[1]) * u1y;
+    const d2 = (x - b[0]) * u2x + (y - b[1]) * u2y;
+    if (d1 > 0 && d2 > 0 && d1 < tanLen && d2 < tanLen && Math.hypot(x - cx0, y - cy0) > r + 0.5) return false;
+  }
+  return true;
+}
+function roundPolyCounts(tag, w, h, r) {
+  const d = trace(raster(w, h, (x, y) => filletedTri(x, y, 20, 100, 180, 20, 180, r)), w, h);
+  const n = counts(d);
+  assert.strictEqual(n.l, 3, tag + " lines " + d);
+  assert.strictEqual(n.c, 3, tag + " cubics " + d);
+}
+roundPolyCounts("round tri", 200, 200, 8);
+roundPolyCounts("round tri 12", 200, 200, 12);
+roundPolyCounts("round tri 11", 200, 200, 11);
