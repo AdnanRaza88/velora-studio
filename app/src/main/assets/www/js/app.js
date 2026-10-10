@@ -134,54 +134,7 @@
       '<button type="button" class="ghost" id="paintRadial">Radial</button>' +
       '<label class="ink">Radius<input id="cornerRadius" type="number" min="1" max="240" step="1" value="' + (state.cornerRadius || 24) + '" aria-label="Corner radius"/></label>' +
       '<button type="button" class="ghost" id="roundCorners">Round corners</button>' +
-      '<button type="button" class="ghost" id="divideShapes">Divide</button>' +
-      '<label class="ink">Size<input id="zigSize" type="number" min="1" max="240" step="1" value="' + (state.zigSize || 18) + '" aria-label="Zig zag size"/></label>' +
-      '<label class="ink">Ridges<input id="zigRidges" type="number" min="1" max="48" step="1" value="' + (state.zigRidges || 6) + '" aria-label="Zig zag ridges"/></label>' +
-      '<button type="button" class="ghost" id="zigzagPath">Zig zag</button>' +
-      '<label class="ink">Size<input id="roughSize" type="number" min="1" max="240" step="1" value="' + (state.roughSize || 8) + '" aria-label="Roughen size"/></label>' +
-      '<label class="ink">Detail<input id="roughDetail" type="number" min="1" max="24" step="1" value="' + (state.roughDetail || 4) + '" aria-label="Roughen detail"/></label>' +
-      '<button type="button" class="ghost' + (state.roughPoints === "smooth" ? " on" : "") + '" id="roughPoints">' + (state.roughPoints === "smooth" ? "Smooth points" : "Corner points") + '</button>' +
-      '<button type="button" class="ghost" id="roughenPath">Roughen</button>' +
-      '<label class="ink">Amount<input id="puckerAmount" type="number" min="-100" max="100" step="1" value="' + (state.puckerAmount || 40) + '" aria-label="Pucker bloat amount"/></label>' +
-      '<button type="button" class="ghost" id="puckerPath">Pucker / Bloat</button>' +
-      '<label class="ink">Angle<input id="twirlAngle" type="number" min="-360" max="360" step="1" value="' + (state.twirlAngle || 60) + '" aria-label="Twirl angle"/></label>' +
-      '<button type="button" class="ghost" id="twirlPath">Twirl</button>' +
-      '<label class="ink">Bend<input id="arcBend" type="number" min="-100" max="100" step="1" value="' + (state.arcBend || 40) + '" aria-label="Arc bend"/></label>' +
-      '<button type="button" class="ghost' + (state.arcAxis === "v" ? " on" : "") + '" id="arcAxis">' + (state.arcAxis === "v" ? "Arc V" : "Arc H") + '</button>' +
-      '<button type="button" class="ghost" id="arcPath">Arc</button>' +
-      '<label class="ink">Bend<input id="waveBend" type="number" min="-100" max="100" step="1" value="' + (state.waveBend || 36) + '" aria-label="Wave bend"/></label>' +
-      '<label class="ink">Waves<input id="waveCount" type="number" min="1" max="8" step="1" value="' + (state.waveCount || 2) + '" aria-label="Wave count"/></label>' +
-      '<button type="button" class="ghost' + (state.waveAxis === "v" ? " on" : "") + '" id="waveAxis">' + (state.waveAxis === "v" ? "Wave V" : "Wave H") + '</button>' +
-      '<button type="button" class="ghost" id="wavePath">Wave</button>' +
-      '<label class="ink">Bend<input id="flagBend" type="number" min="-100" max="100" step="1" value="' + (state.flagBend || 42) + '" aria-label="Flag bend"/></label>' +
-      '<label class="ink">Waves<input id="flagCount" type="number" min="1" max="4" step="1" value="' + (state.flagCount || 1) + '" aria-label="Flag waves"/></label>' +
-      '<button type="button" class="ghost' + (state.flagAxis === "v" ? " on" : "") + '" id="flagAxis">' + (state.flagAxis === "v" ? "Flag V" : "Flag H") + '</button>' +
-      '<button type="button" class="ghost" id="flagPath">Flag</button>' +
-      '<label class="ink">Bend<input id="fishBend" type="number" min="-100" max="100" step="1" value="' + (state.fishBend || 48) + '" aria-label="Fish bend"/></label>' +
-      '<label class="ink">Waves<input id="fishCount" type="number" min="1" max="4" step="1" value="' + (state.fishCount || 1) + '" aria-label="Fish waves"/></label>' +
-      '<button type="button" class="ghost' + (state.fishAxis === "v" ? " on" : "") + '" id="fishAxis">' + (state.fishAxis === "v" ? "Fish V" : "Fish H") + '</button>' +
-      '<button type="button" class="ghost" id="fishPath">Fish</button>' +
-      '<label class="ink">Bend<input id="riseBend" type="number" min="-100" max="100" step="1" value="' + (state.riseBend || 46) + '" aria-label="Rise bend"/></label>' +
-      '<label class="ink">Waves<input id="riseCount" type="number" min="1" max="4" step="1" value="' + (state.riseCount || 1) + '" aria-label="Rise waves"/></label>' +
-      '<button type="button" class="ghost' + (state.riseAxis === "v" ? " on" : "") + '" id="riseAxis">' + (state.riseAxis === "v" ? "Rise V" : "Rise H") + '</button>' +
-      '<button type="button" class="ghost" id="risePath">Rise</button>' +
-      '<label class="ink">Bend<input id="eyeBend" type="number" min="-100" max="100" step="1" value="' + (state.eyeBend || 42) + '" aria-label="Fisheye bend"/></label>' +
-      '<label class="ink">Waves<input id="eyeCount" type="number" min="1" max="4" step="1" value="' + (state.eyeCount || 1) + '" aria-label="Fisheye waves"/></label>' +
-      '<button type="button" class="ghost' + (state.eyeAxis === "v" ? " on" : "") + '" id="eyeAxis">' + (state.eyeAxis === "v" ? "Eye V" : "Eye H") + '</button>' +
-      '<button type="button" class="ghost" id="eyePath">Fisheye</button>' +
-      '<label class="ink">Bend<input id="inflateBend" type="number" min="-100" max="100" step="1" value="' + (state.inflateBend || 48) + '" aria-label="Inflate bend"/></label>' +
-      '<label class="ink">Waves<input id="inflateCount" type="number" min="1" max="4" step="1" value="' + (state.inflateCount || 1) + '" aria-label="Inflate waves"/></label>' +
-      '<button type="button" class="ghost' + (state.inflateAxis === "v" ? " on" : "") + '" id="inflateAxis">' + (state.inflateAxis === "v" ? "Inflate V" : "Inflate H") + '</button>' +
-      '<button type="button" class="ghost" id="inflatePath">Inflate</button>' +
-      '<label class="ink">Bend<input id="squeezeBend" type="number" min="-100" max="100" step="1" value="' + (state.squeezeBend || 46) + '" aria-label="Squeeze bend"/></label>' +
-      '<label class="ink">Waves<input id="squeezeCount" type="number" min="1" max="4" step="1" value="' + (state.squeezeCount || 1) + '" aria-label="Squeeze waves"/></label>' +
-      '<button type="button" class="ghost' + (state.squeezeAxis === "v" ? " on" : "") + '" id="squeezeAxis">' + (state.squeezeAxis === "v" ? "Squeeze V" : "Squeeze H") + '</button>' +
-      '<button type="button" class="ghost" id="squeezePath">Squeeze</button>' +
-      '<label class="ink">Bend<input id="twistBend" type="number" min="-100" max="100" step="1" value="' + (state.twistBend || 40) + '" aria-label="Twist bend"/></label>' +
-      '<label class="ink">Waves<input id="twistCount" type="number" min="1" max="4" step="1" value="' + (state.twistCount || 1) + '" aria-label="Twist waves"/></label>' +
-      '<button type="button" class="ghost' + (state.twistAxis === "v" ? " on" : "") + '" id="twistAxis">' + (state.twistAxis === "v" ? "Twist V" : "Twist H") + '</button>' +
-      '<button type="button" class="ghost" id="twistPath">Twist</button>' +
-      '<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
+'<button type="button" class="ghost" id="flatFill">Flat fill</button>' +
       '<button type="button" class="ghost' + (state.tool === "scissors" ? " on" : "") + '" id="scissorsMode">Scissors</button>' +
       '<button type="button" class="ghost' + (state.tool === "shape" ? " on" : "") + '" id="shapeMode">Shape builder</button>' +
       '<button type="button" class="ghost' + (state.tool === "knife" ? " on" : "") + '" id="knifeMode">Knife</button>' +

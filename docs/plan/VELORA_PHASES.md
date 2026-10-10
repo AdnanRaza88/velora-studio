@@ -22,6 +22,7 @@ Brief (+ optional attachment)
 - [x] Offline prompt → procedural VXL → SVG
 - [x] Textile repeats: block, half-drop, half-brick, mirror
 - [x] SVG download + VXL JSON view
+- [x] Warp and decorative distortion buttons hidden from the toolbar; the mobile screen stays clean
 
 ## Phase 2 — VXL engine (done / hardening)
 - [x] VXL schema + compile to SVG
