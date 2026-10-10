@@ -5344,12 +5344,13 @@ if (n < 6 || n > 40) return null;
         var from = starts[i];
         var to = segEnd(segs[i]);
         var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
-        if (chord < 6 || chord > 48) continue;
-        if (chordBow(segs[i].pts) > 1.6) continue;
+        if (chord < 6 || chord > 64) continue;
+        var bow = chordBow(segs[i].pts);
+        if (bow > 1.6 || (chord > 48 && bow > 1.15)) continue;
         if (spanTurn(segs[i].pts) > 0.55) continue;
         var prev = (i + n - 1) % n;
         var next = (i + 1) % n;
-        var longAllow = chord > 32 ? 1.65 : Math.max(1.35, Math.min(2.1, chord * 0.12));
+        var longAllow = chord > 48 ? 1.4 : chord > 32 ? 1.65 : Math.max(1.35, Math.min(2.1, chord * 0.12));
         if (segs[prev].k === "C" && segs[prev].pts) {
           var merged = joinPts(segs[prev].pts, segs[i].pts);
           if (merged && merged.length >= 5 && spanTurn(merged) <= 0.95) {
