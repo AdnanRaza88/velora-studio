@@ -44,13 +44,13 @@ class AttachmentBridge(
         }
         var sample = 1
         val edge = maxOf(bounds.outWidth, bounds.outHeight)
-        while (edge / sample > 1024) sample *= 2
+        while (edge / sample > 1536) sample *= 2
         val opts = BitmapFactory.Options().apply { inSampleSize = sample }
         var bitmap = BitmapFactory.decodeFile(file.absolutePath, opts)
             ?: return JSONObject().put("ok", false).put("error", "unreadable").toString()
         val longEdge = maxOf(bitmap.width, bitmap.height)
-        if (longEdge > 1024) {
-            val s = 1024f / longEdge
+        if (longEdge > 1536) {
+            val s = 1536f / longEdge
             val scaled = Bitmap.createScaledBitmap(
                 bitmap,
                 (bitmap.width * s).toInt().coerceAtLeast(1),
@@ -185,7 +185,7 @@ class AttachmentBridge(
     private fun previewData(file: File, bounds: BitmapFactory.Options): String {
         var sample = 1
         val edge = maxOf(bounds.outWidth, bounds.outHeight)
-        while (edge / sample > 1024) sample *= 2
+        while (edge / sample > 1536) sample *= 2
         val opts = BitmapFactory.Options().apply { inSampleSize = sample }
         val bitmap = BitmapFactory.decodeFile(file.absolutePath, opts) ?: return ""
         val out = ByteArrayOutputStream()
