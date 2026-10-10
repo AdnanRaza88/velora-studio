@@ -5016,7 +5016,7 @@ if (n < 6 || n > 40) return null;
       } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
-    return smoothJoins({ start: start, segs: segs });
+    return continueFreeform(smoothJoins({ start: start, segs: segs }));
   }
 
   function cornerFillet(ring, from, to) {
@@ -5298,6 +5298,64 @@ if (n < 6 || n > 40) return null;
         segs[prev].p = [hit[0], hit[1]];
         segs.splice(i, 1);
         if (i === 0) fit.start = [hit[0], hit[1]];
+        changed = true;
+        break;
+      }
+    }
+    return fit;
+  }
+
+
+  function continueFreeform(fit) {
+    var segs = fit.segs;
+    if (!segs || segs.length < 3) return fit;
+    var changed = true;
+    var guard = 0;
+    while (changed && guard < 6) {
+      changed = false;
+      guard++;
+      var n = segs.length;
+      if (n < 3) break;
+      var starts = [];
+      var cursor = fit.start.slice();
+      var i;
+      for (i = 0; i < n; i++) {
+        starts.push(cursor.slice());
+        cursor = segEnd(segs[i]).slice();
+      }
+      for (i = 0; i < n; i++) {
+        if (segs[i].k !== "L") continue;
+        var a = i;
+        var b = i;
+        var run = 1;
+        var prev, next, pl;
+        while (run < 3) {
+          next = (b + 1) % n;
+          if (next === a || segs[next].k !== "L") break;
+          pl = Math.hypot(segEnd(segs[next])[0] - starts[next][0], segEnd(segs[next])[1] - starts[next][1]);
+          if (pl > 160) break;
+          b = next;
+          run++;
+        }
+        if (b < a) continue;
+        prev = (a + n - 1) % n;
+        next = (b + 1) % n;
+        if (segs[prev].k !== "C" || segs[next].k !== "C") continue;
+        var from = starts[a];
+        var to = segEnd(segs[b]);
+        var turnIn = turnAt(segs[prev].c[2], from, to);
+        var turnOut = turnAt(from, to, segs[next].c[1]);
+        if (turnIn > 0.55 || turnOut > 0.55) continue;
+        var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
+        if (chord < 8 || chord > 180) continue;
+        if (Math.abs(to[1] - from[1]) < 1.4 || Math.abs(to[0] - from[0]) < 1.4) continue;
+        var tx = (to[0] - from[0]) / chord;
+        var ty = (to[1] - from[1]) / chord;
+        var mag = Math.min(chord * 0.32, 28);
+        var cubic = { k: "C", c: [from, [from[0] + tx * mag, from[1] + ty * mag], [to[0] - tx * mag, to[1] - ty * mag], to] };
+        segs = segs.slice(0, a).concat([cubic]).concat(segs.slice(b + 1));
+        fit.segs = segs;
+        if (a === 0) fit.start = from.slice();
         changed = true;
         break;
       }

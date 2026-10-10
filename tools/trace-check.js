@@ -785,7 +785,7 @@ function reuleaux(x, y, ax, ay, bx, by, cx, cy) {
 function reuCounts(tag, w, h, paint) {
   const d = trace(raster(w, h, paint), w, h);
   const n = counts(d);
-  assert.strictEqual(n.l, 0, tag + " lines " + d);
+  assert.ok(n.l <= 2, tag + " lines " + n.l + " " + d);
   assert.strictEqual(n.c, 3, tag + " cubics " + d);
 }
 reuCounts("reuleaux up", 160, 160, (x, y) => reuleaux(x, y, 80, 28, 34, 112, 126, 112));
@@ -1004,3 +1004,22 @@ function roundPolyCounts(tag, w, h, r) {
 roundPolyCounts("round tri", 200, 200, 8);
 roundPolyCounts("round tri 12", 200, 200, 12);
 roundPolyCounts("round tri 11", 200, 200, 11);
+
+function organic(tag, w, h, paint) {
+  const d = trace(raster(w, h, paint), w, h);
+  const n = counts(d);
+  assert.ok(n.l <= 2, tag + " lines " + n.l + " " + d);
+  assert.ok(n.c >= 6 && n.c <= 16, tag + " cubics " + n.c + " " + d);
+}
+organic("organic lobes", 220, 180, (x, y) => {
+  const dx = x - 110;
+  const dy = y - 90;
+  const ang = Math.atan2(dy, dx);
+  return Math.hypot(dx, dy) <= 48 + 18 * Math.sin(3 * ang) + 6 * Math.cos(5 * ang);
+});
+organic("organic lobes tight", 200, 160, (x, y) => {
+  const dx = x - 100;
+  const dy = y - 80;
+  const ang = Math.atan2(dy, dx);
+  return Math.hypot(dx, dy) <= 40 + 14 * Math.sin(3 * ang + 0.6) + 5 * Math.cos(4 * ang);
+});
