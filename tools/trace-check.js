@@ -1139,4 +1139,4 @@ gentleOrganic("wave body", 280, 140, (x, y) => {
   const cy = 70 + 18 * Math.sin(t * Math.PI * 1.4);
   const half = 16 + 8 * Math.sin(t * Math.PI);
   return Math.abs(y - cy) <= half;
-}, 3, 4);
+}, 4, 2);

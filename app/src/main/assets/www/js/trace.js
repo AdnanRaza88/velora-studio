@@ -5031,6 +5031,63 @@ if (n < 6 || n > 40) return null;
     return curveTangentChords(splitInflections(mergeSmoothCubics(absorbResidualLines(continueFreeform(smoothJoins({ start: start, segs: segs }))))));
   }
 
+  function curveResidualContinuation(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 3) return fit;
+    var segs = fit.segs;
+    var n = segs.length;
+    var starts = [];
+    var cursor = fit.start.slice();
+    var i;
+    for (i = 0; i < n; i++) {
+      starts.push(cursor.slice());
+      cursor = segEnd(segs[i]).slice();
+    }
+    for (i = 0; i < n; i++) {
+      if (segs[i].k !== "L") continue;
+      var from = starts[i];
+      var to = segEnd(segs[i]);
+      var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
+      if (chord < 40 || chord > 100) continue;
+      if (Math.abs(to[0] - from[0]) < 1.8 || Math.abs(to[1] - from[1]) < 1.8) continue;
+      var prev = (i + n - 1) % n;
+      var next = (i + 1) % n;
+      var prevC = segs[prev].k === "C" && segs[prev].c;
+      var nextC = segs[next].k === "C" && segs[next].c;
+      if (!prevC && !nextC) continue;
+      var tIn = prevC ? turnAt(starts[prev], from, to) : 9;
+      var tOut = nextC ? turnAt(from, to, segEnd(segs[next])) : 9;
+      if (Math.min(tIn, tOut) > 0.42) continue;
+      if (prevC && nextC && Math.max(tIn, tOut) > 0.6) continue;
+      var far = prevC && tIn <= 0.42 ? next : prev;
+      if (segs[far].k === "L") {
+        var farFrom = starts[far];
+        var farTo = segEnd(segs[far]);
+        if (Math.abs(farTo[0] - farFrom[0]) > 1.8 && Math.abs(farTo[1] - farFrom[1]) > 1.8) continue;
+      }
+      var h1, h2, inDx, inDy, inLen, outDx, outDy, outLen;
+      if (prevC && tIn < 0.42) {
+        inDx = from[0] - segs[prev].c[2][0];
+        inDy = from[1] - segs[prev].c[2][1];
+        inLen = Math.hypot(inDx, inDy) || 1;
+        h1 = [from[0] + (inDx / inLen) * chord * 0.34, from[1] + (inDy / inLen) * chord * 0.34];
+      } else {
+        h1 = [from[0] + (to[0] - from[0]) * 0.33, from[1] + (to[1] - from[1]) * 0.33];
+      }
+      if (nextC && tOut < 0.42) {
+        outDx = segs[next].c[1][0] - to[0];
+        outDy = segs[next].c[1][1] - to[1];
+        outLen = Math.hypot(outDx, outDy) || 1;
+        h2 = [to[0] - (outDx / outLen) * chord * 0.34, to[1] - (outDy / outLen) * chord * 0.34];
+      } else {
+        h2 = [from[0] + (to[0] - from[0]) * 0.67, from[1] + (to[1] - from[1]) * 0.67];
+      }
+      var mid = bezier(from, h1, h2, to, 0.5);
+      if (distPointSeg(mid, from, to) < 0.7) continue;
+      segs[i] = { k: "C", c: [from, h1, h2, to], pts: segs[i].pts || [from.slice(), to.slice()] };
+    }
+    return fit;
+  }
+
   function cornerFillet(ring, from, to) {
     var n = ring.length;
     var a = ring[from];
@@ -5344,13 +5401,13 @@ if (n < 6 || n > 40) return null;
         var from = starts[i];
         var to = segEnd(segs[i]);
         var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
-        if (chord < 6 || chord > 64) continue;
+        if (chord < 6 || chord > 72) continue;
         var bow = chordBow(segs[i].pts);
-        if (bow > 1.6 || (chord > 48 && bow > 1.15)) continue;
+        if (bow > 1.6 || (chord > 48 && bow > 1.05)) continue;
         if (spanTurn(segs[i].pts) > 0.55) continue;
         var prev = (i + n - 1) % n;
         var next = (i + 1) % n;
-        var longAllow = chord > 48 ? 1.4 : chord > 32 ? 1.65 : Math.max(1.35, Math.min(2.1, chord * 0.12));
+        var longAllow = chord > 48 ? 2.4 : chord > 32 ? 1.65 : Math.max(1.35, Math.min(2.1, chord * 0.12));
         if (segs[prev].k === "C" && segs[prev].pts) {
           var merged = joinPts(segs[prev].pts, segs[i].pts);
           if (merged && merged.length >= 5 && spanTurn(merged) <= 0.95) {
@@ -5810,6 +5867,7 @@ if (n < 6 || n > 40) return null;
     fit = mergeCollinear(fit);
     fit = curveGentleLineRuns(fit);
     fit = curveLoneBowedLines(fit);
+    fit = curveResidualContinuation(fit);
     if (!fit.segs.length) return "";
     var parts = ["M" + xy(fit.start, ox, oy, scale)];
     for (var s = 0; s < fit.segs.length; s++) {
