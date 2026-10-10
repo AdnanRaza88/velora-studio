@@ -67,7 +67,7 @@ const lobe = trace(raster(180, 180, (x, y) => {
 }), 180, 180);
 const lobeN = counts(lobe);
 assert.ok(lobeN.c >= 6 && lobeN.c <= 16, "lobe cubics " + lobeN.c + " " + lobe);
-assert.ok(lobeN.l <= 2, "lobe lines " + lobe);
+assert.strictEqual(lobeN.l, 0, "lobe lines " + lobe);
 
 const pent = trace(raster(160, 160, (x, y) => {
   const pts = [];
@@ -1008,7 +1008,7 @@ roundPolyCounts("round tri 11", 200, 200, 11);
 function organic(tag, w, h, paint) {
   const d = trace(raster(w, h, paint), w, h);
   const n = counts(d);
-  assert.ok(n.l <= 2, tag + " lines " + n.l + " " + d);
+  assert.strictEqual(n.l, 0, tag + " lines " + n.l + " " + d);
   assert.ok(n.c >= 6 && n.c <= 16, tag + " cubics " + n.c + " " + d);
 }
 organic("organic lobes", 220, 180, (x, y) => {
