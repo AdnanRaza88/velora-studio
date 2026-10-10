@@ -1133,3 +1133,10 @@ gentleOrganic("banana", 240, 120, (x, y) => {
   const half = 14 + 6 * Math.sin(t * Math.PI);
   return Math.abs(y - cy) <= half;
 }, 4, 2);
+gentleOrganic("wave body", 280, 140, (x, y) => {
+  const t = (x - 20) / 240;
+  if (t < 0 || t > 1) return false;
+  const cy = 70 + 18 * Math.sin(t * Math.PI * 1.4);
+  const half = 16 + 8 * Math.sin(t * Math.PI);
+  return Math.abs(y - cy) <= half;
+}, 3, 4);
