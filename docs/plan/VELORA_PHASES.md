@@ -48,6 +48,7 @@ Brief (+ optional attachment)
 - [x] Freeform collinear merge: adjacent lines whose intermediate vertex sits within 1.45px of the outer chord and whose turn stays under 0.2 rad collapse into one line
 - [x] Freeform residual continuation: a short non-axis line run between two cubics becomes one cubic when both joins stay under 0.55 rad, so organic contours stay continuous
 - [x] Higher resolution: device and preview rasters use a 1792 long edge so fine contours keep more samples before the 1024 viewBox fit. Small circles, ellipses, and polygons stay.
+- [x] Thin strokes: peel width scales with the raster long edge, a one-pixel dilate keeps the skeleton connected, and aligned chain ends join, so a hairline stays one centerline instead of a filled ribbon or fragments. Filled circles, polygons, and bars stay fills.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate

@@ -1023,3 +1023,19 @@ organic("organic lobes tight", 200, 160, (x, y) => {
   const ang = Math.atan2(dy, dx);
   return Math.hypot(dx, dy) <= 40 + 14 * Math.sin(3 * ang + 0.6) + 5 * Math.cos(4 * ang);
 });
+
+function thinWave(tag, w, h, amp, thick) {
+  const luma = raster(w, h, (x, y) => {
+    if (x < 16 || x > w - 16) return false;
+    const cy = h / 2 + amp * Math.sin((x - 16) / (w - 32) * Math.PI * 2);
+    return Math.abs(y - cy) <= thick;
+  });
+  const out = T.fromLuma(w, h, luma, { maxEdge: w });
+  assert.strictEqual(out.ok, true, tag + " " + (out.error || ""));
+  const strokes = out.shapes.filter((s) => s.fill === "none" && s.strokeWidth > 1);
+  assert.ok(strokes.length >= 1 && strokes.length <= 2, tag + " strokes " + out.shapes.length + " " + out.shapes.map((s) => s.fill).join(","));
+  assert.ok(strokes[0].d.indexOf("M") === 0, tag + " path " + strokes[0].d);
+}
+thinWave("thin wave", 200, 120, 18, 2.2);
+thinWave("thin wave long", 640, 180, 20, 3.5);
+

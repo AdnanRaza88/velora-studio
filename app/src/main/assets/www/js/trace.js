@@ -6672,6 +6672,11 @@ if (n < 6 || n > 40) return null;
   }
 
 
+  function peelLimit(w, h) {
+    var edge = Math.max(w, h);
+    return Math.max(6.5, Math.min(16, edge / 55));
+  }
+
   function joinChains(chains) {
     var pool = [];
     var i, c;
@@ -6694,6 +6699,59 @@ if (n < 6 || n > 40) return null;
           else if (near(a[a.length - 1], b[b.length - 1])) merged = a.concat(b.slice(0, -1).reverse());
           else if (near(a[0], b[0])) merged = a.slice().reverse().concat(b.slice(1));
           else if (near(a[0], b[b.length - 1])) merged = b.concat(a.slice(1));
+          if (!merged) continue;
+          pool[i] = merged;
+          pool.splice(j, 1);
+          changed = true;
+          break;
+        }
+        if (changed) break;
+      }
+    }
+    return pool;
+  }
+
+  function joinStrokeChains(chains, gap) {
+    var pool = [];
+    var i, c;
+    for (i = 0; i < chains.length; i++) {
+      c = chains[i];
+      if (c && c.length >= 2) pool.push(c.map(function (p) { return p.slice(); }));
+    }
+    function aim(chain, end, other) {
+      var n = chain.length;
+      var tip = end ? chain[n - 1] : chain[0];
+      var back = end ? chain[Math.max(0, n - 4)] : chain[Math.min(3, n - 1)];
+      var dx = tip[0] - back[0];
+      var dy = tip[1] - back[1];
+      var gx = other[0] - tip[0];
+      var gy = other[1] - tip[1];
+      var len = Math.hypot(dx, dy) * Math.hypot(gx, gy);
+      if (len < 1e-6) return true;
+      return (dx * gx + dy * gy) / len > 0.32;
+    }
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (i = 0; i < pool.length; i++) {
+        for (var j = i + 1; j < pool.length; j++) {
+          var a = pool[i];
+          var b = pool[j];
+          var pairs = [
+            [a[a.length - 1], b[0], 1, 0, a.concat(b.slice(1))],
+            [a[a.length - 1], b[b.length - 1], 1, 1, a.concat(b.slice(0, -1).reverse())],
+            [a[0], b[0], 0, 0, a.slice().reverse().concat(b.slice(1))],
+            [a[0], b[b.length - 1], 0, 1, b.concat(a.slice(1))]
+          ];
+          var merged = null;
+          var p;
+          for (p = 0; p < pairs.length; p++) {
+            var dist = Math.hypot(pairs[p][0][0] - pairs[p][1][0], pairs[p][0][1] - pairs[p][1][1]);
+            if (dist > gap) continue;
+            if (dist > 6.5 && (!aim(a, pairs[p][2], pairs[p][1]) || !aim(b, pairs[p][3], pairs[p][0]))) continue;
+            merged = pairs[p][4];
+            break;
+          }
           if (!merged) continue;
           pool[i] = merged;
           pool.splice(j, 1);
@@ -6741,15 +6799,19 @@ if (n < 6 || n > 40) return null;
         for (k = 0; k < cells.length; k++) samples.push(dist[cells[k][1] * w + cells[k][0]]);
         samples.sort(function (a, b) { return a - b; });
         width = samples[Math.min(samples.length - 1, (samples.length * 0.9) | 0)] * 2;
-        if (width > 6.5 || samples[samples.length - 1] > 5.5) continue;
-        skel = zhangSuen(local, w, h);
-        chains = joinChains(walkSkeleton(skel, w, h));
+        var limit = peelLimit(w, h);
+        if (width > limit || samples[samples.length - 1] > limit * 0.72) continue;
+        skel = zhangSuen(dilate(local, w, h), w, h);
+        chains = joinStrokeChains(walkSkeleton(skel, w, h), Math.max(8, Math.min(24, width * 3.2)));
         if (!chains.length) continue;
         for (k = 0; k < cells.length; k++) rest[cells[k][1] * w + cells[k][0]] = 0;
+        var longest = 0;
+        for (k = 0; k < chains.length; k++) if (chains[k] && chains[k].length > longest) longest = chains[k].length;
         for (k = 0; k < chains.length; k++) {
           best = chains[k];
-          if (!best || best.length < 6) continue;
-          closed = best.length > 8 && Math.hypot(best[0][0] - best[best.length - 1][0], best[0][1] - best[best.length - 1][1]) <= 6.5;
+          if (!best || best.length < 8) continue;
+          if (longest >= 18 && best.length < longest * 0.18) continue;
+          closed = best.length > 8 && Math.hypot(best[0][0] - best[best.length - 1][0], best[0][1] - best[best.length - 1][1]) <= Math.max(6.5, width * 1.4);
           pts = [];
           for (s = 0; s < best.length; s++) pts.push([best[s][0] + 0.5, best[s][1] + 0.5]);
           if (closed) pts = pts.slice(0, -1);
