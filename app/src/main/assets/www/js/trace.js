@@ -5311,7 +5311,7 @@ if (n < 6 || n > 40) return null;
     if (!fit || !fit.segs || fit.segs.length < 3) return fit;
     var changed = true;
     var guard = 0;
-    while (changed && guard < 6) {
+    while (changed && guard < 8) {
       changed = false;
       guard++;
       var segs = fit.segs;
@@ -5326,26 +5326,44 @@ if (n < 6 || n > 40) return null;
       }
       for (i = 0; i < n; i++) {
         if (segs[i].k !== "L" || !segs[i].pts) continue;
-        var prev = (i + n - 1) % n;
-        if (segs[prev].k !== "C" || !segs[prev].pts) continue;
         var from = starts[i];
         var to = segEnd(segs[i]);
         var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
         if (chord < 6 || chord > 32) continue;
         if (chordBow(segs[i].pts) > 1.6) continue;
         if (spanTurn(segs[i].pts) > 0.55) continue;
-        var merged = joinPts(segs[prev].pts, segs[i].pts);
-        if (!merged || merged.length < 5) continue;
-        if (spanTurn(merged) > 0.95) continue;
-        var one = fitTight(merged);
-        var err = cubicError(merged, one.cubic, one.ts);
-        var allow = Math.max(1.35, Math.min(2.1, chord * 0.12));
-        if (err.max > allow) continue;
-        segs[prev] = { k: "C", c: one.cubic, pts: merged };
-        segs.splice(i, 1);
-        if (i === 0) fit.start = starts[prev].slice();
-        changed = true;
-        break;
+        var prev = (i + n - 1) % n;
+        var next = (i + 1) % n;
+        if (segs[prev].k === "C" && segs[prev].pts) {
+          var merged = joinPts(segs[prev].pts, segs[i].pts);
+          if (merged && merged.length >= 5 && spanTurn(merged) <= 0.95) {
+            var one = fitTight(merged);
+            var err = cubicError(merged, one.cubic, one.ts);
+            var allow = Math.max(1.35, Math.min(2.1, chord * 0.12));
+            if (err.max <= allow) {
+              segs[prev] = { k: "C", c: one.cubic, pts: merged };
+              segs.splice(i, 1);
+              if (i === 0) fit.start = starts[prev].slice();
+              changed = true;
+              break;
+            }
+          }
+        }
+        if (!changed && segs[next].k === "C" && segs[next].pts) {
+          var mergedB = joinPts(segs[i].pts, segs[next].pts);
+          if (mergedB && mergedB.length >= 5 && spanTurn(mergedB) <= 0.95) {
+            var oneB = fitTight(mergedB);
+            var errB = cubicError(mergedB, oneB.cubic, oneB.ts);
+            var allowB = Math.max(1.35, Math.min(2.1, chord * 0.12));
+            if (errB.max <= allowB) {
+              segs[next] = { k: "C", c: oneB.cubic, pts: mergedB };
+              segs.splice(i, 1);
+              if (i === 0) fit.start = starts[next].slice();
+              changed = true;
+              break;
+            }
+          }
+        }
       }
     }
     return fit;
