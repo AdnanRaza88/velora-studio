@@ -56,7 +56,7 @@ Brief (+ optional attachment)
 - [x] Side-run gentle ends: a locally straight run that leaves a real corner does not cut where the far end still drifts under 0.6 (or a two-point run drifts under 0.2 into a corner), so a long gentle organic keeps curved sides instead of a residual chord. Circles, polygons, bubbles, and special fits stay.
 - [x] Gentle pair chords: a two-point side run longer than 40px with both end turns under 0.22 rad is left freeform, so a long wave body keeps a curved side instead of a residual chord. Banana, circles, polygons, and special fits stay.
 - [x] Freeform longer residual absorb: low-bow lines under 64px fold into adjacent cubics when the bow stays under 1.15px past 48px and the refit stays within 1.4px, so longer gentle organic sides stay continuous. Circles, polygons, and special fits stay.
-- [x] Residual continuation: a residual line under 90px folds into an adjacent cubic when the refit stays within 2.6px past 72px, and a residual line past 40px up to 120px with a smooth join to a cubic and an axis end cap becomes a cubic, so a long wave keeps a curved side instead of a residual chord. Circles, polygons, bubbles, and special fits stay.
+- [x] Residual continuation: a residual line under 72px folds into an adjacent cubic when the refit stays within 2.4px, and a residual line past 40px with a smooth join to a cubic and an axis end cap becomes a cubic, so a wave top stays curved instead of a chord. Circles, polygons, bubbles, and special fits stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
