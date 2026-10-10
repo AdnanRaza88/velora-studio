@@ -27,6 +27,7 @@ Brief (+ optional attachment)
 - [x] VXL schema + compile to SVG
 - [x] Paste/import VXL → render
 - [x] Project save/load on device
+- [x] Projects store solid: 1.5 MB on-device limit, quota error, size in the list, import a VXL file or library into the store, export the library, Android save dialog for SVG and VXL
 - [x] Harden schema against skill output; golden tests
 
 ## Phase 3 — Skills + Needle-first agent (active)

@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var attachments: AttachmentBridge
+    private lateinit var exports: ExportBridge
     private var fileCallback: ValueCallback<Array<Uri>>? = null
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -28,11 +29,17 @@ class MainActivity : AppCompatActivity() {
         fileCallback = null
     }
 
+    private val createDocument = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uri = result.data?.data
+        if (::exports.isInitialized) exports.onCreated(uri)
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         webView = WebView(this).also { setContentView(it) }
         attachments = AttachmentBridge(this, { webView }) { pickImage.launch("image/*") }
+        exports = ExportBridge(this) { intent -> createDocument.launch(intent) }
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -57,17 +64,14 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = callback
-                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                    type = "image/*"
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                }
-                fileChooser.launch(intent)
+                fileChooser.launch(chooserIntent(params))
                 return true
             }
         }
         webView.addJavascriptInterface(NeedleBridge(this), "VeloraNeedle")
         webView.addJavascriptInterface(PlannerBridge { webView }, "VeloraPlanner")
         webView.addJavascriptInterface(attachments, "VeloraAttach")
+        webView.addJavascriptInterface(exports, "VeloraExport")
         webView.loadUrl("file:///android_asset/www/index.html")
 
         onBackPressedDispatcher.addCallback(
@@ -78,6 +82,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    private fun chooserIntent(params: WebChromeClient.FileChooserParams?): Intent {
+        val accepts = params?.acceptTypes?.filter { it.isNotBlank() } ?: emptyList()
+        return Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            when {
+                accepts.any { it.contains("image") } -> type = "image/*"
+                accepts.any { it.contains("json") || it == ".json" } -> {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/json", "text/plain", "application/octet-stream"))
+                }
+                else -> type = "*/*"
+            }
+        }
     }
 
     override fun onDestroy() {

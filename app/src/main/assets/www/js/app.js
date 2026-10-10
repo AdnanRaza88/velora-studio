@@ -53,6 +53,17 @@
   }
 
   function download(text, name, mime) {
+    if (window.VeloraExport && typeof VeloraExport.save === "function") {
+      try {
+        VeloraExport.save(name, mime, text);
+        var msg = document.getElementById("saveMsg") || document.getElementById("storeMsg");
+        if (msg) {
+          msg.className = "ok";
+          msg.textContent = "Choose where to save " + name + ".";
+        }
+        return;
+      } catch (e) {}
+    }
     var blob = new Blob([text], { type: mime });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
@@ -1565,9 +1576,11 @@
   function renderStudio() {
     var ap = activeProvider();
     var items = VeloraProjects.list();
+    var used = VeloraProjects.used ? VeloraProjects.used() : { count: items.length, bytes: 0 };
     var list = items.length ? items.map(function (item) {
+      var size = item.bytes ? Math.max(1, Math.round(item.bytes / 1024)) + " KB \u00b7 " : "";
       return '<div class="project"><div><strong>' + VeloraVxl.esc(item.name) + '</strong><div class="muted">' +
-        VeloraVxl.esc(item.category) + " \u00b7 " + VeloraVxl.esc(item.updated.slice(0, 16).replace("T", " ")) +
+        size + VeloraVxl.esc(item.category) + " \u00b7 " + VeloraVxl.esc(item.updated.slice(0, 16).replace("T", " ")) +
         '</div></div><div class="row"><button type="button" class="btn" data-open="' + VeloraVxl.esc(item.id) +
         '">Open</button><button type="button" class="ghost" data-del="' + VeloraVxl.esc(item.id) + '">Delete</button></div></div>';
     }).join("") : '<p class="muted">No saved projects yet. Compose or paste VXL, then save.</p>';
@@ -1575,9 +1588,23 @@
       '<div class="card"><h2>Pipeline</h2><p class="muted">Brief or pasted JSON \u2192 Needle or skill expand \u2192 validate \u2192 compile. Path: <strong style="color:var(--fg)">' +
       VeloraVxl.esc(ap.name) + '</strong>. No API key.</p><div class="row"><button type="button" class="btn" id="goNew">New composition</button>' +
       '<button type="button" class="ghost" id="goProv">Providers</button></div></div>' +
-      '<div class="card"><h2>On device</h2>' + list + '</div>';
+      '<div class="card"><h2>On device</h2><p class="muted">' + used.count + ' projects \u00b7 ' +
+      Math.max(0, Math.round(used.bytes / 1024)) + ' KB stored on this device.</p>' +
+      '<div class="row"><label class="ghost" for="storeFile">Import VXL<input id="storeFile" type="file" accept="application/json,.json" class="hidden"/></label>' +
+      '<button type="button" class="ghost" id="exportLib">Export library</button></div>' +
+      '<p id="storeMsg" class="muted"></p>' + list + '</div>';
     document.getElementById("goNew").onclick = function () { setRoute("compose"); };
     document.getElementById("goProv").onclick = function () { setRoute("providers"); };
+    document.getElementById("exportLib").onclick = function () {
+      download(VeloraProjects.exportAll(), "velora-projects.json", "application/json");
+    };
+    document.getElementById("storeFile").onchange = function () {
+      var file = this.files && this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () { storeImported(String(reader.result || "")); };
+      reader.readAsText(file);
+    };
     var opens = $.querySelectorAll("[data-open]");
     for (var i = 0; i < opens.length; i++) opens[i].onclick = function () { openProject(this.getAttribute("data-open")); };
     var dels = $.querySelectorAll("[data-del]");
@@ -1585,6 +1612,33 @@
       VeloraProjects.remove(this.getAttribute("data-del"));
       renderStudio();
     };
+  }
+
+  function storeImported(text) {
+    var msg = document.getElementById("storeMsg");
+    var trimmed = text.trim();
+    if (trimmed.charAt(0) === "[") {
+      var bundle = VeloraProjects.importBundle(trimmed);
+      if (!msg) return;
+      msg.className = bundle.ok ? "ok" : "warn";
+      msg.textContent = bundle.ok ? "Imported " + bundle.added + " projects." : bundle.error;
+      if (bundle.ok) renderStudio();
+      return;
+    }
+    var checked = VeloraVxl.validate(text);
+    if (!checked.ok) {
+      if (msg) {
+        msg.className = "warn";
+        msg.textContent = checked.errors.join("; ");
+      }
+      return;
+    }
+    checked.document.meta.updated = new Date().toISOString();
+    var res = VeloraProjects.save(checked.document);
+    if (!msg) return;
+    msg.className = res.ok ? "ok" : "warn";
+    msg.textContent = res.ok ? "Saved " + checked.document.meta.name + " on this device." : res.error;
+    if (res.ok) renderStudio();
   }
 
   function openProject(id) {
@@ -1926,7 +1980,10 @@
     $.innerHTML = '<h1>Workshop</h1><div class="card"><h2>Theme</h2><button type="button" class="btn" id="themeBtn">' +
       (theme() === "dark" ? "Dark ink" : "Light paper") + "</button></div>" +
       '<div class="card"><h2>Privacy</h2><p>Projects stay on this device. The default path does not read or send an API key. Saved projects never include keys. Reference images stay in app files and are not uploaded. An optional planner sends the brief only.</p></div>' +
-      '<div class="card"><h2>Device store</h2><p class="muted">' + VeloraProjects.list().length + ' projects in local storage.</p>' +
+      '<div class="card"><h2>Device store</h2><p class="muted">' + (function () {
+        var used = VeloraProjects.used ? VeloraProjects.used() : { count: VeloraProjects.list().length, bytes: 0 };
+        return used.count + " projects \u00b7 " + Math.max(0, Math.round(used.bytes / 1024)) + " KB in local storage.";
+      })() + '</p>' +
       '<button type="button" class="ghost" id="wipe">Clear saved projects</button></div>' +
       '<div class="card"><h2>About</h2><p class="muted">Velora Studio. VXL 1 is the source of truth. The compiler is deterministic: same document, same SVG.</p></div>';
     document.getElementById("themeBtn").onclick = function () {
