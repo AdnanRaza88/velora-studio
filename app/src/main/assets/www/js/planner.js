@@ -47,7 +47,9 @@
     var spec = schema();
     var system = (pack && pack.system) || "";
     var secret = String(key || "");
-    if (!id || !secret || !pack || !spec) return { ok: false, error: "planner unavailable" };
+    if (!id) return { ok: false, error: "Unknown provider. Choose OpenAI, Anthropic, Gemini, or OpenRouter." };
+    if (!secret) return { ok: false, error: "No API key saved for " + id + ". Open Providers, paste the key, and save." };
+    if (!pack || !spec) return { ok: false, error: "Skill pack or emit_vxl schema missing. Restart the app." };
     var user = userText(brief, skill, repeat);
     var body;
     var headers = { "Content-Type": "application/json" };
@@ -125,27 +127,27 @@
 
   function send(built, done) {
     if (!built || !built.ok) {
-      done({ ok: false, error: (built && built.error) || "planner unavailable" });
+      done({ ok: false, error: (built && built.error) || "Planner unavailable." });
       return;
     }
     if (!root.VeloraPlanner || !root.VeloraPlanner.post) {
-      done({ ok: false, error: "bridge missing" });
+      done({ ok: false, error: "Native planner bridge missing. Remote providers need the Android app build." });
       return;
     }
     root.VeloraPlannerClient._wait = function (raw) {
       root.VeloraPlannerClient._wait = null;
       var packet = raw;
       if (typeof raw === "string") {
-        try { packet = JSON.parse(raw); } catch (error) { packet = { ok: false, error: "planner parse" }; }
+        try { packet = JSON.parse(raw); } catch (error) { packet = { ok: false, error: "Planner response could not be parsed." }; }
       }
       if (!packet || !packet.ok) {
-        done({ ok: false, provider: built.provider, error: (packet && packet.error) || "planner failed" });
+        done({ ok: false, provider: built.provider, error: (packet && packet.error) || "Planner request failed." });
         return;
       }
       var args = extract(packet.body);
       var locked = root.VeloraSkills && root.VeloraSkills.lockArgs(args);
       if (!locked || !locked.ok) {
-        done({ ok: false, provider: built.provider, error: "emit_vxl rejected" });
+        done({ ok: false, provider: built.provider, error: "Remote reply had no valid emit_vxl call. Check the model supports tools, then retry." });
         return;
       }
       done({ ok: true, provider: built.provider, arguments: locked.arguments });
@@ -158,7 +160,7 @@
       }));
     } catch (error) {
       root.VeloraPlannerClient._wait = null;
-      done({ ok: false, error: "planner post" });
+      done({ ok: false, error: "Could not post to the planner bridge." });
     }
   }
 
