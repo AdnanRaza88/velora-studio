@@ -1,6 +1,9 @@
 name: Restore trace
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/restore-trace.yml'
 jobs:
   restore:
     runs-on: ubuntu-latest
