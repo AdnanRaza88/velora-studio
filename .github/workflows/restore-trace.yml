@@ -11,11 +11,105 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Restore trace.js from good commit
+      - name: Patch residualChordCubic
         run: |
-          git checkout 94d93b43abdb45314efbbcde623ec6feadc47a1a -- app/src/main/assets/www/js/trace.js
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/assets/www/js/trace.js')
+          text = path.read_text()
+          old = '''  function residualChordCubic(fit) {
+            if (!fit || !fit.segs || fit.segs.length < 3) return fit;
+            var segs = fit.segs;
+            var n = segs.length;
+            var starts = [];
+            var cursor = fit.start.slice();
+            var i;
+            for (i = 0; i < n; i++) {
+              starts.push(cursor.slice());
+              cursor = segEnd(segs[i]).slice();
+            }
+            for (i = 0; i < n; i++) {
+              if (segs[i].k !== "L" || !segs[i].pts) continue;
+              var from = starts[i];
+              var to = segEnd(segs[i]);
+              var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
+              if (chord < 70 || chord > 160) continue;
+              if (chordBow(segs[i].pts) > 0.85) continue;
+              var prev = (i + n - 1) % n;
+              if (segs[prev].k !== "C" || !segs[prev].c) continue;
+              var turn = turnAt(segs[prev].c[2], from, to);
+              if (turn > 0.28) continue;
+              var tx = (to[0] - from[0]) / chord;
+              var ty = (to[1] - from[1]) / chord;
+              var mag = Math.min(chord * 0.28, 36);
+              var h1 = [from[0] + tx * mag, from[1] + ty * mag];
+              var h2 = [to[0] - tx * mag, to[1] - ty * mag];
+              segs[i] = { k: "C", c: [from, h1, h2, to], pts: segs[i].pts };
+            }
+            return fit;
+          }'''
+          # normalize whitespace from YAML indent noise
+          import re
+          # find function by marker
+          start = text.find('  function residualChordCubic(fit)')
+          if start < 0:
+              raise SystemExit('function not found')
+          end = text.find('\n  function ', start + 10)
+          if end < 0:
+              raise SystemExit('end not found')
+          new = '''  function residualChordCubic(fit) {
+            if (!fit || !fit.segs || fit.segs.length < 3) return fit;
+            var segs = fit.segs;
+            var n = segs.length;
+            var starts = [];
+            var cursor = fit.start.slice();
+            var i;
+            for (i = 0; i < n; i++) {
+              starts.push(cursor.slice());
+              cursor = segEnd(segs[i]).slice();
+            }
+            for (i = 0; i < n; i++) {
+              if (segs[i].k !== "L" || !segs[i].pts) continue;
+              var from = starts[i];
+              var to = segEnd(segs[i]);
+              var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
+              if (chord < 70 || chord > 200) continue;
+              var bow = chordBow(segs[i].pts);
+              if (bow > 0.85 || (chord > 160 && bow > 0.55)) continue;
+              var prev = (i + n - 1) % n;
+              var next = (i + 1) % n;
+              var prevOk = segs[prev].k === "C" && segs[prev].c && turnAt(segs[prev].c[2], from, to) <= 0.28;
+              var nextOk = false;
+              if (segs[next].k === "C" && segs[next].c) {
+                var nEnd = segEnd(segs[next]);
+                nextOk = turnAt(from, to, segs[next].c[1]) <= 0.28 || turnAt(from, to, nEnd) <= 0.32;
+              }
+              if (!prevOk && !nextOk) continue;
+              var tx = (to[0] - from[0]) / chord;
+              var ty = (to[1] - from[1]) / chord;
+              var mag = Math.min(chord * 0.28, 42);
+              var h1 = [from[0] + tx * mag, from[1] + ty * mag];
+              var h2 = [to[0] - tx * mag, to[1] - ty * mag];
+              segs[i] = { k: "C", c: [from, h1, h2, to], pts: segs[i].pts };
+            }
+            return fit;
+          }'''
+          # fix indentation of new block to 2-space function style
+          lines = new.split('\n')
+          fixed = []
+          for line in lines:
+              if line.startswith('            '):
+                  fixed.append('  ' + line[12:])
+              elif line.startswith('  function'):
+                  fixed.append(line)
+              else:
+                  fixed.append(line)
+          new = '\n'.join(fixed)
+          path.write_text(text[:start] + new + text[end:])
+          print('patched', start, end)
+          PY
           git config user.name "AdnanRaza88"
           git config user.email "AdnanRaza88@users.noreply.github.com"
           git add app/src/main/assets/www/js/trace.js
-          git commit -m "Restore trace.js from 94d93b4 after placeholder corruption" || exit 0
+          git commit -m "Trace residual chord cubic: low-bow residual 70-200px joins previous or next cubic." || exit 0
           git push origin HEAD:main
