@@ -5395,9 +5395,9 @@ if (n < 6 || n > 40) return null;
     var from = starts[i];
     var to = segEnd(segs[i]);
     var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
-    if (chord < 70 || chord > 640) continue;
+    if (chord < 70 || chord > 800) continue;
     var bow = chordBow(segs[i].pts);
-    if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42) || (chord > 260 && bow > 0.32) || (chord > 320 && bow > 0.24) || (chord > 400 && bow > 0.18) || (chord > 520 && bow > 0.14)) continue;
+    if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42) || (chord > 260 && bow > 0.32) || (chord > 320 && bow > 0.24) || (chord > 400 && bow > 0.18) || (chord > 520 && bow > 0.14) || (chord > 640 && bow > 0.11)) continue;
     var prev = (i + n - 1) % n;
     var next = (i + 1) % n;
     var prevOk = segs[prev].k === "C" && segs[prev].c && turnAt(segs[prev].c[2], from, to) <= 0.28;
@@ -5411,13 +5411,13 @@ if (n < 6 || n > 40) return null;
     if (segs[i].pts.length >= 4) {
       var one = fitTight(segs[i].pts);
       var err = cubicError(segs[i].pts, one.cubic, one.ts);
-      var allow = chord > 520 ? 1.2 : chord > 400 ? 1.35 : chord > 320 ? 1.55 : chord > 260 ? 1.8 : 2.4;
+      var allow = chord > 640 ? 1.05 : chord > 520 ? 1.2 : chord > 400 ? 1.35 : chord > 320 ? 1.55 : chord > 260 ? 1.8 : 2.4;
       if (err.max <= allow) cubic = one.cubic;
     }
     if (!cubic) {
       var tx = (to[0] - from[0]) / chord;
       var ty = (to[1] - from[1]) / chord;
-      var mag = Math.min(chord * 0.28, chord > 520 ? 76 : chord > 400 ? 68 : chord > 320 ? 60 : chord > 260 ? 52 : 42);
+      var mag = Math.min(chord * 0.28, chord > 640 ? 88 : chord > 520 ? 76 : chord > 400 ? 68 : chord > 320 ? 60 : chord > 260 ? 52 : 42);
       cubic = [from, [from[0] + tx * mag, from[1] + ty * mag], [to[0] - tx * mag, to[1] - ty * mag], to];
     }
     segs[i] = { k: "C", c: cubic, pts: segs[i].pts };
