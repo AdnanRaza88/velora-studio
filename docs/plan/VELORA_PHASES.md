@@ -54,6 +54,7 @@ Brief (+ optional attachment)
 - [x] Residual chord span: residual lines 70-640px with a smooth cubic join use a sample-fitted cubic when the error stays within 1.2-2.4px (stricter bow past 520px), so still longer gentle organic sides track the samples instead of a flat chord. Circles, polygons, and special fits stay.
 - [x] Residual chord expanse: residual lines 70-800px with a smooth cubic join use a sample-fitted cubic when the error stays within 1.05-2.4px (stricter bow past 640px), so still longer gentle organic sides track the samples instead of a flat chord. Circles, polygons, and special fits stay.
 - [x] Residual chord further: residual lines 70-1000px with a smooth cubic join use a sample-fitted cubic when the error stays within 0.95-2.4px (stricter bow past 800px), so still longer gentle organic sides track the samples instead of a flat chord. Circles, polygons, and special fits stay.
+- [x] Residual chord further still: residual lines 70-1200px with a smooth cubic join use a sample-fitted cubic when the error stays within 0.82-2.4px (stricter bow past 1000px), so still longer gentle organic sides track the samples instead of a flat chord. Circles, polygons, and special fits stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
