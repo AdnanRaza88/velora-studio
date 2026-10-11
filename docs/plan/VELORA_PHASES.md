@@ -58,6 +58,7 @@ Brief (+ optional attachment)
 - [x] Freeform longer residual absorb: low-bow lines under 64px fold into adjacent cubics when the bow stays under 1.15px past 48px and the refit stays within 1.4px, so longer gentle organic sides stay continuous. Circles, polygons, and special fits stay.
 - [x] Residual continuation: a residual line under 72px folds into an adjacent cubic when the refit stays within 2.4px, and a residual line past 40px with a smooth join to a cubic and an axis end cap becomes a cubic, so a wave top stays curved instead of a chord. Circles, polygons, bubbles, and special fits stay.
 - [x] Residual reach: low-bow lines under 90px fold into adjacent cubics when the bow stays under 0.92px past 72px and the refit stays within 2.6px, so longer gentle organic sides stay continuous. Circles, polygons, and special fits stay.
+- [x] Residual stretch: low-bow lines under 110px fold into adjacent cubics when the bow stays under 0.78px past 90px and the refit stays within 2.75px, so still longer gentle organic sides stay continuous. Circles, polygons, and special fits stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
