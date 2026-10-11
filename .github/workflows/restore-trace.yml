@@ -1,38 +1,8 @@
 name: Restore trace
-
 on:
   workflow_dispatch:
-
 jobs:
-  patch:
+  noop:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Apply residual chord span 640
-        run: |
-          python3 -c "
-          from pathlib import Path
-          p = Path('app/src/main/assets/www/js/trace.js')
-          t = p.read_text()
-          a = 'if (chord < 70 || chord > 520) continue;'
-          b = 'if (chord < 70 || chord > 640) continue;'
-          if a not in t:
-            print('already' if 'chord > 640' in t else 'missing')
-            raise SystemExit(0 if 'chord > 640' in t else 1)
-          t = t.replace(a, b, 1)
-          t = t.replace('(chord > 400 && bow > 0.18)) continue;', '(chord > 400 && bow > 0.18) || (chord > 520 && bow > 0.14)) continue;', 1)
-          t = t.replace('var allow = chord > 400 ? 1.35 : chord > 320 ? 1.55 : chord > 260 ? 1.8 : 2.4;', 'var allow = chord > 520 ? 1.2 : chord > 400 ? 1.35 : chord > 320 ? 1.55 : chord > 260 ? 1.8 : 2.4;', 1)
-          t = t.replace('var mag = Math.min(chord * 0.28, chord > 400 ? 68 : chord > 320 ? 60 : chord > 260 ? 52 : 42);', 'var mag = Math.min(chord * 0.28, chord > 520 ? 76 : chord > 400 ? 68 : chord > 320 ? 60 : chord > 260 ? 52 : 42);', 1)
-          p.write_text(t)
-          print('patched')
-          "
-      - name: Commit and push
-        run: |
-          git config user.name AdnanRaza88
-          git config user.email AdnanRaza88@users.noreply.github.com
-          git add app/src/main/assets/www/js/trace.js
-          if git diff --cached --quiet; then echo no changes; else git commit -m "Trace residual chord span: residual lines 70-640px with a smooth cubic join use a sample-fitted cubic when the error stays within 1.2-2.4px (stricter bow past 520px), so still longer gentle organic sides track the samples instead of a flat chord. Circles, polygons, and special fits stay." && git push; fi
+      - run: echo restored; exit 0
