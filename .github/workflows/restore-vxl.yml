@@ -1,0 +1,42 @@
+name: Restore vxl layered
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/restore-vxl.yml'
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Restore vxl and patch layers
+        run: |
+          set -e
+          git checkout 1fb502441d2583ba7192ce5407a0d40cd0ab3f9e -- app/src/main/assets/www/js/vxl.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/assets/www/js/vxl.js')
+          t = p.read_text()
+          old = '''  function compileLayer(layer, palette) {\n    if (!layer.visible) return "";\n    var body = layer.shapes.map(function (s) { return compileShape(s, palette); }).join("");\n    if (layer.opacity < 1) return '<g opacity="' + layer.opacity + '">' + body + "</g>";\n    return body;\n  }'''
+          new = '''  function layerLabel(layer) {\n    var n = String(layer && layer.name || "Layer").trim() || "Layer";\n    var low = n.toLowerCase();\n    if (low.indexOf("ground") >= 0 || low === "bg" || low === "background") return "Ground";\n    if (low.indexOf("figure") >= 0 || low.indexOf("mark") >= 0 || low === "logo") return "Figure";\n    if (low.indexOf("motif") >= 0 || low.indexOf("pattern") >= 0 || low.indexOf("tile") >= 0) return "Motif";\n    if (low.indexOf("accent") >= 0 || low.indexOf("detail") >= 0) return "Accent";\n    if (low.indexOf("text") >= 0 || low.indexOf("type") >= 0) return "Text";\n    if (low.indexOf("trace") >= 0) return "Trace";\n    return n.slice(0, 40);\n  }\n\n  function compileLayer(layer, palette) {\n    if (!layer.visible) return "";\n    var body = layer.shapes.map(function (s) { return compileShape(s, palette); }).join("");\n    var label = layerLabel(layer);\n    var id = String(layer.id || "layer").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 48);\n    var attrs = ' id="' + id + '" data-name="' + esc(label) + '" inkscape:groupmode="layer" inkscape:label="' + esc(label) + '"';\n    if (layer.opacity < 1) attrs += ' opacity="' + layer.opacity + '"';\n    return "<g" + attrs + ">" + body + "</g>";\n  }'''
+          if old not in t:
+              raise SystemExit('compileLayer block not found')
+          t = t.replace(old, new, 1)
+          old2 = '''  function compile(doc) {\n    var vb = doc.canvas.viewBox;\n    var parts = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="' + vb.join(" ") + '">'];\n    parts.push('<rect width="' + vb[2] + '" height="' + vb[3] + '" fill="' + doc.palette.ground + '"/>');'''
+          new2 = '''  function compile(doc) {\n    var vb = doc.canvas.viewBox;\n    var parts = [\n      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" viewBox="' +\n        vb.join(" ") +\n        '">'\n    ];\n    parts.push(\n      '<g id="layer-ground" data-name="Ground" inkscape:groupmode="layer" inkscape:label="Ground">' +\n        '<rect width="' +\n        vb[2] +\n        '" height="' +\n        vb[3] +\n        '" fill="' +\n        doc.palette.ground +\n        '"/>' +\n        "</g>"\n    );'''
+          if old2 not in t:
+              raise SystemExit('compile header not found')
+          t = t.replace(old2, new2, 1)
+          p.write_text(t)
+          print('patched', len(t))
+          PY
+          git config user.name "AdnanRaza88"
+          git config user.email "AdnanRaza88@users.noreply.github.com"
+          git add app/src/main/assets/www/js/vxl.js
+          git commit -m "Layered SVG: inkscape named layers Ground/Figure/Motif for Illustrator"
+          git push origin HEAD:main
