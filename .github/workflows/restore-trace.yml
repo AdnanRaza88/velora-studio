@@ -1,52 +1,49 @@
 name: Restore trace
+
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
+
 permissions:
   contents: write
+
 jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Apply residual chord 320
         run: |
           set -e
-          f=app/src/main/assets/www/js/trace.js
-          test -f "$f"
           python3 - <<'PY'
           from pathlib import Path
           p = Path("app/src/main/assets/www/js/trace.js")
           t = p.read_text()
-          old = """    if (chord < 70 || chord > 260) continue;
-    var bow = chordBow(segs[i].pts);
-    if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42)) continue;"""
-          new = """    if (chord < 70 || chord > 320) continue;
-    var bow = chordBow(segs[i].pts);
-    if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42) || (chord > 260 && bow > 0.32)) continue;"""
+          old = "if (chord < 70 || chord > 260) continue;"
+          new = "if (chord < 70 || chord > 320) continue;"
           if old not in t:
             if "chord > 320" in t:
               print("already patched")
               raise SystemExit(0)
             raise SystemExit("pattern missing")
           t = t.replace(old, new, 1)
-          old2 = "    var mag = Math.min(chord * 0.28, 42);"
-          new2 = "    var mag = Math.min(chord * 0.28, chord > 260 ? 52 : 42);"
+          oldb = "if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42)) continue;"
+          newb = "if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42) || (chord > 260 && bow > 0.32)) continue;"
+          if oldb not in t:
+            raise SystemExit("bow pattern missing")
+          t = t.replace(oldb, newb, 1)
+          old2 = "var mag = Math.min(chord * 0.28, 42);"
+          new2 = "var mag = Math.min(chord * 0.28, chord > 260 ? 52 : 42);"
           if old2 not in t:
             raise SystemExit("mag pattern missing")
           t = t.replace(old2, new2, 1)
           p.write_text(t)
           print("patched", p.stat().st_size)
           PY
-      - name: Commit
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/assets/www/js/trace.js
-          if git diff --cached --quiet; then
-            echo "no changes"
-            exit 0
-          fi
+          if git diff --cached --quiet; then echo no changes; exit 0; fi
           git commit -m "Trace residual chord cubic: low-bow residual lines 70-320px with a smooth cubic join become cubics (stricter bow past 260px), so longer gentle organic sides stay curved. Circles, polygons, and special fits stay."
-          git push origin HEAD:main
+          git push
