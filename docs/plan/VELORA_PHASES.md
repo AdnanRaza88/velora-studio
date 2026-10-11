@@ -49,6 +49,7 @@ Brief (+ optional attachment)
 - [x] Freeform residual absorb bidirectional: short low-bow line under 32px before or after a cubic folds into that cubic when refit stays within 2.1px. Circles, polygons, rounded rectangles stay.
 - [x] Residual stretch: low-bow lines under 110px fold into adjacent cubics when the bow stays under 0.78px past 90px and the refit stays within 2.75px, so still longer gentle organic sides stay continuous. Circles, polygons, and special fits stay.
 - [x] Residual chord cubic: a low-bow residual line between 70px and 320px with a smooth join to a previous or next cubic becomes a cubic (stricter bow past 160/200/260px), so a long wave side stays curved instead of a flat chord. Circles, polygons, and special fits stay.
+- [x] Residual chord fit: residual lines 70-400px with a smooth cubic join use a sample-fitted cubic when the error stays within 1.55-2.4px (stricter bow past 320px), so longer gentle organic sides track the samples instead of a fixed chord handle. Circles, polygons, and special fits stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
