@@ -48,7 +48,7 @@ Brief (+ optional attachment)
 - [x] Thin strokes: peel width scales with the raster long edge, a one-pixel dilate keeps the skeleton connected, and aligned chain ends join, so a hairline stays one centerline instead of a filled ribbon or fragments. Filled circles, polygons, and bars stay fills.
 - [x] Freeform residual absorb bidirectional: short low-bow line under 32px before or after a cubic folds into that cubic when refit stays within 2.1px. Circles, polygons, rounded rectangles stay.
 - [x] Residual stretch: low-bow lines under 110px fold into adjacent cubics when the bow stays under 0.78px past 90px and the refit stays within 2.75px, so still longer gentle organic sides stay continuous. Circles, polygons, and special fits stay.
-- [x] Residual chord cubic: a low-bow residual line between 70px and 260px with a smooth join to a previous or next cubic becomes a cubic (stricter bow past 160px, and past 200px), so a long wave side stays curved instead of a flat chord. Circles, polygons, and special fits stay.
+- [x] Residual chord cubic: a low-bow residual line between 70px and 320px with a smooth join to a previous or next cubic becomes a cubic (stricter bow past 160/200/260px), so a long wave side stays curved instead of a flat chord. Circles, polygons, and special fits stay.
 
 ## Phase 4 — Editor (Illustrator-mapped)
 - [x] Select, move, scale, rotate
