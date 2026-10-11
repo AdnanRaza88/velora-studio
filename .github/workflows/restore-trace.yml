@@ -1,0 +1,19 @@
+name: Restore trace
+on:
+  workflow_dispatch:
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Restore trace.js from good commit
+        run: |
+          git checkout 94d93b43abdb45314efbbcde623ec6feadc47a1a -- app/src/main/assets/www/js/trace.js
+          git config user.name "AdnanRaza88"
+          git config user.email "AdnanRaza88@users.noreply.github.com"
+          git add app/src/main/assets/www/js/trace.js
+          git commit -m "Restore trace.js from 94d93b4 after placeholder corruption" || exit 0
+          git push origin HEAD:main
