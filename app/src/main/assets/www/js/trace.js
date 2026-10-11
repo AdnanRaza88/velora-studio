@@ -5028,7 +5028,7 @@ if (n < 6 || n > 40) return null;
       } else if (span.length < 4 || (flatSpan(span) && flatJoin(ring, from, to))) segs.push({ k: "L", p: span[span.length - 1], pts: span });
       else segs = segs.concat(opticurve(fitSpan(span, opttolerance, 0), opttolerance));
     }
-    return curveTangentChords(splitInflections(mergeSmoothCubics(absorbResidualLines(continueFreeform(smoothJoins({ start: start, segs: segs }))))));
+    return residualChordCubic(curveTangentChords(splitInflections(mergeSmoothCubics(absorbResidualLines(continueFreeform(smoothJoins({ start: start, segs: segs })))))));
   }
 
   function curveResidualContinuation(fit) {
@@ -5378,6 +5378,38 @@ if (n < 6 || n > 40) return null;
   }
 
 
+
+  function residualChordCubic(fit) {
+    if (!fit || !fit.segs || fit.segs.length < 3) return fit;
+    var segs = fit.segs;
+    var n = segs.length;
+    var starts = [];
+    var cursor = fit.start.slice();
+    var i;
+    for (i = 0; i < n; i++) {
+      starts.push(cursor.slice());
+      cursor = segEnd(segs[i]).slice();
+    }
+    for (i = 0; i < n; i++) {
+      if (segs[i].k !== "L" || !segs[i].pts) continue;
+      var from = starts[i];
+      var to = segEnd(segs[i]);
+      var chord = Math.hypot(to[0] - from[0], to[1] - from[1]);
+      if (chord < 70 || chord > 160) continue;
+      if (chordBow(segs[i].pts) > 0.85) continue;
+      var prev = (i + n - 1) % n;
+      if (segs[prev].k !== "C" || !segs[prev].c) continue;
+      var turn = turnAt(segs[prev].c[2], from, to);
+      if (turn > 0.28) continue;
+      var tx = (to[0] - from[0]) / chord;
+      var ty = (to[1] - from[1]) / chord;
+      var mag = Math.min(chord * 0.28, 36);
+      var h1 = [from[0] + tx * mag, from[1] + ty * mag];
+      var h2 = [to[0] - tx * mag, to[1] - ty * mag];
+      segs[i] = { k: "C", c: [from, h1, h2, to], pts: segs[i].pts };
+    }
+    return fit;
+  }
 
   function absorbResidualLines(fit) {
     if (!fit || !fit.segs || fit.segs.length < 3) return fit;

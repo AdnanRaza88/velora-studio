@@ -99,6 +99,13 @@ gentleOrganic("wave body", 280, 140, (x, y) => {
   const half = 16 + 8 * Math.sin(t * Math.PI);
   return Math.abs(y - cy) <= half;
 }, 4, 2);
+gentleOrganic("long wave", 360, 160, (x, y) => {
+  const t = (x - 20) / 320;
+  if (t < 0 || t > 1) return false;
+  const cy = 80 + 22 * Math.sin(t * Math.PI * 1.2);
+  const half = 18 + 6 * Math.sin(t * Math.PI);
+  return Math.abs(y - cy) <= half;
+}, 4, 4);
 console.log("trace-check ok", {
   circle: counts(circle),
   ellipse: counts(ellipse),
