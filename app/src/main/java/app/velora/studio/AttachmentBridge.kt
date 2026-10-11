@@ -6,39 +6,27 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.FileOutputStream
+import java.util.UUID
 
-class AttachmentBridge(private val activity: Activity) {
-
-    private val dir: File
-        get() = File(activity.filesDir, "attachments").apply { mkdirs() }
+class AttachmentBridge(
+    private val activity: Activity,
+    private val webView: () -> WebView,
+    private val launch: () -> Unit
+) {
+    @JavascriptInterface
+    fun pick() {
+        activity.runOnUiThread { launch() }
+    }
 
     @JavascriptInterface
-    fun save(name: String, mime: String, b64: String): String {
-        val id = System.currentTimeMillis().toString()
-        val ext = when {
-            mime.contains("png") -> "png"
-            mime.contains("webp") -> "webp"
-            else -> "jpg"
-        }
-        val file = File(dir, "$id.$ext")
-        val bytes = Base64.decode(b64, Base64.DEFAULT)
-        FileOutputStream(file).use { it.write(bytes) }
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.absolutePath, bounds)
-        return JSONObject()
-            .put("ok", true)
-            .put("id", id)
-            .put("name", name)
-            .put("mime", mime)
-            .put("bytes", bytes.size)
-            .put("width", bounds.outWidth)
-            .put("height", bounds.outHeight)
-            .put("file", file.name)
-            .toString()
+    fun lookup(id: String): String {
+        val file = find(id) ?: return JSONObject().put("ok", false).put("error", "missing").toString()
+        return describe(file, includePreview = true).toString()
     }
 
     @JavascriptInterface
@@ -80,22 +68,22 @@ class AttachmentBridge(private val activity: Activity) {
         val luma = ByteArray(w * h)
         val rgb = ByteArray(w * h * 3)
         for (i in pixels.indices) {
-            val p = pixels[i]
-            val a = (p shr 24) and 0xff
-            val r = (p shr 16) and 0xff
-            val g = (p shr 8) and 0xff
-            val b = p and 0xff
+            val c = pixels[i]
+            val a = (c ushr 24) and 0xff
             if (a < 16) {
                 luma[i] = 255.toByte()
                 rgb[i * 3] = 255.toByte()
                 rgb[i * 3 + 1] = 255.toByte()
                 rgb[i * 3 + 2] = 255.toByte()
-            } else {
-                luma[i] = ((r * 299 + g * 587 + b * 114) / 1000).toByte()
-                rgb[i * 3] = r.toByte()
-                rgb[i * 3 + 1] = g.toByte()
-                rgb[i * 3 + 2] = b.toByte()
+                continue
             }
+            val r = (c shr 16) and 0xff
+            val g = (c shr 8) and 0xff
+            val b = c and 0xff
+            luma[i] = ((r * 54 + g * 183 + b * 19) shr 8).toByte()
+            rgb[i * 3] = r.toByte()
+            rgb[i * 3 + 1] = g.toByte()
+            rgb[i * 3 + 2] = b.toByte()
         }
         return JSONObject()
             .put("ok", true)
@@ -106,8 +94,92 @@ class AttachmentBridge(private val activity: Activity) {
             .toString()
     }
 
+    fun onPicked(uri: Uri?) {
+        if (uri == null) {
+            deliver(JSONObject().put("ok", false).put("error", "cancelled"))
+            return
+        }
+        Thread {
+            val payload = store(uri)
+            activity.runOnUiThread { deliver(payload) }
+        }.start()
+    }
+
+    private fun deliver(payload: JSONObject) {
+        val arg = JSONObject.quote(payload.toString())
+        webView().evaluateJavascript("VeloraAttachReceive($arg)", null)
+    }
+
+    private fun dir(): File = File(activity.filesDir, "attachments").apply { mkdirs() }
+
+    private fun store(uri: Uri): JSONObject {
+        val resolver = activity.contentResolver
+        val mime = resolver.getType(uri) ?: "image/jpeg"
+        if (!mime.startsWith("image/")) {
+            return JSONObject().put("ok", false).put("error", "not an image")
+        }
+        val id = UUID.randomUUID().toString()
+        val ext = when {
+            mime.contains("png") -> "png"
+            mime.contains("webp") -> "webp"
+            mime.contains("gif") -> "gif"
+            else -> "jpg"
+        }
+        val dest = File(dir(), "$id.$ext")
+        val input = resolver.openInputStream(uri)
+            ?: return JSONObject().put("ok", false).put("error", "unreadable")
+        input.use { stream -> dest.outputStream().use { out -> stream.copyTo(out) } }
+        if (dest.length() > 12L * 1024L * 1024L) {
+            dest.delete()
+            return JSONObject().put("ok", false).put("error", "image over 12 MB")
+        }
+        val named = describe(dest, includePreview = true)
+        named.put("name", queryName(uri) ?: "reference.$ext")
+        named.put("mime", mime)
+        return named
+    }
+
     private fun find(id: String): File? {
-        return dir.listFiles()?.firstOrNull { it.nameWithoutExtension == id }
+        val safe = id.replace(Regex("[^a-zA-Z0-9-]"), "")
+        if (safe.isEmpty()) return null
+        return dir().listFiles()?.firstOrNull { it.name.startsWith("$safe.") }
+    }
+
+    private fun describe(file: File, includePreview: Boolean): JSONObject {
+        val ext = file.extension.ifEmpty { "jpg" }
+        val mime = when (ext) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            else -> "image/jpeg"
+        }
+        val id = file.name.substringBeforeLast('.')
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        val payload = JSONObject()
+            .put("ok", true)
+            .put("id", id)
+            .put("name", file.name)
+            .put("mime", mime)
+            .put("bytes", file.length())
+            .put("width", bounds.outWidth)
+            .put("height", bounds.outHeight)
+            .put("store", "files/attachments")
+            .put("file", "files/attachments/${file.name}")
+            .put("trace", "phase-3b")
+        if (includePreview) payload.put("preview", previewData(file, bounds))
+        return payload
+    }
+
+    private fun queryName(uri: Uri): String? {
+        val cursor = activity.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?: return null
+        cursor.use {
+            if (!it.moveToFirst()) return null
+            val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index < 0) return null
+            return it.getString(index)
+        }
     }
 
     private fun previewData(file: File, bounds: BitmapFactory.Options): String {
