@@ -2,23 +2,7 @@ name: Restore trace
 on:
   workflow_dispatch:
 jobs:
-  restore:
+  noop:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Restore and patch residual chord 1400
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          git checkout faaf615 -- app/src/main/assets/www/js/trace.js
-          python3 tools/patch_residual_1400.py
-          git config user.name AdnanRaza88
-          git config user.email AdnanRaza88@users.noreply.github.com
-          git add app/src/main/assets/www/js/trace.js
-          git commit -m "Trace residual chord further still: residual lines 70-1400px with a smooth cubic join use a sample-fitted cubic when the error stays within 0.72-2.4px (stricter bow past 1200px), so still longer gentle organic sides track the samples instead of a flat chord. Circles, polygons, and special fits stay."
-          git push origin HEAD:main
+      - run: echo restored; exit 0
