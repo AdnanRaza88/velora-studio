@@ -2,7 +2,83 @@ name: Restore trace
 on:
   workflow_dispatch:
 jobs:
-  noop:
+  patch:
     runs-on: ubuntu-latest
     steps:
-      - run: echo restored; exit 0
+      - uses: actions/checkout@v4
+      - name: Apply residual chord span 640
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path("app/src/main/assets/www/js/trace.js")
+          t = p.read_text()
+          old = """    if (chord < 70 || chord > 520) continue;
+    var bow = chordBow(segs[i].pts);
+    if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42) || (chord > 260 && bow > 0.32) || (chord > 320 && bow > 0.24) || (chord > 400 && bow > 0.18)) continue;
+    var prev = (i + n - 1) % n;
+    var next = (i + 1) % n;
+    var prevOk = segs[prev].k === "C" && segs[prev].c && turnAt(segs[prev].c[2], from, to) <= 0.28;
+    var nextOk = false;
+    if (segs[next].k === "C" && segs[next].c) {
+      var nEnd = segEnd(segs[next]);
+      nextOk = turnAt(from, to, segs[next].c[1]) <= 0.28 || turnAt(from, to, nEnd) <= 0.32;
+    }
+    if (!prevOk && !nextOk) continue;
+    var cubic = null;
+    if (segs[i].pts.length >= 4) {
+      var one = fitTight(segs[i].pts);
+      var err = cubicError(segs[i].pts, one.cubic, one.ts);
+      var allow = chord > 400 ? 1.35 : chord > 320 ? 1.55 : chord > 260 ? 1.8 : 2.4;
+      if (err.max <= allow) cubic = one.cubic;
+    }
+    if (!cubic) {
+      var tx = (to[0] - from[0]) / chord;
+      var ty = (to[1] - from[1]) / chord;
+      var mag = Math.min(chord * 0.28, chord > 400 ? 68 : chord > 320 ? 60 : chord > 260 ? 52 : 42);
+      cubic = [from, [from[0] + tx * mag, from[1] + ty * mag], [to[0] - tx * mag, to[1] - ty * mag], to];
+    }"""
+          new = """    if (chord < 70 || chord > 640) continue;
+    var bow = chordBow(segs[i].pts);
+    if (bow > 0.85 || (chord > 160 && bow > 0.55) || (chord > 200 && bow > 0.42) || (chord > 260 && bow > 0.32) || (chord > 320 && bow > 0.24) || (chord > 400 && bow > 0.18) || (chord > 520 && bow > 0.14)) continue;
+    var prev = (i + n - 1) % n;
+    var next = (i + 1) % n;
+    var prevOk = segs[prev].k === "C" && segs[prev].c && turnAt(segs[prev].c[2], from, to) <= 0.28;
+    var nextOk = false;
+    if (segs[next].k === "C" && segs[next].c) {
+      var nEnd = segEnd(segs[next]);
+      nextOk = turnAt(from, to, segs[next].c[1]) <= 0.28 || turnAt(from, to, nEnd) <= 0.32;
+    }
+    if (!prevOk && !nextOk) continue;
+    var cubic = null;
+    if (segs[i].pts.length >= 4) {
+      var one = fitTight(segs[i].pts);
+      var err = cubicError(segs[i].pts, one.cubic, one.ts);
+      var allow = chord > 520 ? 1.2 : chord > 400 ? 1.35 : chord > 320 ? 1.55 : chord > 260 ? 1.8 : 2.4;
+      if (err.max <= allow) cubic = one.cubic;
+    }
+    if (!cubic) {
+      var tx = (to[0] - from[0]) / chord;
+      var ty = (to[1] - from[1]) / chord;
+      var mag = Math.min(chord * 0.28, chord > 520 ? 76 : chord > 400 ? 68 : chord > 320 ? 60 : chord > 260 ? 52 : 42);
+      cubic = [from, [from[0] + tx * mag, from[1] + ty * mag], [to[0] - tx * mag, to[1] - ty * mag], to];
+    }"""
+          if old not in t:
+            if "chord > 640" in t:
+              print("already patched")
+            else:
+              raise SystemExit("old block not found")
+          else:
+            p.write_text(t.replace(old, new, 1))
+            print("patched")
+          PY
+      - name: Commit and push
+        run: |
+          git config user.name AdnanRaza88
+          git config user.email AdnanRaza88@users.noreply.github.com
+          git add app/src/main/assets/www/js/trace.js
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "Trace residual chord span: residual lines 70-640px with a smooth cubic join use a sample-fitted cubic when the error stays within 1.2-2.4px (stricter bow past 520px), so still longer gentle organic sides track the samples instead of a flat chord. Circles, polygons, and special fits stay."
+            git push
+          fi
