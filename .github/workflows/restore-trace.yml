@@ -5,4 +5,4 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - run: echo restored; exit 0
+      - run: echo "automation stopped"; exit 0
