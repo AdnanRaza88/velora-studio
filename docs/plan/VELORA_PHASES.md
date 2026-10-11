@@ -44,6 +44,7 @@ Brief (+ optional attachment)
 - [x] Freeform collinear merge: adjacent lines whose intermediate vertex sits within 1.45px of the outer chord and whose turn stays under 0.2 rad collapse into one line
 - [x] Freeform residual continuation: a short non-axis line run between two cubics becomes one cubic when both joins stay under 0.55 rad, so organic contours stay continuous
 - [x] Higher resolution: device and preview rasters use a 2048 long edge so fine contours keep more samples before the 1024 viewBox fit. Small circles, ellipses, and polygons stay.
+- [x] Higher resolution: device and preview rasters use a 2560 long edge so fine contours keep more samples before the 1024 viewBox fit. Small circles, ellipses, and polygons stay.
 - [x] Thin strokes: peel width scales with the raster long edge, a one-pixel dilate keeps the skeleton connected, and aligned chain ends join, so a hairline stays one centerline instead of a filled ribbon or fragments. Filled circles, polygons, and bars stay fills.
 - [x] Freeform residual absorb bidirectional: short low-bow line under 32px before or after a cubic folds into that cubic when refit stays within 2.1px. Circles, polygons, rounded rectangles stay.
 - [x] Residual stretch: low-bow lines under 110px fold into adjacent cubics when the bow stays under 0.78px past 90px and the refit stays within 2.75px, so still longer gentle organic sides stay continuous. Circles, polygons, and special fits stay.
